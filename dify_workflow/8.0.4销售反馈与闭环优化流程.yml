@@ -1,0 +1,589 @@
+app:
+  description: 销售反馈与闭环优化流程
+  icon: 🤖
+  icon_background: '#FFEAD5'
+  mode: workflow
+  name: 8.0.4销售反馈与闭环优化流程
+  use_icon_as_answer_icon: false
+dependencies:
+- current_identifier: null
+  type: marketplace
+  value:
+    marketplace_plugin_unique_identifier: langgenius/tongyi:0.1.3@08f25a10c0617a3512fac091a0f0d894925357e965efe40fdf95cb48e09b62d1
+    version: null
+kind: app
+version: 0.4.0
+workflow:
+  conversation_variables: []
+  environment_variables: []
+  features:
+    file_upload:
+      allowed_file_extensions:
+      - .JPG
+      - .JPEG
+      - .PNG
+      - .GIF
+      - .WEBP
+      - .SVG
+      allowed_file_types:
+      - image
+      allowed_file_upload_methods:
+      - local_file
+      - remote_url
+      enabled: false
+      fileUploadConfig:
+        audio_file_size_limit: 50
+        batch_count_limit: 5
+        file_size_limit: 15
+        image_file_size_limit: 10
+        video_file_size_limit: 100
+        workflow_file_upload_limit: 10
+      image:
+        enabled: false
+        number_limits: 3
+        transfer_methods:
+        - local_file
+        - remote_url
+      number_limits: 3
+    opening_statement: ''
+    retriever_resource:
+      enabled: false
+    sensitive_word_avoidance:
+      enabled: false
+    speech_to_text:
+      enabled: false
+    suggested_questions: []
+    suggested_questions_after_answer:
+      enabled: false
+    text_to_speech:
+      enabled: false
+      language: ''
+      voice: ''
+  graph:
+    edges:
+    - data:
+        sourceType: start
+        targetType: llm
+      id: edge-start-to-llm
+      source: start
+      sourceHandle: source
+      target: llm-sales-feedback
+      targetHandle: target
+      type: custom
+    - data:
+        sourceType: llm
+        targetType: code
+      id: edge-llm-to-json
+      source: llm-sales-feedback
+      sourceHandle: source
+      target: code-json
+      targetHandle: target
+      type: custom
+    - data:
+        sourceType: code
+        targetType: http-request
+      id: edge-json-to-http
+      source: code-json
+      sourceHandle: source
+      target: http-save
+      targetHandle: target
+      type: custom
+    - data:
+        sourceType: http-request
+        targetType: end
+      id: edge-http-to-end
+      source: http-save
+      sourceHandle: source
+      target: end
+      targetHandle: target
+      type: custom
+    nodes:
+    - data:
+        desc: 输入产品和企业信息
+        selected: false
+        title: 开始
+        type: start
+        variables:
+        - label: 产品名
+          max_length: 48
+          options: []
+          required: true
+          type: text-input
+          variable: e_product_id_name
+        - label: 产品简介
+          max_length: 256
+          options: []
+          required: true
+          type: paragraph
+          variable: e_product_id_detail
+        - label: 产品序号
+          max_length: 48
+          options: []
+          required: true
+          type: text-input
+          variable: e_product_id
+        - label: 企业名
+          max_length: 48
+          options: []
+          required: true
+          type: text-input
+          variable: e_company_name
+        - label: 企业年收入
+          max_length: 48
+          options: []
+          required: true
+          type: text-input
+          variable: e_company_revenue
+        - label: MQL流转分配结果
+          max_length: 8192
+          options: []
+          required: true
+          type: paragraph
+          variable: mql_routing_result
+        - label: 用户id
+          max_length: 48
+          options: []
+          required: true
+          type: text-input
+          variable: user_id
+        - label: 租户id
+          max_length: 48
+          options: []
+          required: true
+          type: text-input
+          variable: tenant_id
+        - label: 任务id
+          max_length: 48
+          options: []
+          required: true
+          type: text-input
+          variable: taskId
+      height: 324
+      id: start
+      position:
+        x: 80
+        y: 282
+      positionAbsolute:
+        x: 80
+        y: 282
+      selected: false
+      type: custom
+      width: 242
+    - data:
+        context:
+          enabled: false
+          variable_selector: []
+        desc: 销售反馈收集和MQL流程优化分析
+        model:
+          completion_params:
+            temperature: 0.7
+          mode: chat
+          name: qwen3-max
+          provider: langgenius/tongyi/tongyi
+        prompt_template:
+        - id: prompt-system
+          role: system
+          text: '请你作为一名专业的销售运营和流程优化专家，我会向你提供企业的产品和业务信息。请你为该企业设计销售反馈收集和MQL流程优化的闭环体系，确保营销和销售团队能够持续改进线索质量。
+
+
+            请严格按照JSON Schema输出分析结果，必须包含以下字段：
+
+            - productId: 产品ID（字符串类型）
+
+            - workflowTaskId: 工作流任务ID（字符串类型）
+
+            - feedbackPeriodStart: 反馈周期开始日期（字符串类型）
+
+            - feedbackPeriodEnd: 反馈周期结束日期（字符串类型）
+
+            - totalLeadsAnalyzed: 分析的线索总数（数字类型）
+
+            - qualifiedLeadsCount: 合格线索数量（数字类型）
+
+            - unqualifiedLeadsCount: 不合格线索数量（数字类型）
+
+            - agentMqlToSqlRate: MQL到SQL转化率（数字类型）
+
+            - sourceQualityAnalysis: 来源质量分析（对象类型）
+
+            - scoreConversionAnalysis: 评分转化分析（对象类型）
+
+            - responseTimeAnalysis: 响应时间分析（对象类型）
+
+            - seasonalTrendAnalysis: 季节性趋势分析（对象类型）
+
+            - disqualificationReasons: 不合格原因（对象类型）
+
+            - topRejectionReasons: 主要拒绝原因（数组类型）
+
+            - scoreWeightSuggestions: 评分权重建议（对象类型）
+
+            - thresholdSuggestions: 阈值建议（对象类型）
+
+            - ruleOptimizationSuggestions: 规则优化建议（数组类型）
+
+            - routingOptimizationSuggestions: 流转优化建议（数组类型）
+
+            - nurturingStrategySuggestions: 培育策略建议（数组类型）
+
+            '
+        - id: prompt-user
+          role: user
+          text: '以下是企业和产品信息：
+
+            - 产品名称：{{#start.e_product_id_name#}}
+
+            - 企业名称：{{#start.e_company_name#}}
+
+            - 企业年营收规模：{{#start.e_company_revenue#}}元
+
+            - 产品主要功能：{{#start.e_product_id_detail#}}
+
+            - 产品ID：{{#start.e_product_id#}}
+
+            - 工作流任务ID：{{#start.taskId#}}
+
+
+            【MQL流转分配结果（来自8.0.3）】：
+
+            {{#start.mql_routing_result#}}
+
+
+            请基于以上MQL流转分配结果，分析销售反馈并给出MQL流程优化建议，并在输出中包含产品ID和工作流任务ID。
+
+            '
+        selected: false
+        structured_output:
+          schema:
+            properties:
+              agentMqlToSqlRate:
+                description: MQL到SQL转化率
+                type: number
+              disqualificationReasons:
+                description: 不合格原因
+                type: object
+              feedbackPeriodEnd:
+                description: 反馈周期结束日期
+                type: string
+              feedbackPeriodStart:
+                description: 反馈周期开始日期
+                type: string
+              nurturingStrategySuggestions:
+                description: 培育策略建议
+                items:
+                  type: string
+                type: array
+              productId:
+                description: 产品ID
+                type: string
+              qualifiedLeadsCount:
+                description: 合格线索数量
+                type: number
+              responseTimeAnalysis:
+                description: 响应时间分析
+                type: object
+              routingOptimizationSuggestions:
+                description: 流转优化建议
+                items:
+                  type: string
+                type: array
+              ruleOptimizationSuggestions:
+                description: 规则优化建议
+                items:
+                  type: string
+                type: array
+              scoreConversionAnalysis:
+                description: 评分转化分析
+                type: object
+              scoreWeightSuggestions:
+                description: 评分权重建议
+                type: object
+              seasonalTrendAnalysis:
+                description: 季节性趋势分析
+                type: object
+              sourceQualityAnalysis:
+                description: 来源质量分析
+                type: object
+              thresholdSuggestions:
+                description: 阈值建议
+                type: object
+              topRejectionReasons:
+                description: 主要拒绝原因
+                items:
+                  type: string
+                type: array
+              totalLeadsAnalyzed:
+                description: 分析的线索总数
+                type: number
+              unqualifiedLeadsCount:
+                description: 不合格线索数量
+                type: number
+              workflowTaskId:
+                description: 工作流任务ID
+                type: string
+            required:
+            - productId
+            - workflowTaskId
+            - feedbackPeriodStart
+            - feedbackPeriodEnd
+            - totalLeadsAnalyzed
+            - qualifiedLeadsCount
+            - unqualifiedLeadsCount
+            - agentMqlToSqlRate
+            - sourceQualityAnalysis
+            - scoreConversionAnalysis
+            - responseTimeAnalysis
+            - seasonalTrendAnalysis
+            - disqualificationReasons
+            - topRejectionReasons
+            - scoreWeightSuggestions
+            - thresholdSuggestions
+            - ruleOptimizationSuggestions
+            - routingOptimizationSuggestions
+            - nurturingStrategySuggestions
+            type: object
+        structured_output_enabled: true
+        title: 销售反馈与优化
+        type: llm
+        variables: []
+        vision:
+          enabled: false
+      height: 116
+      id: llm-sales-feedback
+      position:
+        x: 384
+        y: 282
+      positionAbsolute:
+        x: 384
+        y: 282
+      selected: false
+      type: custom
+      width: 242
+    - data:
+        code: "import json\ndef main(sourceQualityAnalysis: dict, scoreConversionAnalysis:\
+          \ dict, responseTimeAnalysis: dict, seasonalTrendAnalysis: dict, disqualificationReasons:\
+          \ dict, topRejectionReasons: list, scoreWeightSuggestions: dict, thresholdSuggestions:\
+          \ dict, ruleOptimizationSuggestions: list, routingOptimizationSuggestions:\
+          \ list, nurturingStrategySuggestions: list) -> dict:\n    result = {}\n\
+          \    try:\n        result[\"sourceQualityAnalysis\"] = json.dumps(sourceQualityAnalysis,\
+          \ ensure_ascii=False, separators=(',', ':'))\n        result[\"scoreConversionAnalysis\"\
+          ] = json.dumps(scoreConversionAnalysis, ensure_ascii=False, separators=(',',\
+          \ ':'))\n        result[\"responseTimeAnalysis\"] = json.dumps(responseTimeAnalysis,\
+          \ ensure_ascii=False, separators=(',', ':'))\n        result[\"seasonalTrendAnalysis\"\
+          ] = json.dumps(seasonalTrendAnalysis, ensure_ascii=False, separators=(',',\
+          \ ':'))\n        result[\"disqualificationReasons\"] = json.dumps(disqualificationReasons,\
+          \ ensure_ascii=False, separators=(',', ':'))\n        result[\"topRejectionReasons\"\
+          ] = json.dumps(topRejectionReasons, ensure_ascii=False, separators=(',',\
+          \ ':'))\n        result[\"scoreWeightSuggestions\"] = json.dumps(scoreWeightSuggestions,\
+          \ ensure_ascii=False, separators=(',', ':'))\n        result[\"thresholdSuggestions\"\
+          ] = json.dumps(thresholdSuggestions, ensure_ascii=False, separators=(',',\
+          \ ':'))\n        result[\"ruleOptimizationSuggestions\"] = json.dumps(ruleOptimizationSuggestions,\
+          \ ensure_ascii=False, separators=(',', ':'))\n        result[\"routingOptimizationSuggestions\"\
+          ] = json.dumps(routingOptimizationSuggestions, ensure_ascii=False, separators=(',',\
+          \ ':'))\n        result[\"nurturingStrategySuggestions\"] = json.dumps(nurturingStrategySuggestions,\
+          \ ensure_ascii=False, separators=(',', ':'))\n    except Exception as e:\n\
+          \        pass\n    return result\n"
+        code_language: python3
+        desc: 将复杂字段转为JSON字符串
+        outputs:
+          disqualificationReasons:
+            children: null
+            type: string
+          nurturingStrategySuggestions:
+            children: null
+            type: string
+          responseTimeAnalysis:
+            children: null
+            type: string
+          routingOptimizationSuggestions:
+            children: null
+            type: string
+          ruleOptimizationSuggestions:
+            children: null
+            type: string
+          scoreConversionAnalysis:
+            children: null
+            type: string
+          scoreWeightSuggestions:
+            children: null
+            type: string
+          seasonalTrendAnalysis:
+            children: null
+            type: string
+          sourceQualityAnalysis:
+            children: null
+            type: string
+          thresholdSuggestions:
+            children: null
+            type: string
+          topRejectionReasons:
+            children: null
+            type: string
+        selected: false
+        title: 转JSON
+        type: code
+        variables:
+        - value_selector:
+          - llm-sales-feedback
+          - structured_output
+          - sourceQualityAnalysis
+          value_type: object
+          variable: sourceQualityAnalysis
+        - value_selector:
+          - llm-sales-feedback
+          - structured_output
+          - scoreConversionAnalysis
+          value_type: object
+          variable: scoreConversionAnalysis
+        - value_selector:
+          - llm-sales-feedback
+          - structured_output
+          - responseTimeAnalysis
+          value_type: object
+          variable: responseTimeAnalysis
+        - value_selector:
+          - llm-sales-feedback
+          - structured_output
+          - seasonalTrendAnalysis
+          value_type: object
+          variable: seasonalTrendAnalysis
+        - value_selector:
+          - llm-sales-feedback
+          - structured_output
+          - disqualificationReasons
+          value_type: object
+          variable: disqualificationReasons
+        - value_selector:
+          - llm-sales-feedback
+          - structured_output
+          - topRejectionReasons
+          value_type: array[string]
+          variable: topRejectionReasons
+        - value_selector:
+          - llm-sales-feedback
+          - structured_output
+          - scoreWeightSuggestions
+          value_type: object
+          variable: scoreWeightSuggestions
+        - value_selector:
+          - llm-sales-feedback
+          - structured_output
+          - thresholdSuggestions
+          value_type: object
+          variable: thresholdSuggestions
+        - value_selector:
+          - llm-sales-feedback
+          - structured_output
+          - ruleOptimizationSuggestions
+          value_type: array[string]
+          variable: ruleOptimizationSuggestions
+        - value_selector:
+          - llm-sales-feedback
+          - structured_output
+          - routingOptimizationSuggestions
+          value_type: array[string]
+          variable: routingOptimizationSuggestions
+        - value_selector:
+          - llm-sales-feedback
+          - structured_output
+          - nurturingStrategySuggestions
+          value_type: array[string]
+          variable: nurturingStrategySuggestions
+      height: 80
+      id: code-json
+      position:
+        x: 688
+        y: 282
+      positionAbsolute:
+        x: 688
+        y: 282
+      selected: false
+      type: custom
+      width: 242
+    - data:
+        authorization:
+          type: no-auth
+        body:
+          data:
+          - id: key-value-1
+            key: ''
+            type: text
+            value: "{\n  \"productId\":\"{{#start.e_product_id#}}\",\n  \"workflowTaskId\"\
+              :\"{{#start.taskId#}}\",\n  \"feedbackPeriodStart\":\"{{#llm-sales-feedback.structured_output.feedbackPeriodStart#}}\"\
+              ,\n  \"feedbackPeriodEnd\":\"{{#llm-sales-feedback.structured_output.feedbackPeriodEnd#}}\"\
+              ,\n  \"totalLeadsAnalyzed\":{{#llm-sales-feedback.structured_output.totalLeadsAnalyzed#}},\n\
+              \  \"qualifiedLeadsCount\":{{#llm-sales-feedback.structured_output.qualifiedLeadsCount#}},\n\
+              \  \"unqualifiedLeadsCount\":{{#llm-sales-feedback.structured_output.unqualifiedLeadsCount#}},\n\
+              \  \"agentMqlToSqlRate\":{{#llm-sales-feedback.structured_output.agentMqlToSqlRate#}},\n\
+              \  \"sourceQualityAnalysis\":{{#code-json.sourceQualityAnalysis#}},\n\
+              \  \"scoreConversionAnalysis\":{{#code-json.scoreConversionAnalysis#}},\n\
+              \  \"responseTimeAnalysis\":{{#code-json.responseTimeAnalysis#}},\n\
+              \  \"seasonalTrendAnalysis\":{{#code-json.seasonalTrendAnalysis#}},\n\
+              \  \"disqualificationReasons\":{{#code-json.disqualificationReasons#}},\n\
+              \  \"topRejectionReasons\":{{#code-json.topRejectionReasons#}},\n  \"\
+              scoreWeightSuggestions\":{{#code-json.scoreWeightSuggestions#}},\n \
+              \ \"thresholdSuggestions\":{{#code-json.thresholdSuggestions#}},\n \
+              \ \"ruleOptimizationSuggestions\":{{#code-json.ruleOptimizationSuggestions#}},\n\
+              \  \"routingOptimizationSuggestions\":{{#code-json.routingOptimizationSuggestions#}},\n\
+              \  \"nurturingStrategySuggestions\":{{#code-json.nurturingStrategySuggestions#}}\n\
+              }"
+          type: json
+        dependencies:
+        - code-json
+        desc: 保存销售反馈结果到数据库
+        headers: 'Authorization:test{{#start.user_id#}}
+
+
+          tenant-id:{{#start.tenant_id#}}'
+        method: post
+        params: ''
+        retry_config:
+          max_retries: 3
+          retry_enabled: true
+          retry_interval: 100
+        selected: false
+        timeout:
+          connect: 10
+          read: 60
+          write: 60
+        title: 保存销售反馈结果
+        type: http-request
+        url: https://agent.cstlanbaai.com/gateway/admin-api/scrm/mql-feedback-optimization/create
+      height: 198
+      id: http-save
+      position:
+        x: 992
+        y: 282
+      positionAbsolute:
+        x: 992
+        y: 282
+      selected: false
+      type: custom
+      width: 242
+    - data:
+        desc: 输出结果
+        outputs:
+        - value_selector:
+          - llm-sales-feedback
+          - structured_output
+          - output
+          variable: sales_feedback_result
+        selected: false
+        title: 结束
+        type: end
+      height: 116
+      id: end
+      position:
+        x: 1296
+        y: 282
+      positionAbsolute:
+        x: 1296
+        y: 282
+      selected: false
+      type: custom
+      width: 242
+    viewport:
+      x: 0
+      y: 0
+      zoom: 1
+  rag_pipeline_variables: []

@@ -1,6 +1,6 @@
 # utils.py
 import re
-from config import MIN_RESULT_ROWS, MAX_SQL_LENGTH, ALLOWED_TABLES
+from env import MIN_RESULT_ROWS, MAX_SQL_LENGTH, ALLOWED_TABLES
 
 def is_safe_sql(sql: str) -> bool:
     """审核 SQL 安全性"""
@@ -10,9 +10,9 @@ def is_safe_sql(sql: str) -> bool:
     if not sql_upper.startswith("SELECT"):
         return False
     
-    # 2. 禁止危险关键字
-    dangerous = ["DROP", "DELETE", "UPDATE", "INSERT", "ALTER", "CREATE", "EXEC", "UNION"]
-    if any(kw in sql_upper for kw in dangerous):
+    # 2. 禁止危险关键字（使用词边界，避免误伤字段名如 deleted）
+    dangerous_pattern = r"\b(?:DROP|DELETE|UPDATE|INSERT|ALTER|CREATE|EXEC|UNION)\b"
+    if re.search(dangerous_pattern, sql_upper):
         return False
 
     # 3. 长度限制

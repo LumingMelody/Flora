@@ -1,0 +1,431 @@
+app:
+  description: 品牌定位
+  icon: 📋
+  icon_background: '#D5F5F6'
+  mode: workflow
+  name: 9.0.1品牌定位
+  use_icon_as_answer_icon: false
+dependencies:
+- current_identifier: null
+  type: marketplace
+  value:
+    marketplace_plugin_unique_identifier: langgenius/tongyi:0.1.3@08f25a10c0617a3512fac091a0f0d894925357e965efe40fdf95cb48e09b62d1
+    version: null
+kind: app
+version: 0.4.0
+workflow:
+  conversation_variables: []
+  environment_variables: []
+  features:
+    file_upload:
+      allowed_file_extensions:
+      - .JPG
+      - .JPEG
+      - .PNG
+      - .GIF
+      - .WEBP
+      - .SVG
+      allowed_file_types:
+      - image
+      allowed_file_upload_methods:
+      - local_file
+      - remote_url
+      enabled: false
+      fileUploadConfig:
+        audio_file_size_limit: 50
+        batch_count_limit: 5
+        file_size_limit: 15
+        image_file_size_limit: 10
+        video_file_size_limit: 100
+        workflow_file_upload_limit: 10
+      image:
+        enabled: false
+        number_limits: 3
+        transfer_methods:
+        - local_file
+        - remote_url
+      number_limits: 3
+    opening_statement: ''
+    retriever_resource:
+      enabled: false
+    sensitive_word_avoidance:
+      enabled: false
+    speech_to_text:
+      enabled: false
+    suggested_questions: []
+    suggested_questions_after_answer:
+      enabled: false
+    text_to_speech:
+      enabled: false
+      language: ''
+      voice: ''
+  graph:
+    edges:
+    - data:
+        sourceType: start
+        targetType: llm
+      id: edge-start-to-llm
+      source: start
+      sourceHandle: source
+      target: llm-analysis
+      targetHandle: target
+      type: custom
+    - data:
+        sourceType: llm
+        targetType: code
+      id: edge-llm-to-json
+      source: llm-analysis
+      sourceHandle: source
+      target: code-json
+      targetHandle: target
+      type: custom
+    - data:
+        sourceType: code
+        targetType: http-request
+      id: edge-json-to-http
+      source: code-json
+      sourceHandle: source
+      target: http-save
+      targetHandle: target
+      type: custom
+    - data:
+        sourceType: http-request
+        targetType: end
+      id: edge-http-to-end
+      source: http-save
+      sourceHandle: source
+      target: end
+      targetHandle: target
+      type: custom
+    nodes:
+    - data:
+        desc: 输入产品和企业信息
+        selected: false
+        title: 开始
+        type: start
+        variables:
+        - label: 产品名
+          max_length: 48
+          options: []
+          required: true
+          type: text-input
+          variable: e_product_id_name
+        - label: 产品简介
+          max_length: 256
+          options: []
+          required: true
+          type: paragraph
+          variable: e_product_id_detail
+        - label: 品牌序号
+          max_length: 48
+          options: []
+          required: true
+          type: text-input
+          variable: brand_id
+        - label: 企业名
+          max_length: 48
+          options: []
+          required: true
+          type: text-input
+          variable: e_company_name
+        - label: 企业年收入
+          max_length: 48
+          options: []
+          required: true
+          type: text-input
+          variable: e_company_revenue
+        - label: 品牌建设结果
+          max_length: 8192
+          options: []
+          required: true
+          type: paragraph
+          variable: brand_building_result
+        - label: 用户id
+          max_length: 48
+          options: []
+          required: true
+          type: text-input
+          variable: user_id
+        - label: 租户id
+          max_length: 48
+          options: []
+          required: true
+          type: text-input
+          variable: tenant_id
+        - label: 任务id
+          max_length: 48
+          options: []
+          required: true
+          type: text-input
+          variable: taskId
+      height: 324
+      id: start
+      position:
+        x: 80
+        y: 282
+      positionAbsolute:
+        x: 80
+        y: 282
+      selected: false
+      type: custom
+      width: 242
+    - data:
+        context:
+          enabled: false
+          variable_selector: []
+        desc: 品牌定位策略
+        model:
+          completion_params:
+            temperature: 0.7
+          mode: chat
+          name: qwen3-max
+          provider: langgenius/tongyi/tongyi
+        prompt_template:
+        - id: prompt-system
+          role: system
+          text: "请你作为一名专业的品牌定位专家，帮助制定清晰的品牌定位策略：\n\n1. 市场分析：\n   - 目标市场规模与增长趋势\n  \
+            \ - 主要竞争对手及其定位\n   - 市场空白点与机会识别\n\n2. 目标客户画像：\n   - 核心目标客户群体特征\n   - 客户痛点与需求分析\n\
+            \   - 客户决策因素与购买动机\n\n3. 品牌定位策略：\n   - 品牌核心价值主张（USP）\n   - 品牌个性与调性定义\n\
+            \   - 差异化竞争优势\n   - 品牌承诺与利益点\n\n4. 定位表达：\n   - 品牌定位语（Positioning Statement）\n\
+            \   - 品牌口号（Slogan）建议\n   - 关键信息架构\n\n输出JSON格式，必须包含以下字段：\n{\n  \"brandId\"\
+            : \"品牌序号\",\n  \"workflowTaskId\": \"任务ID\",\n  \"marketAnalysis\": {\"\
+            size\": \"市场规模\", \"growth\": \"增长趋势\", \"gaps\": [\"机会1\"]},\n  \"targetCustomer\"\
+            : {\"profile\": \"画像描述\", \"painPoints\": [\"痛点1\"], \"motivations\":\
+            \ [\"动机1\"]},\n  \"positioningStrategy\": {\"usp\": \"核心价值主张\", \"personality\"\
+            : \"品牌个性\", \"differentiation\": \"差异化优势\"},\n  \"positioningStatement\"\
+            : \"品牌定位语\",\n  \"sloganSuggestions\": [\"口号1\", \"口号2\"]\n}\n"
+        - id: prompt-user
+          role: user
+          text: '以下是企业和产品信息：
+
+            - 产品名称：{{#start.e_product_id_name#}}
+
+            - 企业名称：{{#start.e_company_name#}}
+
+            - 企业年营收规模：{{#start.e_company_revenue#}}元
+
+            - 产品主要功能：{{#start.e_product_id_detail#}}
+
+            - 品牌序号：{{#start.brand_id#}}
+
+            - 任务ID：{{#start.taskId#}}
+
+
+            【品牌建设整体规划（来自9.0.0）】：
+
+            {{#start.brand_building_result#}}
+
+
+            请基于以上品牌建设规划，制定该产品的品牌定位策略，务必在输出中包含 brandId 和 workflowTaskId 字段。
+
+            '
+        selected: false
+        structured_output:
+          schema:
+            properties:
+              brandId:
+                description: 品牌序号
+                type: string
+              marketAnalysis:
+                properties:
+                  gaps:
+                    items:
+                      type: string
+                    type: array
+                  growth:
+                    type: string
+                  size:
+                    type: string
+                type: object
+              positioningStatement:
+                type: string
+              positioningStrategy:
+                properties:
+                  differentiation:
+                    type: string
+                  personality:
+                    type: string
+                  usp:
+                    type: string
+                type: object
+              sloganSuggestions:
+                items:
+                  type: string
+                type: array
+              targetCustomer:
+                properties:
+                  motivations:
+                    items:
+                      type: string
+                    type: array
+                  painPoints:
+                    items:
+                      type: string
+                    type: array
+                  profile:
+                    type: string
+                type: object
+              workflowTaskId:
+                description: 任务ID
+                type: string
+            required:
+            - brandId
+            - workflowTaskId
+            - marketAnalysis
+            - targetCustomer
+            - positioningStrategy
+            - positioningStatement
+            - sloganSuggestions
+            type: object
+        structured_output_enabled: true
+        title: 品牌定位
+        type: llm
+        variables: []
+        vision:
+          enabled: false
+      height: 116
+      id: llm-analysis
+      position:
+        x: 384
+        y: 282
+      positionAbsolute:
+        x: 384
+        y: 282
+      selected: false
+      type: custom
+      width: 242
+    - data:
+        code: "import json\ndef main(marketAnalysis: dict, targetCustomer: dict, positioningStrategy:\
+          \ dict, sloganSuggestions: list) -> dict:\n    result = {}\n    try:\n \
+          \       result[\"marketAnalysis\"] = json.dumps(marketAnalysis, ensure_ascii=False,\
+          \ separators=(',', ':'))\n        result[\"targetCustomer\"] = json.dumps(targetCustomer,\
+          \ ensure_ascii=False, separators=(',', ':'))\n        result[\"positioningStrategy\"\
+          ] = json.dumps(positioningStrategy, ensure_ascii=False, separators=(',',\
+          \ ':'))\n        result[\"sloganSuggestions\"] = json.dumps(sloganSuggestions,\
+          \ ensure_ascii=False, separators=(',', ':'))\n    except Exception as e:\n\
+          \        pass\n    return result\n"
+        code_language: python3
+        desc: 将复杂字段转为JSON字符串
+        outputs:
+          marketAnalysis:
+            children: null
+            type: string
+          positioningStrategy:
+            children: null
+            type: string
+          sloganSuggestions:
+            children: null
+            type: string
+          targetCustomer:
+            children: null
+            type: string
+        selected: false
+        title: 转JSON
+        type: code
+        variables:
+        - value_selector:
+          - llm-analysis
+          - structured_output
+          - marketAnalysis
+          value_type: object
+          variable: marketAnalysis
+        - value_selector:
+          - llm-analysis
+          - structured_output
+          - targetCustomer
+          value_type: object
+          variable: targetCustomer
+        - value_selector:
+          - llm-analysis
+          - structured_output
+          - positioningStrategy
+          value_type: object
+          variable: positioningStrategy
+        - value_selector:
+          - llm-analysis
+          - structured_output
+          - sloganSuggestions
+          value_type: array[string]
+          variable: sloganSuggestions
+      height: 80
+      id: code-json
+      position:
+        x: 688
+        y: 282
+      positionAbsolute:
+        x: 688
+        y: 282
+      selected: false
+      type: custom
+      width: 242
+    - data:
+        authorization:
+          type: no-auth
+        body:
+          data:
+          - id: key-value-1
+            key: ''
+            type: text
+            value: "{\n  \"brandId\":\"{{#start.brand_id#}}\",\n  \"workflowTaskId\"\
+              :\"{{#start.taskId#}}\",\n  \"marketAnalysis\":{{#code-json.marketAnalysis#}},\n\
+              \  \"targetCustomer\":{{#code-json.targetCustomer#}},\n  \"positioningStrategy\"\
+              :{{#code-json.positioningStrategy#}},\n  \"positioningStatement\":\"\
+              {{#llm-analysis.structured_output.positioningStatement#}}\",\n  \"sloganSuggestions\"\
+              :{{#code-json.sloganSuggestions#}}\n}"
+          type: json
+        desc: 保存品牌定位结果到后端
+        headers: 'Authorization:test{{#start.user_id#}}
+
+          tenant-id:{{#start.tenant_id#}}'
+        method: post
+        params: ''
+        retry_config:
+          max_retries: 3
+          retry_enabled: true
+          retry_interval: 100
+        selected: true
+        ssl_verify: true
+        timeout:
+          connect: 10
+          read: 60
+          write: 60
+        title: 保存到后端
+        type: http-request
+        url: https://agent.cstlanbaai.com/gateway/admin-api/scrm/brand-positioning-result/create
+      height: 198
+      id: http-save
+      position:
+        x: 992
+        y: 282
+      positionAbsolute:
+        x: 992
+        y: 282
+      selected: true
+      type: custom
+      width: 242
+    - data:
+        desc: 输出结果
+        outputs:
+        - value_selector:
+          - llm-analysis
+          - text
+          variable: brand_positioning_result
+        selected: false
+        title: 结束
+        type: end
+      height: 116
+      id: end
+      position:
+        x: 1296
+        y: 282
+      positionAbsolute:
+        x: 1296
+        y: 282
+      selected: false
+      type: custom
+      width: 242
+    viewport:
+      x: 0
+      y: 0
+      zoom: 1
+  rag_pipeline_variables: []

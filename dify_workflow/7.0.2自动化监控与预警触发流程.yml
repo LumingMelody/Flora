@@ -1,0 +1,626 @@
+app:
+  description: 自动化监控与预警触发流程
+  icon: 🚨
+  icon_background: '#FEF7C3'
+  mode: workflow
+  name: 7.0.2自动化监控与预警触发流程
+  use_icon_as_answer_icon: false
+dependencies:
+- current_identifier: null
+  type: marketplace
+  value:
+    marketplace_plugin_unique_identifier: langgenius/tongyi:0.1.3@08f25a10c0617a3512fac091a0f0d894925357e965efe40fdf95cb48e09b62d1
+    version: null
+kind: app
+version: 0.4.0
+workflow:
+  conversation_variables: []
+  environment_variables: []
+  features:
+    file_upload:
+      allowed_file_extensions:
+      - .JPG
+      - .JPEG
+      - .PNG
+      - .GIF
+      - .WEBP
+      - .SVG
+      allowed_file_types:
+      - image
+      allowed_file_upload_methods:
+      - local_file
+      - remote_url
+      enabled: false
+      fileUploadConfig:
+        audio_file_size_limit: 50
+        batch_count_limit: 5
+        file_size_limit: 15
+        image_file_size_limit: 10
+        video_file_size_limit: 100
+        workflow_file_upload_limit: 10
+      image:
+        enabled: false
+        number_limits: 3
+        transfer_methods:
+        - local_file
+        - remote_url
+      number_limits: 3
+    opening_statement: ''
+    retriever_resource:
+      enabled: false
+    sensitive_word_avoidance:
+      enabled: false
+    speech_to_text:
+      enabled: false
+    suggested_questions: []
+    suggested_questions_after_answer:
+      enabled: false
+    text_to_speech:
+      enabled: false
+      language: ''
+      voice: ''
+  graph:
+    edges:
+    - data:
+        sourceType: http-request
+        targetType: end
+      id: edge-http-to-end
+      source: http-save
+      sourceHandle: source
+      target: end
+      targetHandle: target
+      type: custom
+    - data:
+        isInIteration: false
+        isInLoop: false
+        sourceType: llm
+        targetType: code
+      id: 1765271515676-source-1765271523467-target
+      source: '1765271515676'
+      sourceHandle: source
+      target: '1765271523467'
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInLoop: false
+        sourceType: code
+        targetType: http-request
+      id: 1765271523467-source-http-save-target
+      source: '1765271523467'
+      sourceHandle: source
+      target: http-save
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInIteration: false
+        isInLoop: false
+        sourceType: start
+        targetType: http-request
+      id: start-source-1765272559257-target
+      source: start
+      sourceHandle: source
+      target: '1765272559257'
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInIteration: false
+        isInLoop: false
+        sourceType: http-request
+        targetType: llm
+      id: 1765272559257-source-1765271515676-target
+      source: '1765272559257'
+      sourceHandle: source
+      target: '1765271515676'
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    nodes:
+    - data:
+        desc: 输入客户数据
+        selected: false
+        title: 开始
+        type: start
+        variables:
+        - label: 产品名
+          max_length: 48
+          options: []
+          required: true
+          type: text-input
+          variable: e_product_id_name
+        - label: 产品简介
+          max_length: 256
+          options: []
+          required: true
+          type: paragraph
+          variable: e_product_id_detail
+        - label: 产品序号
+          max_length: 48
+          options: []
+          required: true
+          type: text-input
+          variable: e_product_id
+        - label: 客户ID
+          max_length: 48
+          options: []
+          required: true
+          type: text-input
+          variable: customer_id
+        - label: 企业名
+          max_length: 48
+          options: []
+          required: true
+          type: text-input
+          variable: e_company_name
+        - label: 企业年收入
+          max_length: 48
+          options: []
+          required: true
+          type: text-input
+          variable: e_company_revenue
+        - label: 用户id
+          max_length: 48
+          options: []
+          required: true
+          type: text-input
+          variable: user_id
+        - label: 租户id
+          max_length: 48
+          options: []
+          required: true
+          type: text-input
+          variable: tenant_id
+        - label: 任务id
+          max_length: 48
+          options: []
+          required: true
+          type: text-input
+          variable: taskId
+      height: 324
+      id: start
+      position:
+        x: 80
+        y: 282
+      positionAbsolute:
+        x: 80
+        y: 282
+      selected: false
+      type: custom
+      width: 242
+    - data:
+        authorization:
+          config: null
+          type: no-auth
+        body:
+          data:
+          - id: key-value-1
+            key: ''
+            type: text
+            value: "{\n  \"customerId\":\"{{#start.customer_id#}}\",\n  \"workflowTaskId\"\
+              :\"{{#start.taskId#}}\",\n  \"usageData\":\"{{#1765271523467.usageData#}}\"\
+              ,\n  \"interactionData\":\"{{#1765271523467.interactionData#}}\",\n\
+              \  \"commercialData\":\"{{#1765271523467.commercialData#}}\",\n  \"\
+              calculatedScores\":\"{{#1765271523467.calculatedScores#}}\",\n  \"totalScore\"\
+              :\"{{#1765271515676.structured_output.totalScore#}}\",\n  \"scoreChange\"\
+              :\"{{#1765271515676.structured_output.scoreChange#}}\",\n  \"healthLevel\"\
+              :\"{{#1765271515676.structured_output.healthLevel#}}\",\n  \"levelChange\"\
+              :\"{{#1765271515676.structured_output.levelChange#}}\",\n  \"alertTriggered\"\
+              :”{{#1765271515676.structured_output.alertTriggered#}}\",\n  \"alertType\"\
+              :\"{{#1765271515676.structured_output.alertType#}}\",\n  \"alertLevel\"\
+              :\"{{#1765271515676.structured_output.alertLevel#}}\",\n  \"alertReason\"\
+              :\"{{#1765271515676.structured_output.alertReason#}}\",\n  \"alertDetails\"\
+              :\"{{#1765271523467.alertDetails#}}\",\n  \"notificationRecipients\"\
+              :\"{{#1765271523467.notificationRecipients#}}\",\n  \"notificationChannels\"\
+              :\"{{#1765271523467.notificationChannels#}}\",\n  \"recommendedResponse\"\
+              :\"{{#1765271515676.structured_output.recommendedResponse#}}\",\n  \"\
+              responseSlaHours\":\"{{#1765271515676.structured_output.responseSlaHours#}}\"\
+              \n}"
+          type: json
+        headers: 'Authorization:test{{#start.user_id#}}
+
+          tenant-id:{{#start.tenant_id#}}'
+        method: post
+        params: ''
+        retry_config:
+          max_retries: 3
+          retry_enabled: true
+          retry_interval: 100
+        selected: false
+        ssl_verify: true
+        timeout:
+          max_connect_timeout: 0
+          max_read_timeout: 0
+          max_write_timeout: 0
+        title: HTTP 请求
+        type: http-request
+        url: https://agent.cstlanbaai.com/gateway/admin-api/scrm/health-alert-trigger/create
+        variables: []
+      height: 171
+      id: http-save
+      position:
+        x: 1056
+        y: 282
+      positionAbsolute:
+        x: 1056
+        y: 282
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 242
+    - data:
+        desc: 输出结果
+        outputs:
+        - value_selector:
+          - http-save
+          - body
+          value_type: string
+          variable: alert_trigger_result
+        selected: false
+        title: 结束
+        type: end
+      height: 117
+      id: end
+      position:
+        x: 1396
+        y: 275
+      positionAbsolute:
+        x: 1396
+        y: 275
+      selected: false
+      type: custom
+      width: 242
+    - data:
+        context:
+          enabled: false
+          variable_selector: []
+        model:
+          completion_params:
+            temperature: 0.7
+          mode: chat
+          name: qwen3-max
+          provider: langgenius/tongyi/tongyi
+        prompt_template:
+        - id: 50de0c2d-ad7b-4560-9c47-baea11127440
+          role: system
+          text: "请你作为一名专业的客户健康度监控专家，执行自动化监控与预警触发：\n\n【一、实时数据采集与监控】\n1. 使用数据采集：登录行为、功能使用、性能体验\n\
+            2. 交互数据采集：支持工单、沟通记录、反馈评价\n3. 商业数据采集：合同状态、账款状态、增购记录\n\n【二、健康度计算与评估】\n1.\
+            \ 实时健康度评分：各维度得分、综合得分、趋势对比\n2. 健康等级判定：当前等级、等级变化、趋势预测\n\n【三、预警规则与触发】\n1.\
+            \ 阈值预警（THRESHOLD）：综合得分、单项指标、等级变化\n2. 趋势预警（TREND）：连续下降、显著下降、异常波动\n3. 事件预警（EVENT）：关键用户流失、重大投诉、合同到期\n\
+            \n请以JSON格式输出，包含以下字段：\n{ \n    \"customerId\": \"客户ID\",\n    \"workflowTaskId\"\
+            : \"任务ID\",\n    \"usageData\": {\"loginFrequency\": \"\", \"featureUsage\"\
+            : \"\", \"performanceExperience\": \"\"},\n    \"interactionData\": {\"\
+            supportTickets\": \"\", \"communicationRecords\": \"\", \"feedbackRatings\"\
+            : \"\"},\n    \"commercialData\": {\"contractStatus\": \"\", \"paymentStatus\"\
+            : \"\", \"expansionRecords\": \"\"},\n    \"calculatedScores\": {\"usageScore\"\
+            : 0, \"interactionScore\": 0, \"commercialScore\": 0},\n    \"totalScore\"\
+            : 85,\n    \"scoreChange\": -5,\n    \"healthLevel\": \"GREEN/YELLOW/RED\"\
+            ,\n    \"levelChange\": \"STABLE/UP/DOWN\",\n    \"alertTriggered\": 0=否，1=是,\n\
+            \    \"alertType\": \"THRESHOLD/TREND/EVENT\",\n    \"alertLevel\": \"\
+            INFO/WARNING/CRITICAL\",\n    \"alertReason\": \"预警原因描述\",\n    \"alertDetails\"\
+            : {\"metric\": \"\", \"threshold\": 0, \"currentValue\": 0},\n    \"notificationRecipients\"\
+            : [\"recipient1\"],\n    \"notificationChannels\": [\"email\", \"sms\"\
+            ],\n    \"recommendedResponse\": \"建议响应措施\",\n    \"responseSlaHours\"\
+            : 24 \n}\n"
+        - id: 19e452b9-13e3-41ac-bc17-d489fac99d69
+          role: user
+          text: '以下是客户信息：
+
+            - 产品名称：{{#start.e_product_id_name#}}
+
+            - 企业名称：{{#start.e_company_name#}}
+
+            - 企业年营收规模：{{#start.e_company_revenue#}}元
+
+            - 产品主要功能：{{#start.e_product_id_detail#}}
+
+            - 客户ID：{{#start.customer_id#}}
+
+            - 任务ID：{{#start.taskId#}}
+
+
+            【健康度指标体系设计结果】：
+
+            {{#1765272559257.body#}}
+
+
+            请基于以上指标体系执行自动化监控并判断是否需要触发预警。注意在输出的JSON中包含customerId和workflowTaskId字段。
+
+            '
+        selected: false
+        structured_output:
+          schema:
+            additionalProperties: false
+            properties:
+              alertDetails:
+                additionalProperties: false
+                properties:
+                  currentValue:
+                    type: number
+                  metric:
+                    type: string
+                  threshold:
+                    type: number
+                required:
+                - metric
+                - threshold
+                - currentValue
+                type: object
+              alertLevel:
+                type: string
+              alertReason:
+                type: string
+              alertTriggered:
+                type: string
+              alertType:
+                type: string
+              calculatedScores:
+                additionalProperties: false
+                properties:
+                  commercialScore:
+                    type: number
+                  interactionScore:
+                    type: number
+                  usageScore:
+                    type: number
+                required:
+                - usageScore
+                - interactionScore
+                - commercialScore
+                type: object
+              commercialData:
+                additionalProperties: false
+                properties:
+                  contractStatus:
+                    type: string
+                  expansionRecords:
+                    type: string
+                  paymentStatus:
+                    type: string
+                required:
+                - contractStatus
+                - paymentStatus
+                - expansionRecords
+                type: object
+              customerId:
+                type: string
+              healthLevel:
+                type: string
+              interactionData:
+                additionalProperties: false
+                properties:
+                  communicationRecords:
+                    type: string
+                  feedbackRatings:
+                    type: string
+                  supportTickets:
+                    type: string
+                required:
+                - supportTickets
+                - communicationRecords
+                - feedbackRatings
+                type: object
+              levelChange:
+                type: string
+              notificationChannels:
+                items:
+                  type: string
+                type: array
+              notificationRecipients:
+                items:
+                  type: string
+                type: array
+              recommendedResponse:
+                type: string
+              responseSlaHours:
+                type: number
+              scoreChange:
+                type: number
+              totalScore:
+                type: number
+              usageData:
+                additionalProperties: false
+                properties:
+                  featureUsage:
+                    type: string
+                  loginFrequency:
+                    type: string
+                  performanceExperience:
+                    type: string
+                required:
+                - loginFrequency
+                - featureUsage
+                - performanceExperience
+                type: object
+              workflowTaskId:
+                type: string
+            required:
+            - customerId
+            - workflowTaskId
+            - usageData
+            - interactionData
+            - commercialData
+            - calculatedScores
+            - totalScore
+            - scoreChange
+            - healthLevel
+            - levelChange
+            - alertTriggered
+            - alertType
+            - alertLevel
+            - alertReason
+            - alertDetails
+            - notificationRecipients
+            - notificationChannels
+            - recommendedResponse
+            - responseSlaHours
+            type: object
+        structured_output_enabled: true
+        title: 监控与预警
+        type: llm
+        vision:
+          enabled: false
+      height: 88
+      id: '1765271515676'
+      position:
+        x: 682
+        y: 282
+      positionAbsolute:
+        x: 682
+        y: 282
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 242
+    - data:
+        code: "import json\ndef main(usageData: dict, interactionData: dict, commercialData:\
+          \ dict, calculatedScores: dict, alertDetails: dict, notificationRecipients:\
+          \ list, notificationChannels: list) -> dict:\n    result = {\n        \"\
+          usageData\": \"\",\n        \"interactionData\": \"\",\n        \"commercialData\"\
+          : \"\",\n        \"calculatedScores\": \"\",\n        \"alertDetails\":\
+          \ \"\",\n        \"notificationRecipients\": \"\",\n        \"notificationChannels\"\
+          : \"\"\n    }\n    try:\n        json_str = json.dumps(usageData, ensure_ascii=False,\
+          \ separators=(',', ':'))\n        result[\"usageData\"] = json.dumps(json_str,\
+          \ ensure_ascii=False)\n\n        json_str = json.dumps(interactionData,\
+          \ ensure_ascii=False, separators=(',', ':'))\n        result[\"interactionData\"\
+          ] = json.dumps(json_str, ensure_ascii=False)\n\n        json_str = json.dumps(commercialData,\
+          \ ensure_ascii=False, separators=(',', ':'))\n        result[\"commercialData\"\
+          ] = json.dumps(json_str, ensure_ascii=False)\n\n        json_str = json.dumps(calculatedScores,\
+          \ ensure_ascii=False, separators=(',', ':'))\n        result[\"calculatedScores\"\
+          ] = json.dumps(json_str, ensure_ascii=False)\n\n        json_str = json.dumps(alertDetails,\
+          \ ensure_ascii=False, separators=(',', ':'))\n        result[\"alertDetails\"\
+          ] = json.dumps(json_str, ensure_ascii=False)\n\n        json_str = json.dumps(notificationRecipients,\
+          \ ensure_ascii=False, separators=(',', ':'))\n        result[\"notificationRecipients\"\
+          ] = json.dumps(json_str, ensure_ascii=False)\n\n        json_str = json.dumps(notificationChannels,\
+          \ ensure_ascii=False, separators=(',', ':'))\n        result[\"notificationChannels\"\
+          ] = json.dumps(json_str, ensure_ascii=False)\n\n    except Exception as\
+          \ e:\n        pass\n    return result\n"
+        code_language: python3
+        outputs:
+          alertDetails:
+            children: null
+            type: string
+          calculatedScores:
+            children: null
+            type: string
+          commercialData:
+            children: null
+            type: string
+          interactionData:
+            children: null
+            type: string
+          notificationChannels:
+            children: null
+            type: string
+          notificationRecipients:
+            children: null
+            type: string
+          usageData:
+            children: null
+            type: string
+        selected: true
+        title: 代码执行 2
+        type: code
+        variables:
+        - value_selector:
+          - '1765271515676'
+          - structured_output
+          - usageData
+          value_type: object
+          variable: usageData
+        - value_selector:
+          - '1765271515676'
+          - structured_output
+          - interactionData
+          value_type: object
+          variable: interactionData
+        - value_selector:
+          - '1765271515676'
+          - structured_output
+          - commercialData
+          value_type: object
+          variable: commercialData
+        - value_selector:
+          - '1765271515676'
+          - structured_output
+          - calculatedScores
+          value_type: object
+          variable: calculatedScores
+        - value_selector:
+          - '1765271515676'
+          - structured_output
+          - alertDetails
+          value_type: object
+          variable: alertDetails
+        - value_selector:
+          - '1765271515676'
+          - structured_output
+          - notificationRecipients
+          value_type: object
+          variable: notificationRecipients
+        - value_selector:
+          - '1765271515676'
+          - structured_output
+          - notificationChannels
+          value_type: object
+          variable: notificationChannels
+      height: 52
+      id: '1765271523467'
+      position:
+        x: 696
+        y: 453
+      positionAbsolute:
+        x: 696
+        y: 453
+      selected: true
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 242
+    - data:
+        authorization:
+          config: null
+          type: no-auth
+        body:
+          data: []
+          type: none
+        headers: 'Authorization:test{{#start.user_id#}}
+
+          tenant-id:{{#start.tenant_id#}}'
+        method: get
+        params: id:{{#start.taskId#}}
+        retry_config:
+          max_retries: 3
+          retry_enabled: true
+          retry_interval: 100
+        selected: false
+        ssl_verify: true
+        timeout:
+          max_connect_timeout: 0
+          max_read_timeout: 0
+          max_write_timeout: 0
+        title: 健康指标设计
+        type: http-request
+        url: https://agent.cstlanbaai.com/gateway/admin-api/scrm/health-metrics-design/get
+        variables: []
+      height: 155
+      id: '1765272559257'
+      position:
+        x: 382
+        y: 282
+      positionAbsolute:
+        x: 382
+        y: 282
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 242
+    viewport:
+      x: 281.5854992778193
+      y: 78.94963500649294
+      zoom: 0.5743491774985174
+  rag_pipeline_variables: []

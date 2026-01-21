@@ -136,10 +136,9 @@ const completedTasks = ref<Task[]>([]);
 const fetchTasksFromApi = async () => {
   try {
     // 从localStorage获取userId
-    const userId = localStorage.getItem('userId');
-    if (!userId) {
-      console.warn('No userId found in localStorage');
-      return;
+    const userId = localStorage.getItem('userId') || '1';
+    if (!localStorage.getItem('userId')) {
+      console.warn('No userId found in localStorage, fallback to userId=1');
     }
 
     // 获取用户所有活跃会话
@@ -156,7 +155,14 @@ const fetchTasksFromApi = async () => {
     for (const sessionData of sessions) {
       // 检查是否有request_id
       if (!sessionData.request_id) {
-        console.warn('No request_id found in session data:', sessionData.session_id);
+        const processedTask: Task = {
+          id: sessionData.session_id,
+          name: sessionData.name || 'Chat Session',
+          description: sessionData.description || 'No description available',
+          status: 'idle',
+          active: false
+        };
+        activeTasks.push(processedTask);
         continue;
       }
 
@@ -174,8 +180,9 @@ const fetchTasksFromApi = async () => {
         const taskDetail = await getTaskDetail(traceId);
 
         // 处理任务数据，转换为Task类型
+        // 注意：id 使用 session_id，因为 Copilot 需要用它来查询历史和发送消息
         const processedTask: Task = {
-          id: traceId,
+          id: sessionData.session_id,
           name: sessionData.name || 'Unknown Task',
           description: sessionData.description || 'No description available',
           status: taskDetail.status || 'pending',
@@ -190,7 +197,15 @@ const fetchTasksFromApi = async () => {
         }
       } catch (error) {
         console.error('Error processing session:', sessionData.session_id, error);
-        // 继续处理下一个会话
+        // 即使获取trace失败，也将会话作为基本任务添加到列表
+        const fallbackTask: Task = {
+          id: sessionData.session_id,
+          name: sessionData.name || 'Chat Session',
+          description: sessionData.description || 'No description available',
+          status: 'pending',
+          active: false
+        };
+        activeTasks.push(fallbackTask);
       }
     }
 

@@ -107,16 +107,15 @@ class EventPublisher:
             return True
         
         url = f"{settings.EVENTS_SERVICE_BASE_URL.rstrip('/')}/api/v1/traces/events"
-        
+
         # 构造符合 Server ExecutionEventRequest 的结构
         payload = {
             "trace_id": trace_id,
             "task_id": task_id,
-            "node_id": node_id, # 如果是具体节点执行
-            "event_type": "STATUS_CHANGE",
-            "status": status,
-            "timestamp": datetime.utcnow().isoformat(),
-            "details": metadata or {}  # 包含执行前状态、预计等待时间等
+            "event_type": status,  # 使用 status 作为 event_type (STARTED, RUNNING, COMPLETED, FAILED, PROGRESS)
+            "timestamp": datetime.utcnow().timestamp(),  # float 类型
+            "data": metadata or {},  # 包含执行前状态、预计等待时间等
+            "agent_id": node_id,  # 如果是具体节点执行
         }
         
         try: 

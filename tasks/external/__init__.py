@@ -1,26 +1,21 @@
 """外部系统交互模块"""
 
-# 导出子模块
-from . import clients
-from . import database
-from . import memory_store
-from . import message_queue
-from . import repositories
+_LAZY_SUBMODULES = {
+    "clients": ".clients",
+    "database": ".database",
+    "memory_store": ".memory_store",
+    "message_queue": ".message_queue",
+    "repositories": ".repositories",
+}
 
-# 暂时移除已删除的仓储类导入
 
-__all__ = [
-    # 子模块
-    'clients',
-    'database',
-    'memory_store',
-    'message_queue',
-    'repositories',
-    
-    # 仓储类 - 暂时移除，因为 TaskRepository 和 DraftRepository 已删除
-    # 'TaskRepository',
-    # 'DraftRepository',
-    # 'AgentStructureRepository',
-    # 'EventRepository',
-    # 'SqlMetadataRepository'
-]
+def __getattr__(name: str):
+    if name in _LAZY_SUBMODULES:
+        import importlib
+        module = importlib.import_module(_LAZY_SUBMODULES[name], __name__)
+        globals()[name] = module
+        return module
+    raise AttributeError(f"module '{__name__}' has no attribute '{name}'")
+
+
+__all__ = list(_LAZY_SUBMODULES.keys())

@@ -15,8 +15,10 @@ class CapabilityManager:
     负责动态扫描目录、自动化注册和统一初始化所有能力。
     """
     
-    def __init__(self, config_path: str = "./tasks/config.json"):
+    def __init__(self, config_path: str = None):
         # self.registry = CapabilityRegistry()
+        if not config_path:
+            config_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "config.json"))
         self.registry = capability_registry
         self.config = CapabilityConfig(config_path)
         self._setup_logging()
@@ -52,6 +54,9 @@ class CapabilityManager:
         # 获取 capabilities 包的根路径
         # 假设 manager 在 capabilities/capability_manager.py，所以 base_path 是当前目录
         base_path = os.path.dirname(__file__)
+
+        caps_config = self.config.config.get("capabilities", {})
+        enabled_types = {k for k, v in caps_config.items() if isinstance(v, dict)}
         
         # 遍历根目录下的子文件夹 (例如: llm, memory, routing...)
         for item in os.listdir(base_path):
@@ -59,6 +64,8 @@ class CapabilityManager:
             
             # 只处理目录，且跳过 __pycache__
             if os.path.isdir(dir_path) and not item.startswith("__"):
+                if enabled_types and item not in enabled_types:
+                    continue
                 capability_type = item  # 文件夹名即为能力类型 (如 llm)
                 self._scan_package(dir_path, f".{item}", capability_type)
 

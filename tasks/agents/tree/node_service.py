@@ -37,14 +37,16 @@ class NodeService:
         if not self.structure:
             try:
                 # 从配置中获取Neo4j配置
-                from config import NEO4J_URI, NEO4J_USER, NEO4J_PASSWORD
+                from env import NEO4J_URI, NEO4J_USER, NEO4J_PASSWORD
+                from external.database.neo4j_client import Neo4jClient
 
                 if NEO4J_URI and NEO4J_USER and NEO4J_PASSWORD:
-                    self.structure = AgentStructureRepository(
+                    neo4j_client = Neo4jClient(
                         uri=NEO4J_URI,
                         user=NEO4J_USER,
                         password=NEO4J_PASSWORD
                     )
+                    self.structure = AgentStructureRepository(neo4j_client=neo4j_client)
                     self.logger.info("Neo4j结构管理器初始化成功")
                 else:
                     self.logger.warning("Neo4j配置未找到，使用内存存储")
@@ -151,6 +153,10 @@ class NodeService:
                 "datascope": node.get("datascope", {}),
                 "capability": node.get("capability", []),
                 "is_leaf": node.get("is_leaf", False),
+                "database": node.get("database"),
+                "table": node.get("table"),
+                "db": node.get("db"),
+                "tbl": node.get("tbl"),
                 "code": node.get("code", ""),
                 "config": node.get("config", {}),
                 "dify": node.get("dify", {}),

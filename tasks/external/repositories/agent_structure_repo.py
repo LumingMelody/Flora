@@ -25,30 +25,30 @@ class AgentStructureRepository:
     def get_agent_relationship(self, agent_id: str) -> Dict[str, Any]:
         """
         获取Agent的父子关系
-        
+
         Args:
             agent_id: Agent唯一标识符
-            
+
         Returns:
             包含父子关系信息的字典，格式为 {'parent': parent_id, 'children': [child_ids]}
         """
-        # 查询父节点
+        # 查询父节点 - 确保父节点是 Agent 类型
         parent_query = """
-        MATCH (parent)-[:HAS_CHILD]->(child {id: $agent_id})
+        MATCH (parent:Agent)-[:HAS_CHILD]->(child:Agent {id: $agent_id})
         RETURN parent.id as parent_id
         LIMIT 1
         """
         parent_result = self.neo4j_client.execute_query(parent_query, {'agent_id': agent_id})
         parent_id = parent_result[0]['parent_id'] if parent_result else None
-        
-        # 查询子节点
+
+        # 查询子节点 - 确保子节点是 Agent 类型
         children_query = """
-        MATCH (parent {id: $agent_id})-[:HAS_CHILD]->(child)
+        MATCH (parent:Agent {id: $agent_id})-[:HAS_CHILD]->(child:Agent)
         RETURN child.id as child_id
         """
         children_result = self.neo4j_client.execute_query(children_query, {'agent_id': agent_id})
         child_ids = [record['child_id'] for record in children_result]
-        
+
         return {
             'parent': parent_id,
             'children': child_ids

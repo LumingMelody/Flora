@@ -1,7 +1,7 @@
 import json
 import os
-import time
 from typing import Dict, Any
+from pydantic import PrivateAttr
 from pydantic_settings import BaseSettings
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
@@ -48,54 +48,58 @@ class Settings(BaseSettings):
     pending_timeout_sec: int
     
     # 私有属性
-    _observer: Observer = None
-    _full_config_path: str = None
-    _config_data: Dict[str, Any] = None
+    _observer: Observer = PrivateAttr(default=None)
+    _full_config_path: str = PrivateAttr(default="")
+    _config_data: Dict[str, Any] = PrivateAttr(default_factory=dict)
     
     def __init__(self, **kwargs):
         # 确定配置文件的绝对路径
         base_dir = os.path.dirname(os.path.abspath(__file__))
         full_config_path = os.path.join(base_dir, DEFAULT_CONFIG_FILE_PATH)
-        
+
         # 读取配置文件
-        self._config_data = None
-        self.load_config(full_config_path)
-        
+        config_data = self._load_config_data(full_config_path)
+
         # 调用父类初始化
-        super().__init__(**self._config_data)
-        
+        super().__init__(**config_data, **kwargs)
+
         # 设置实例属性
         self._full_config_path = full_config_path
-        self._observer = None
+        self._config_data = config_data
         
         # 启动配置文件监控
         self._start_watcher()
     
+    @classmethod
+    def _load_config_data(cls, full_config_path: str) -> Dict[str, Any]:
+        """读取配置文件并返回配置数据"""
+        if not os.path.exists(full_config_path):
+            cls._create_default_config(full_config_path)
+        with open(full_config_path, "r", encoding="utf-8") as f:
+            return json.load(f)
+
     def load_config(self, full_config_path=None):
         """从 JSON 文件加载配置"""
         # 使用传入的路径或当前实例的路径
         config_path = full_config_path or self._full_config_path
-        
-        # 如果配置文件不存在，创建默认配置
-        if not os.path.exists(config_path):
-            self._create_default_config(config_path)
-        
+
         # 读取配置文件
-        with open(config_path, "r", encoding="utf-8") as f:
-            self._config_data = json.load(f)
+        config_data = self._load_config_data(config_path)
+        self._config_data = config_data
         
         # 更新实例属性
-        for key, value in self._config_data.items():
+        for key, value in config_data.items():
             if hasattr(self, key):
                 setattr(self, key, value)
     
-    def _create_default_config(self, file_path: str):
+    @staticmethod
+    def _create_default_config(file_path: str):
         """创建默认配置文件"""
         default_config = {
             "db_url": "postgresql+asyncpg://user:pass@localhost/command_tower",
             "redis_url": "redis://localhost:6379/0",
             "use_redis": False,
-            "rabbitmq_url": "amqp://guest:guest@localhost:5672/",
+            "rabbitmq_url": "amqp://admin:Lanba%40123@121.36.203.36:10005/prod",
             "worker_callback_url": "http://worker-svc:8000",
             "host": "0.0.0.0",
             "port": 8000,

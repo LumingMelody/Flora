@@ -1,0 +1,428 @@
+app:
+  description: 根据行业生成客户评价标准规则并存储到数据库
+  icon: 📋
+  icon_background: '#E4FBCC'
+  mode: workflow
+  name: 10.0.0客户评价规则创建
+  use_icon_as_answer_icon: false
+dependencies:
+- current_identifier: null
+  type: marketplace
+  value:
+    marketplace_plugin_unique_identifier: langgenius/tongyi:0.1.3@08f25a10c0617a3512fac091a0f0d894925357e965efe40fdf95cb48e09b62d1
+    version: null
+kind: app
+version: 0.4.0
+workflow:
+  conversation_variables: []
+  environment_variables: []
+  features:
+    file_upload:
+      allowed_file_extensions:
+      - .JPG
+      - .JPEG
+      - .PNG
+      - .GIF
+      - .WEBP
+      - .SVG
+      allowed_file_types:
+      - image
+      allowed_file_upload_methods:
+      - local_file
+      - remote_url
+      enabled: false
+      fileUploadConfig:
+        audio_file_size_limit: 50
+        batch_count_limit: 5
+        file_size_limit: 15
+        image_file_size_limit: 10
+        video_file_size_limit: 100
+        workflow_file_upload_limit: 10
+      image:
+        enabled: false
+        number_limits: 3
+        transfer_methods:
+        - local_file
+        - remote_url
+      number_limits: 3
+    opening_statement: ''
+    retriever_resource:
+      enabled: false
+    sensitive_word_avoidance:
+      enabled: false
+    speech_to_text:
+      enabled: false
+    suggested_questions: []
+    suggested_questions_after_answer:
+      enabled: false
+    text_to_speech:
+      enabled: false
+      language: ''
+      voice: ''
+  graph:
+    edges:
+    - data:
+        isInIteration: false
+        isInLoop: false
+        sourceType: start
+        targetType: llm
+      id: start-source-llm_rule_gen-target
+      source: start
+      sourceHandle: source
+      target: llm_rule_gen
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInIteration: false
+        isInLoop: false
+        sourceType: llm
+        targetType: code
+      id: llm_rule_gen-source-code_format-target
+      source: llm_rule_gen
+      sourceHandle: source
+      target: code_format
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInIteration: false
+        isInLoop: false
+        sourceType: code
+        targetType: http-request
+      id: code_format-source-http_save_rule-target
+      source: code_format
+      sourceHandle: source
+      target: http_save_rule
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInLoop: false
+        sourceType: http-request
+        targetType: end
+      id: http_save_rule-source-end-target
+      source: http_save_rule
+      sourceHandle: source
+      target: end
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    nodes:
+    - data:
+        desc: 输入行业信息
+        selected: false
+        title: 开始
+        type: start
+        variables:
+        - label: 行业名称
+          max_length: 100
+          options: []
+          required: true
+          type: text-input
+          variable: industry_name
+        - label: 行业描述（可选）
+          max_length: 500
+          options: []
+          required: false
+          type: paragraph
+          variable: industry_description
+        - label: 用户id
+          max_length: 48
+          options: []
+          required: true
+          type: text-input
+          variable: user_id
+        - label: 租户id
+          max_length: 48
+          options: []
+          required: true
+          type: text-input
+          variable: tenant_id
+      height: 200
+      id: start
+      position:
+        x: 80
+        y: 282
+      positionAbsolute:
+        x: 80
+        y: 282
+      selected: false
+      type: custom
+      width: 242
+    - data:
+        context:
+          enabled: false
+          variable_selector: []
+        model:
+          completion_params:
+            temperature: 0.7
+          mode: chat
+          name: deepseek-v3
+          provider: langgenius/tongyi/tongyi
+        prompt_template:
+        - id: rule-gen-system
+          role: system
+          text: |
+            你是一名专业的客户关系管理专家。请根据用户提供的行业信息，生成一套客户评价标准规则。
+
+            规则应包含以下维度（根据行业特点选择适用的维度）：
+            1. 客户价值维度：消费能力、消费频次、客单价等
+            2. 客户活跃度维度：最近访问时间、互动频率、活跃天数等
+            3. 客户忠诚度维度：复购率、推荐意愿、会员等级等
+            4. 客户潜力维度：增长趋势、需求匹配度、转化可能性等
+
+            每个维度需要定义：
+            - 评估指标
+            - 评分标准（如何量化）
+            - 对应的标签建议
+
+            请以JSON格式输出，结构如下：
+            {
+              "ruleName": "规则名称",
+              "industry": "适用行业",
+              "dimensions": [
+                {
+                  "name": "维度名称",
+                  "weight": 0.25,
+                  "indicators": [
+                    {
+                      "name": "指标名称",
+                      "description": "指标说明",
+                      "scoringCriteria": [
+                        {"range": "条件描述", "score": 分数, "tag": "对应标签"}
+                      ]
+                    }
+                  ]
+                }
+              ],
+              "tagDefinitions": [
+                {"tagName": "标签名", "description": "标签含义", "priority": 1}
+              ]
+            }
+        - id: rule-gen-user
+          role: user
+          text: |
+            请为以下行业生成客户评价标准规则：
+
+            行业名称：{{#start.industry_name#}}
+            行业描述：{{#start.industry_description#}}
+
+            请生成完整的评价规则。
+        selected: false
+        structured_output:
+          schema:
+            additionalProperties: false
+            properties:
+              ruleName:
+                type: string
+              industry:
+                type: string
+              dimensions:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    name:
+                      type: string
+                    weight:
+                      type: number
+                    indicators:
+                      type: array
+                      items:
+                        type: object
+                        properties:
+                          name:
+                            type: string
+                          description:
+                            type: string
+                          scoringCriteria:
+                            type: array
+                            items:
+                              type: object
+                              properties:
+                                range:
+                                  type: string
+                                score:
+                                  type: number
+                                tag:
+                                  type: string
+                              required:
+                              - range
+                              - score
+                              - tag
+                        required:
+                        - name
+                        - description
+                        - scoringCriteria
+                  required:
+                  - name
+                  - weight
+                  - indicators
+              tagDefinitions:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    tagName:
+                      type: string
+                    description:
+                      type: string
+                    priority:
+                      type: number
+                  required:
+                  - tagName
+                  - description
+                  - priority
+            required:
+            - ruleName
+            - industry
+            - dimensions
+            - tagDefinitions
+            type: object
+        structured_output_enabled: true
+        title: 生成评价规则
+        type: llm
+        vision:
+          enabled: false
+      height: 88
+      id: llm_rule_gen
+      position:
+        x: 400
+        y: 282
+      positionAbsolute:
+        x: 400
+        y: 282
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 242
+    - data:
+        code: |
+          import json
+
+          def main(rule_data: dict) -> dict:
+              result = {"content": ""}
+              try:
+                  # 将规则数据转为JSON字符串
+                  json_str = json.dumps(rule_data, ensure_ascii=False, separators=(',', ':'))
+                  result["content"] = json_str
+              except Exception as e:
+                  result["content"] = f"处理失败: {str(e)}"
+              return result
+        code_language: python3
+        outputs:
+          content:
+            children: null
+            type: string
+        selected: false
+        title: 格式化规则
+        type: code
+        variables:
+        - value_selector:
+          - llm_rule_gen
+          - structured_output
+          value_type: object
+          variable: rule_data
+      height: 52
+      id: code_format
+      position:
+        x: 720
+        y: 282
+      positionAbsolute:
+        x: 720
+        y: 282
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 242
+    - data:
+        authorization:
+          config: null
+          type: no-auth
+        body:
+          data:
+          - id: key-value-rule
+            key: ''
+            type: text
+            value: |
+              {
+                "industry": "{{#start.industry_name#}}",
+                "ruleName": "{{#llm_rule_gen.structured_output.ruleName#}}",
+                "ruleContent": {{#code_format.content#}},
+                "createdBy": "{{#start.user_id#}}"
+              }
+          type: json
+        headers: |
+          Authorization:Bearer {{#start.user_id#}}
+          tenant-id:{{#start.tenant_id#}}
+          Content-Type:application/json
+        method: post
+        params: ''
+        retry_config:
+          max_retries: 3
+          retry_enabled: true
+          retry_interval: 100
+        selected: false
+        ssl_verify: true
+        timeout:
+          max_connect_timeout: 0
+          max_read_timeout: 0
+          max_write_timeout: 0
+        title: 保存规则到数据库
+        type: http-request
+        url: https://your-api-domain.com/admin-api/scrm/customer-evaluation-rule/create
+        variables: []
+      height: 170
+      id: http_save_rule
+      position:
+        x: 1040
+        y: 282
+      positionAbsolute:
+        x: 1040
+        y: 282
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 242
+    - data:
+        desc: 输出规则创建结果
+        outputs:
+        - value_selector:
+          - http_save_rule
+          - body
+          value_type: string
+          variable: save_result
+        - value_selector:
+          - llm_rule_gen
+          - structured_output
+          - ruleName
+          value_type: string
+          variable: rule_name
+        - value_selector:
+          - code_format
+          - content
+          value_type: string
+          variable: rule_content
+        selected: false
+        title: 结束
+        type: end
+      height: 142
+      id: end
+      position:
+        x: 1360
+        y: 282
+      positionAbsolute:
+        x: 1360
+        y: 282
+      selected: false
+      type: custom
+      width: 242
+    viewport:
+      x: 0
+      y: 100
+      zoom: 0.8
+  rag_pipeline_variables: []

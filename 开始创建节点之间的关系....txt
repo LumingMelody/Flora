@@ -1,0 +1,282 @@
+开始创建节点之间的关系...
+创建关系成功 [2/282]: erp_product_system -> erp_root
+创建关系成功 [3/282]: erp_product_system__role_1 -> erp_product_system
+创建关系成功 [4/282]: erp_product_system__role_1__resp_1 -> erp_product_system__role_1
+创建关系成功 [5/282]: erp_product_system__role_1__resp_2 -> erp_product_system__role_1
+创建关系成功 [6/282]: erp_product_system__role_1__resp_3 -> erp_product_system__role_1
+创建关系成功 [7/282]: erp_product_system__role_2 -> erp_product_system
+创建关系成功 [8/282]: erp_product_system__role_2__resp_1 -> erp_product_system__role_2
+创建关系成功 [9/282]: erp_product_system__role_2__resp_2 -> erp_product_system__role_2
+创建关系成功 [10/282]: erp_product_system__role_2__resp_2__resp_1 -> erp_product_system__role_2__resp_2
+创建关系成功 [11/282]: erp_product_system__role_2__resp_2__resp_2 -> erp_product_system__role_2__resp_2
+创建关系成功 [12/282]: erp_product_system__role_2__resp_3 -> erp_product_system__role_2
+创建关系成功 [13/282]: erp_product_system__role_3 -> erp_product_system
+创建关系成功 [14/282]: erp_product_system__role_3__resp_1 -> erp_product_system__role_3
+创建关系成功 [15/282]: erp_product_system__role_3__resp_2 -> erp_product_system__role_3
+创建关系成功 [16/282]: erp_product_system__role_3__resp_2__resp_1 -> erp_product_system__role_3__resp_2
+创建关系成功 [17/282]: erp_product_system__role_3__resp_2__resp_2 -> erp_product_system__role_3__resp_2
+创建关系成功 [18/282]: erp_product_system__role_3__resp_2__resp_3 -> erp_product_system__role_3__resp_2
+创建关系失败 [19/282]: 找不到父节点 erp_product_system__role_3__resp_2 或子节点 erp_product_system__m1__api1
+创建关系失败 [20/282]: 找不到父节点 erp_product_system__role_3__resp_2 或子节点 erp_product_system__m1__api2
+创建关系失败 [21/282]: 找不到父节点 erp_product_system__role_3__resp_2 或子节点 erp_product_system__m1__api3
+创建关系失败 [22/282]: 找不到父节点 erp_product_system__role_3__resp_2 或子节点 erp_product_system__m1__api4
+创建关系成功 [23/282]: erp_product_system__m1__api5 -> erp_product_system__role_3__resp_2
+创建关系失败 [24/282]: 找不到父节点 erp_product_system__role_3__resp_2 或子节点 erp_product_system__m1__api6
+创建关系失败 [25/282]: 找不到父节点 erp_product_system__role_3__resp_2 或子节点 erp_product_system__m1__api7
+创建关系失败 [26/282]: 找不到父节点 erp_product_system__role_3__resp_2 或子节点 erp_product_system__m2__api1
+创建关系失败 [27/282]: 找不到父节点 erp_product_system__role_3__resp_2 或子节点 erp_product_system__m2__api2
+创建关系失败 [28/282]: 找不到父节点 erp_product_system__role_3__resp_2 或子节点 erp_product_system__m2__api3
+创建关系失败 [29/282]: 找不到父节点 erp_product_system__role_3__resp_2 或子节点 erp_product_system__m2__api4
+创建关系成功 [30/282]: erp_product_system__m2__api5 -> erp_product_system__role_3__resp_2
+创建关系失败 [31/282]: 找不到父节点 erp_product_system__role_3__resp_2 或子节点 erp_product_system__m2__api6
+创建关系失败 [32/282]: 找不到父节点 erp_product_system__role_3__resp_2 或子节点 erp_product_system__m2__api7
+创建关系失败 [33/282]: 找不到父节点 erp_product_system__role_3__resp_2 或子节点 erp_product_system__m3__api1
+创建关系失败 [34/282]: 找不到父节点 erp_product_system__role_3__resp_2 或子节点 erp_product_system__m3__api2
+创建关系失败 [35/282]: 找不到父节点 erp_product_system__role_3__resp_2 或子节点 erp_product_system__m3__api3
+创建关系成功 [36/282]: erp_product_system__m3__api4 -> erp_product_system__role_3__resp_2
+创建关系成功 [37/282]: erp_product_system__m3__api5 -> erp_product_system__role_3__resp_2
+创建关系成功 [38/282]: erp_product_system__m3__api6 -> erp_product_system__role_3__resp_2
+创建关系失败 [39/282]: 找不到父节点 erp_product_system__role_3__resp_2 或子节点 erp_product_system__m3__api7
+创建关系成功 [40/282]: erp_product_system__role_3__resp_3 -> erp_product_system__role_3
+创建关系成功 [41/282]: erp_product_system__role_3__resp_4 -> erp_product_system__role_3
+创建关系成功 [42/282]: erp_product_system__role_4 -> erp_product_system
+创建关系成功 [43/282]: erp_product_system__role_4__resp_1 -> erp_product_system__role_4
+创建关系成功 [44/282]: erp_product_system__role_4__resp_2 -> erp_product_system__role_4
+创建关系成功 [45/282]: erp_product_system__role_4__resp_2__resp_1 -> erp_product_system__role_4__resp_2
+创建关系成功 [46/282]: erp_product_system__role_4__resp_2__resp_2 -> erp_product_system__role_4__resp_2
+创建关系成功 [47/282]: erp_product_system__role_4__resp_2__resp_3 -> erp_product_system__role_4__resp_2
+创建关系成功 [48/282]: erp_product_system__role_4__resp_3 -> erp_product_system__role_4
+创建关系成功 [49/282]: erp_product_system__role_5 -> erp_product_system
+创建关系成功 [50/282]: erp_product_system__role_5__resp_1 -> erp_product_system__role_5
+创建关系成功 [51/282]: erp_product_system__role_5__resp_2 -> erp_product_system__role_5
+创建关系成功 [52/282]: erp_product_system__role_5__resp_2__resp_1 -> erp_product_system__role_5__resp_2
+创建关系成功 [53/282]: erp_product_system__role_5__resp_3 -> erp_product_system__role_5
+创建关系成功 [54/282]: erp_sales_system -> erp_root
+创建关系成功 [55/282]: erp_sales_system__role_1 -> erp_sales_system
+创建关系成功 [56/282]: erp_sales_system__role_1__resp_1 -> erp_sales_system__role_1
+创建关系成功 [57/282]: erp_sales_system__m6__api1 -> erp_sales_system__role_1__resp_1
+创建关系成功 [58/282]: erp_sales_system__m6__api2 -> erp_sales_system__role_1__resp_1
+创建关系成功 [59/282]: erp_sales_system__m6__api3 -> erp_sales_system__role_1__resp_1
+创建关系成功 [60/282]: erp_sales_system__m6__api4 -> erp_sales_system__role_1__resp_1
+创建关系成功 [61/282]: erp_sales_system__m6__api5 -> erp_sales_system__role_1__resp_1
+创建关系成功 [62/282]: erp_sales_system__role_1__resp_2 -> erp_sales_system__role_1
+创建关系成功 [63/282]: erp_sales_system__role_1__resp_3 -> erp_sales_system__role_1
+创建关系成功 [64/282]: erp_sales_system__role_2 -> erp_sales_system
+创建关系成功 [65/282]: erp_sales_system__role_2__resp_1 -> erp_sales_system__role_2
+创建关系成功 [66/282]: erp_sales_system__role_2__resp_1__resp_1 -> erp_sales_system__role_2__resp_1
+创建关系成功 [67/282]: erp_sales_system__role_2__resp_1__resp_2 -> erp_sales_system__role_2__resp_1
+创建关系成功 [68/282]: erp_sales_system__role_2__resp_1__resp_3 -> erp_sales_system__role_2__resp_1
+创建关系成功 [69/282]: erp_sales_system__role_2__resp_1__resp_4 -> erp_sales_system__role_2__resp_1
+创建关系失败 [70/282]: 找不到父节点 erp_sales_system__role_2__resp_1__resp_4 或子节点 erp_sales_system__m1__api1
+创建关系失败 [71/282]: 找不到父节点 erp_sales_system__role_2__resp_1__resp_4 或子节点 erp_sales_system__m1__api2
+创建关系失败 [72/282]: 找不到父节点 erp_sales_system__role_2__resp_1__resp_4 或子节点 erp_sales_system__m1__api3
+创建关系失败 [73/282]: 找不到父节点 erp_sales_system__role_2__resp_1__resp_4 或子节点 erp_sales_system__m1__api4
+创建关系成功 [74/282]: erp_sales_system__m1__api5 -> erp_sales_system__role_2__resp_1__resp_4
+创建关系成功 [75/282]: erp_sales_system__m1__api6 -> erp_sales_system__role_2__resp_1__resp_4
+创建关系失败 [76/282]: 找不到父节点 erp_sales_system__role_2__resp_1__resp_4 或子节点 erp_sales_system__m1__api7
+创建关系失败 [77/282]: 找不到父节点 erp_sales_system__role_2__resp_1__resp_4 或子节点 erp_sales_system__m1__api8
+创建关系成功 [78/282]: erp_sales_system__role_2__resp_2 -> erp_sales_system__role_2
+创建关系成功 [79/282]: erp_sales_system__role_2__resp_2__resp_1 -> erp_sales_system__role_2__resp_2
+创建关系成功 [80/282]: erp_sales_system__role_2__resp_2__resp_2 -> erp_sales_system__role_2__resp_2
+创建关系成功 [81/282]: erp_sales_system__role_2__resp_2__resp_3 -> erp_sales_system__role_2__resp_2
+创建关系成功 [82/282]: erp_sales_system__role_3 -> erp_sales_system
+创建关系成功 [83/282]: erp_sales_system__role_3__resp_1 -> erp_sales_system__role_3
+创建关系失败 [84/282]: 找不到父节点 erp_sales_system__role_3__resp_1 或子节点 erp_sales_system__m2__api1
+创建关系失败 [85/282]: 找不到父节点 erp_sales_system__role_3__resp_1 或子节点 erp_sales_system__m2__api2
+创建关系失败 [86/282]: 找不到父节点 erp_sales_system__role_3__resp_1 或子节点 erp_sales_system__m2__api3
+创建关系失败 [87/282]: 找不到父节点 erp_sales_system__role_3__resp_1 或子节点 erp_sales_system__m2__api4
+创建关系失败 [88/282]: 找不到父节点 erp_sales_system__role_3__resp_1 或子节点 erp_sales_system__m2__api5
+创建关系失败 [89/282]: 找不到父节点 erp_sales_system__role_3__resp_1 或子节点 erp_sales_system__m2__api6
+创建关系失败 [90/282]: 找不到父节点 erp_sales_system__role_3__resp_1 或子节点 erp_sales_system__m2__api7
+创建关系成功 [91/282]: erp_sales_system__role_3__resp_2 -> erp_sales_system__role_3
+创建关系成功 [92/282]: erp_sales_system__role_3__resp_3 -> erp_sales_system__role_3
+创建关系成功 [93/282]: erp_sales_system__role_3__resp_4 -> erp_sales_system__role_3
+创建关系失败 [94/282]: 找不到父节点 erp_sales_system__role_3__resp_4 或子节点 erp_sales_system__m3__api1
+创建关系失败 [95/282]: 找不到父节点 erp_sales_system__role_3__resp_4 或子节点 erp_sales_system__m3__api2
+创建关系失败 [96/282]: 找不到父节点 erp_sales_system__role_3__resp_4 或子节点 erp_sales_system__m3__api3
+创建关系失败 [97/282]: 找不到父节点 erp_sales_system__role_3__resp_4 或子节点 erp_sales_system__m3__api4
+创建关系失败 [98/282]: 找不到父节点 erp_sales_system__role_3__resp_4 或子节点 erp_sales_system__m3__api5
+创建关系失败 [99/282]: 找不到父节点 erp_sales_system__role_3__resp_4 或子节点 erp_sales_system__m3__api6
+创建关系失败 [100/282]: 找不到父节点 erp_sales_system__role_3__resp_4 或子节点 erp_sales_system__m3__api7
+创建关系成功 [101/282]: erp_sales_system__role_4 -> erp_sales_system
+创建关系成功 [102/282]: erp_sales_system__role_4__resp_1 -> erp_sales_system__role_4
+创建关系成功 [103/282]: erp_sales_system__role_4__resp_2 -> erp_sales_system__role_4
+创建关系成功 [104/282]: erp_sales_system__role_4__resp_3 -> erp_sales_system__role_4
+创建关系失败 [105/282]: 找不到父节点 erp_sales_system__role_4__resp_3 或子节点 erp_sales_system__m5__api1
+创建关系失败 [106/282]: 找不到父节点 erp_sales_system__role_4__resp_3 或子节点 erp_sales_system__m5__api2
+创建关系失败 [107/282]: 找不到父节点 erp_sales_system__role_4__resp_3 或子节点 erp_sales_system__m5__api3
+创建关系失败 [108/282]: 找不到父节点 erp_sales_system__role_4__resp_3 或子节点 erp_sales_system__m5__api4
+创建关系失败 [109/282]: 找不到父节点 erp_sales_system__role_4__resp_3 或子节点 erp_sales_system__m5__api5
+创建关系失败 [110/282]: 找不到父节点 erp_sales_system__role_4__resp_3 或子节点 erp_sales_system__m5__api6
+创建关系失败 [111/282]: 找不到父节点 erp_sales_system__role_4__resp_3 或子节点 erp_sales_system__m5__api7
+创建关系成功 [112/282]: erp_sales_system__role_5 -> erp_sales_system
+创建关系成功 [113/282]: erp_sales_system__role_5__resp_1 -> erp_sales_system__role_5
+创建关系失败 [114/282]: 找不到父节点 erp_sales_system__role_5__resp_1 或子节点 erp_sales_system__m4__api1
+创建关系失败 [115/282]: 找不到父节点 erp_sales_system__role_5__resp_1 或子节点 erp_sales_system__m4__api2
+创建关系失败 [116/282]: 找不到父节点 erp_sales_system__role_5__resp_1 或子节点 erp_sales_system__m4__api3
+创建关系失败 [117/282]: 找不到父节点 erp_sales_system__role_5__resp_1 或子节点 erp_sales_system__m4__api4
+创建关系失败 [118/282]: 找不到父节点 erp_sales_system__role_5__resp_1 或子节点 erp_sales_system__m4__api5
+创建关系失败 [119/282]: 找不到父节点 erp_sales_system__role_5__resp_1 或子节点 erp_sales_system__m4__api6
+创建关系失败 [120/282]: 找不到父节点 erp_sales_system__role_5__resp_1 或子节点 erp_sales_system__m4__api7
+创建关系成功 [121/282]: erp_sales_system__role_5__resp_2 -> erp_sales_system__role_5
+创建关系成功 [122/282]: erp_supply_chain_system -> erp_root
+创建关系成功 [123/282]: erp_supply_chain_system__role_1 -> erp_supply_chain_system
+创建关系成功 [124/282]: erp_supply_chain_system__role_1__resp_1 -> erp_supply_chain_system__role_1
+创建关系成功 [125/282]: erp_supply_chain_system__role_1__resp_2 -> erp_supply_chain_system__role_1
+创建关系成功 [126/282]: erp_supply_chain_system__role_1__resp_3 -> erp_supply_chain_system__role_1
+创建关系成功 [127/282]: erp_supply_chain_system__m7__api1 -> erp_supply_chain_system__role_1__resp_3
+创建关系成功 [128/282]: erp_supply_chain_system__role_2 -> erp_supply_chain_system
+创建关系成功 [129/282]: erp_supply_chain_system__role_2__resp_1 -> erp_supply_chain_system__role_2
+创建关系成功 [130/282]: erp_supply_chain_system__role_2__resp_2 -> erp_supply_chain_system__role_2
+创建关系成功 [131/282]: erp_supply_chain_system__role_3 -> erp_supply_chain_system
+创建关系成功 [132/282]: erp_supply_chain_system__role_3__resp_1 -> erp_supply_chain_system__role_3
+创建关系成功 [133/282]: erp_supply_chain_system__role_3__resp_2 -> erp_supply_chain_system__role_3
+创建关系成功 [134/282]: erp_supply_chain_system__role_3__resp_3 -> erp_supply_chain_system__role_3
+创建关系成功 [135/282]: erp_supply_chain_system__role_4 -> erp_supply_chain_system
+创建关系成功 [136/282]: erp_supply_chain_system__role_4__resp_1 -> erp_supply_chain_system__role_4
+创建关系失败 [137/282]: 找不到父节点 erp_supply_chain_system__role_4__resp_1 或子节点 erp_supply_chain_system__m1__api1
+创建关系失败 [138/282]: 找不到父节点 erp_supply_chain_system__role_4__resp_1 或子节点 erp_supply_chain_system__m1__api2
+创建关系失败 [139/282]: 找不到父节点 erp_supply_chain_system__role_4__resp_1 或子节点 erp_supply_chain_system__m1__api3
+创建关系失败 [140/282]: 找不到父节点 erp_supply_chain_system__role_4__resp_1 或子节点 erp_supply_chain_system__m1__api4
+创建关系失败 [141/282]: 找不到父节点 erp_supply_chain_system__role_4__resp_1 或子节点 erp_supply_chain_system__m1__api5
+创建关系成功 [142/282]: erp_supply_chain_system__m1__api6 -> erp_supply_chain_system__role_4__resp_1
+创建关系失败 [143/282]: 找不到父节点 erp_supply_chain_system__role_4__resp_1 或子节点 erp_supply_chain_system__m1__api7
+创建关系失败 [144/282]: 找不到父节点 erp_supply_chain_system__role_4__resp_1 或子节点 erp_supply_chain_system__m1__api8
+创建关系成功 [145/282]: erp_supply_chain_system__role_4__resp_2 -> erp_supply_chain_system__role_4
+创建关系成功 [146/282]: erp_supply_chain_system__role_4__resp_3 -> erp_supply_chain_system__role_4
+创建关系成功 [147/282]: erp_supply_chain_system__role_5 -> erp_supply_chain_system
+创建关系成功 [148/282]: erp_supply_chain_system__role_5__resp_1 -> erp_supply_chain_system__role_5
+创建关系成功 [149/282]: erp_supply_chain_system__role_5__resp_1__resp_1 -> erp_supply_chain_system__role_5__resp_1
+创建关系成功 [150/282]: erp_supply_chain_system__role_5__resp_1__resp_2 -> erp_supply_chain_system__role_5__resp_1
+创建关系失败 [151/282]: 找不到父节点 erp_supply_chain_system__role_5__resp_1__resp_2 或子节点 erp_supply_chain_system__m6__api1
+创建关系失败 [152/282]: 找不到父节点 erp_supply_chain_system__role_5__resp_1__resp_2 或子节点 erp_supply_chain_system__m6__api2
+创建关系失败 [153/282]: 找不到父节点 erp_supply_chain_system__role_5__resp_1__resp_2 或子节点 erp_supply_chain_system__m6__api3
+创建关系失败 [154/282]: 找不到父节点 erp_supply_chain_system__role_5__resp_1__resp_2 或子节点 erp_supply_chain_system__m6__api4
+创建关系失败 [155/282]: 找不到父节点 erp_supply_chain_system__role_5__resp_1__resp_2 或子节点 erp_supply_chain_system__m6__api5
+创建关系失败 [156/282]: 找不到父节点 erp_supply_chain_system__role_5__resp_1__resp_2 或子节点 erp_supply_chain_system__m6__api6
+创建关系失败 [157/282]: 找不到父节点 erp_supply_chain_system__role_5__resp_1__resp_2 或子节点 erp_supply_chain_system__m6__api7
+创建关系成功 [158/282]: erp_supply_chain_system__role_5__resp_1__resp_3 -> erp_supply_chain_system__role_5__resp_1
+创建关系成功 [159/282]: erp_supply_chain_system__role_5__resp_2 -> erp_supply_chain_system__role_5
+创建关系成功 [160/282]: erp_supply_chain_system__role_5__resp_2__resp_1 -> erp_supply_chain_system__role_5__resp_2
+创建关系成功 [161/282]: erp_supply_chain_system__role_5__resp_2__resp_2 -> erp_supply_chain_system__role_5__resp_2
+创建关系成功 [162/282]: erp_supply_chain_system__role_5__resp_2__resp_3 -> erp_supply_chain_system__role_5__resp_2
+创建关系失败 [163/282]: 找不到父节点 erp_supply_chain_system__role_5__resp_2__resp_3 或子节点 erp_supply_chain_system__m6__api8
+创建关系失败 [164/282]: 找不到父节点 erp_supply_chain_system__role_5__resp_2__resp_3 或子节点 erp_supply_chain_system__m6__api9
+创建关系失败 [165/282]: 找不到父节点 erp_supply_chain_system__role_5__resp_2__resp_3 或子节点 erp_supply_chain_system__m6__api10
+创建关系失败 [166/282]: 找不到父节点 erp_supply_chain_system__role_5__resp_2__resp_3 或子节点 erp_supply_chain_system__m6__api11
+创建关系失败 [167/282]: 找不到父节点 erp_supply_chain_system__role_5__resp_2__resp_3 或子节点 erp_supply_chain_system__m6__api12
+创建关系失败 [168/282]: 找不到父节点 erp_supply_chain_system__role_5__resp_2__resp_3 或子节点 erp_supply_chain_system__m6__api13
+创建关系失败 [169/282]: 找不到父节点 erp_supply_chain_system__role_5__resp_2__resp_3 或子节点 erp_supply_chain_system__m6__api14
+创建关系成功 [170/282]: erp_supply_chain_system__role_6 -> erp_supply_chain_system
+创建关系成功 [171/282]: erp_supply_chain_system__role_6__resp_1 -> erp_supply_chain_system__role_6
+创建关系成功 [172/282]: erp_supply_chain_system__m2__api1 -> erp_supply_chain_system__role_6__resp_1
+创建关系失败 [173/282]: 找不到父节点 erp_supply_chain_system__role_6__resp_1 或子节点 erp_supply_chain_system__m2__api2
+创建关系失败 [174/282]: 找不到父节点 erp_supply_chain_system__role_6__resp_1 或子节点 erp_supply_chain_system__m2__api3
+创建关系失败 [175/282]: 找不到父节点 erp_supply_chain_system__role_6__resp_1 或子节点 erp_supply_chain_system__m2__api4
+创建关系失败 [176/282]: 找不到父节点 erp_supply_chain_system__role_6__resp_1 或子节点 erp_supply_chain_system__m3__api1
+创建关系失败 [177/282]: 找不到父节点 erp_supply_chain_system__role_6__resp_1 或子节点 erp_supply_chain_system__m3__api2
+创建关系失败 [178/282]: 找不到父节点 erp_supply_chain_system__role_6__resp_1 或子节点 erp_supply_chain_system__m3__api3
+创建关系成功 [179/282]: erp_supply_chain_system__m3__api4 -> erp_supply_chain_system__role_6__resp_1
+创建关系成功 [180/282]: erp_supply_chain_system__role_6__resp_2 -> erp_supply_chain_system__role_6
+创建关系失败 [181/282]: 找不到父节点 erp_supply_chain_system__role_6__resp_2 或子节点 erp_supply_chain_system__m5__api1
+创建关系失败 [182/282]: 找不到父节点 erp_supply_chain_system__role_6__resp_2 或子节点 erp_supply_chain_system__m5__api2
+创建关系失败 [183/282]: 找不到父节点 erp_supply_chain_system__role_6__resp_2 或子节点 erp_supply_chain_system__m5__api3
+创建关系失败 [184/282]: 找不到父节点 erp_supply_chain_system__role_6__resp_2 或子节点 erp_supply_chain_system__m5__api4
+创建关系失败 [185/282]: 找不到父节点 erp_supply_chain_system__role_6__resp_2 或子节点 erp_supply_chain_system__m5__api5
+创建关系失败 [186/282]: 找不到父节点 erp_supply_chain_system__role_6__resp_2 或子节点 erp_supply_chain_system__m5__api6
+创建关系失败 [187/282]: 找不到父节点 erp_supply_chain_system__role_6__resp_2 或子节点 erp_supply_chain_system__m5__api7
+创建关系成功 [188/282]: erp_supply_chain_system__role_6__resp_3 -> erp_supply_chain_system__role_6
+创建关系失败 [189/282]: 找不到父节点 erp_supply_chain_system__role_6__resp_3 或子节点 erp_supply_chain_system__m4__api1
+创建关系失败 [190/282]: 找不到父节点 erp_supply_chain_system__role_6__resp_3 或子节点 erp_supply_chain_system__m4__api2
+创建关系失败 [191/282]: 找不到父节点 erp_supply_chain_system__role_6__resp_3 或子节点 erp_supply_chain_system__m4__api3
+创建关系失败 [192/282]: 找不到父节点 erp_supply_chain_system__role_6__resp_3 或子节点 erp_supply_chain_system__m4__api4
+创建关系失败 [193/282]: 找不到父节点 erp_supply_chain_system__role_6__resp_3 或子节点 erp_supply_chain_system__m4__api5
+创建关系失败 [194/282]: 找不到父节点 erp_supply_chain_system__role_6__resp_3 或子节点 erp_supply_chain_system__m4__api6
+创建关系失败 [195/282]: 找不到父节点 erp_supply_chain_system__role_6__resp_3 或子节点 erp_supply_chain_system__m4__api7
+创建关系成功 [196/282]: erp_procurement_system -> erp_root
+创建关系成功 [197/282]: erp_procurement_system__role_1 -> erp_procurement_system
+创建关系成功 [198/282]: erp_procurement_system__role_1__resp_1 -> erp_procurement_system__role_1
+创建关系成功 [199/282]: erp_procurement_system__role_1__resp_2 -> erp_procurement_system__role_1
+创建关系成功 [200/282]: erp_procurement_system__m7__api1 -> erp_procurement_system__role_1__resp_2
+创建关系成功 [201/282]: erp_procurement_system__m7__api2 -> erp_procurement_system__role_1__resp_2
+创建关系成功 [202/282]: erp_procurement_system__m7__api3 -> erp_procurement_system__role_1__resp_2
+创建关系成功 [203/282]: erp_procurement_system__m7__api4 -> erp_procurement_system__role_1__resp_2
+创建关系成功 [204/282]: erp_procurement_system__m7__api5 -> erp_procurement_system__role_1__resp_2
+创建关系成功 [205/282]: erp_procurement_system__m7__api6 -> erp_procurement_system__role_1__resp_2
+创建关系成功 [206/282]: erp_procurement_system__m7__api7 -> erp_procurement_system__role_1__resp_2
+创建关系成功 [207/282]: erp_procurement_system__m7__api8 -> erp_procurement_system__role_1__resp_2
+创建关系成功 [208/282]: erp_procurement_system__m7__api9 -> erp_procurement_system__role_1__resp_2
+创建关系成功 [209/282]: erp_procurement_system__role_1__resp_3 -> erp_procurement_system__role_1
+创建关系成功 [210/282]: erp_procurement_system__role_2 -> erp_procurement_system
+创建关系成功 [211/282]: erp_procurement_system__role_2__resp_1 -> erp_procurement_system__role_2
+创建关系成功 [212/282]: erp_procurement_system__role_2__resp_2 -> erp_procurement_system__role_2
+创建关系成功 [213/282]: erp_procurement_system__role_2__resp_3 -> erp_procurement_system__role_2
+创建关系成功 [214/282]: erp_procurement_system__role_2__resp_4 -> erp_procurement_system__role_2
+创建关系失败 [215/282]: 找不到父节点 erp_procurement_system__role_2__resp_4 或子节点 erp_procurement_system__m1__api1
+创建关系失败 [216/282]: 找不到父节点 erp_procurement_system__role_2__resp_4 或子节点 erp_procurement_system__m1__api2
+创建关系失败 [217/282]: 找不到父节点 erp_procurement_system__role_2__resp_4 或子节点 erp_procurement_system__m1__api3
+创建关系失败 [218/282]: 找不到父节点 erp_procurement_system__role_2__resp_4 或子节点 erp_procurement_system__m1__api4
+创建关系成功 [219/282]: erp_procurement_system__m1__api5 -> erp_procurement_system__role_2__resp_4
+创建关系成功 [220/282]: erp_procurement_system__m1__api6 -> erp_procurement_system__role_2__resp_4
+创建关系失败 [221/282]: 找不到父节点 erp_procurement_system__role_2__resp_4 或子节点 erp_procurement_system__m1__api7
+创建关系失败 [222/282]: 找不到父节点 erp_procurement_system__role_2__resp_4 或子节点 erp_procurement_system__m1__api8
+创建关系成功 [223/282]: erp_procurement_system__role_3 -> erp_procurement_system
+创建关系成功 [224/282]: erp_procurement_system__role_3__resp_1 -> erp_procurement_system__role_3
+创建关系失败 [225/282]: 找不到父节点 erp_procurement_system__role_3__resp_1 或子节点 erp_procurement_system__m2__api1
+创建关系失败 [226/282]: 找不到父节点 erp_procurement_system__role_3__resp_1 或子节点 erp_procurement_system__m2__api2
+创建关系失败 [227/282]: 找不到父节点 erp_procurement_system__role_3__resp_1 或子节点 erp_procurement_system__m2__api3
+创建关系失败 [228/282]: 找不到父节点 erp_procurement_system__role_3__resp_1 或子节点 erp_procurement_system__m2__api4
+创建关系失败 [229/282]: 找不到父节点 erp_procurement_system__role_3__resp_1 或子节点 erp_procurement_system__m2__api5
+创建关系失败 [230/282]: 找不到父节点 erp_procurement_system__role_3__resp_1 或子节点 erp_procurement_system__m2__api6
+创建关系失败 [231/282]: 找不到父节点 erp_procurement_system__role_3__resp_1 或子节点 erp_procurement_system__m2__api7
+创建关系成功 [232/282]: erp_procurement_system__role_3__resp_2 -> erp_procurement_system__role_3
+创建关系成功 [233/282]: erp_procurement_system__role_3__resp_3 -> erp_procurement_system__role_3
+创建关系失败 [234/282]: 找不到父节点 erp_procurement_system__role_3__resp_3 或子节点 erp_procurement_system__m4__api1
+创建关系失败 [235/282]: 找不到父节点 erp_procurement_system__role_3__resp_3 或子节点 erp_procurement_system__m4__api2
+创建关系失败 [236/282]: 找不到父节点 erp_procurement_system__role_3__resp_3 或子节点 erp_procurement_system__m4__api3
+创建关系失败 [237/282]: 找不到父节点 erp_procurement_system__role_3__resp_3 或子节点 erp_procurement_system__m4__api4
+创建关系失败 [238/282]: 找不到父节点 erp_procurement_system__role_3__resp_3 或子节点 erp_procurement_system__m4__api5
+创建关系失败 [239/282]: 找不到父节点 erp_procurement_system__role_3__resp_3 或子节点 erp_procurement_system__m4__api6
+创建关系失败 [240/282]: 找不到父节点 erp_procurement_system__role_3__resp_3 或子节点 erp_procurement_system__m4__api7
+创建关系成功 [241/282]: erp_procurement_system__role_4 -> erp_procurement_system
+创建关系成功 [242/282]: erp_procurement_system__role_4__resp_1 -> erp_procurement_system__role_4
+创建关系成功 [243/282]: erp_procurement_system__role_4__resp_1__resp_1 -> erp_procurement_system__role_4__resp_1
+创建关系成功 [244/282]: erp_procurement_system__role_4__resp_1__resp_2 -> erp_procurement_system__role_4__resp_1
+创建关系成功 [245/282]: erp_procurement_system__role_4__resp_1__resp_3 -> erp_procurement_system__role_4__resp_1
+创建关系成功 [246/282]: erp_procurement_system__role_4__resp_1__resp_4 -> erp_procurement_system__role_4__resp_1
+创建关系成功 [247/282]: erp_procurement_system__role_4__resp_2 -> erp_procurement_system__role_4
+创建关系成功 [248/282]: erp_procurement_system__role_5 -> erp_procurement_system
+创建关系成功 [249/282]: erp_procurement_system__role_5__resp_1 -> erp_procurement_system__role_5
+创建关系成功 [250/282]: erp_procurement_system__role_5__resp_1__resp_1 -> erp_procurement_system__role_5__resp_1
+创建关系成功 [251/282]: erp_procurement_system__role_5__resp_1__resp_2 -> erp_procurement_system__role_5__resp_1
+创建关系失败 [252/282]: 找不到父节点 erp_procurement_system__role_5__resp_1__resp_2 或子节点 erp_procurement_system__m3__api1
+创建关系失败 [253/282]: 找不到父节点 erp_procurement_system__role_5__resp_1__resp_2 或子节点 erp_procurement_system__m3__api2
+创建关系失败 [254/282]: 找不到父节点 erp_procurement_system__role_5__resp_1__resp_2 或子节点 erp_procurement_system__m3__api3
+创建关系失败 [255/282]: 找不到父节点 erp_procurement_system__role_5__resp_1__resp_2 或子节点 erp_procurement_system__m3__api4
+创建关系失败 [256/282]: 找不到父节点 erp_procurement_system__role_5__resp_1__resp_2 或子节点 erp_procurement_system__m3__api5
+创建关系失败 [257/282]: 找不到父节点 erp_procurement_system__role_5__resp_1__resp_2 或子节点 erp_procurement_system__m3__api6
+创建关系失败 [258/282]: 找不到父节点 erp_procurement_system__role_5__resp_1__resp_2 或子节点 erp_procurement_system__m3__api7
+创建关系成功 [259/282]: erp_procurement_system__role_5__resp_1__resp_3 -> erp_procurement_system__role_5__resp_1
+创建关系成功 [260/282]: erp_procurement_system__role_5__resp_2 -> erp_procurement_system__role_5
+创建关系失败 [261/282]: 找不到父节点 erp_procurement_system__role_5__resp_2 或子节点 erp_procurement_system__m5__api1
+创建关系失败 [262/282]: 找不到父节点 erp_procurement_system__role_5__resp_2 或子节点 erp_procurement_system__m5__api2
+创建关系失败 [263/282]: 找不到父节点 erp_procurement_system__role_5__resp_2 或子节点 erp_procurement_system__m5__api3
+创建关系失败 [264/282]: 找不到父节点 erp_procurement_system__role_5__resp_2 或子节点 erp_procurement_system__m5__api4
+创建关系失败 [265/282]: 找不到父节点 erp_procurement_system__role_5__resp_2 或子节点 erp_procurement_system__m5__api5
+创建关系失败 [266/282]: 找不到父节点 erp_procurement_system__role_5__resp_2 或子节点 erp_procurement_system__m5__api6
+创建关系失败 [267/282]: 找不到父节点 erp_procurement_system__role_5__resp_2 或子节点 erp_procurement_system__m5__api7
+创建关系失败 [268/282]: 找不到父节点 erp_procurement_system__role_5__resp_2 或子节点 erp_procurement_system__m5__api8
+创建关系失败 [269/282]: 找不到父节点 erp_procurement_system__role_5__resp_2 或子节点 erp_procurement_system__m5__api9
+创建关系失败 [270/282]: 找不到父节点 erp_procurement_system__role_5__resp_2 或子节点 erp_procurement_system__m5__api10
+创建关系失败 [271/282]: 找不到父节点 erp_procurement_system__role_5__resp_2 或子节点 erp_procurement_system__m5__api11
+创建关系失败 [272/282]: 找不到父节点 erp_procurement_system__role_5__resp_2 或子节点 erp_procurement_system__m5__api12
+创建关系成功 [273/282]: erp_procurement_system__m5__api13 -> erp_procurement_system__role_5__resp_2
+创建关系失败 [274/282]: 找不到父节点 erp_procurement_system__role_5__resp_2 或子节点 erp_procurement_system__m5__api14
+创建关系失败 [275/282]: 找不到父节点 erp_procurement_system__role_5__resp_2 或子节点 erp_procurement_system__m5__api15
+创建关系成功 [276/282]: erp_procurement_system__m6__api1 -> erp_procurement_system__role_5__resp_2
+创建关系成功 [277/282]: erp_procurement_system__m6__api2 -> erp_procurement_system__role_5__resp_2
+创建关系失败 [278/282]: 找不到父节点 erp_procurement_system__role_5__resp_2 或子节点 erp_procurement_system__m6__api3
+创建关系失败 [279/282]: 找不到父节点 erp_procurement_system__role_5__resp_2 或子节点 erp_procurement_system__m6__api4
+创建关系失败 [280/282]: 找不到父节点 erp_procurement_system__role_5__resp_2 或子节点 erp_procurement_system__m6__api5
+创建关系失败 [281/282]: 找不到父节点 erp_procurement_system__role_5__resp_2 或子节点 erp_procurement_system__m6__api6
+创建关系失败 [282/282]: 找不到父节点 erp_procurement_system__role_5__resp_2 或子节点 erp_procurement_system__m6__api7

@@ -1,0 +1,477 @@
+app:
+  description: 竞品分析
+  icon: 🔍
+  icon_background: '#E0F2FE'
+  mode: workflow
+  name: 6.0.4竞品分析
+  use_icon_as_answer_icon: false
+dependencies:
+- current_identifier: null
+  type: marketplace
+  value:
+    marketplace_plugin_unique_identifier: langgenius/tongyi:0.1.3@08f25a10c0617a3512fac091a0f0d894925357e965efe40fdf95cb48e09b62d1
+    version: null
+kind: app
+version: 0.4.0
+workflow:
+  conversation_variables: []
+  environment_variables: []
+  features:
+    file_upload:
+      allowed_file_extensions:
+      - .JPG
+      - .JPEG
+      - .PNG
+      - .GIF
+      - .WEBP
+      - .SVG
+      allowed_file_types:
+      - image
+      allowed_file_upload_methods:
+      - local_file
+      - remote_url
+      enabled: false
+      fileUploadConfig:
+        audio_file_size_limit: 50
+        batch_count_limit: 5
+        file_size_limit: 15
+        image_file_size_limit: 10
+        video_file_size_limit: 100
+        workflow_file_upload_limit: 10
+      image:
+        enabled: false
+        number_limits: 3
+        transfer_methods:
+        - local_file
+        - remote_url
+      number_limits: 3
+    opening_statement: ''
+    retriever_resource:
+      enabled: false
+    sensitive_word_avoidance:
+      enabled: false
+    speech_to_text:
+      enabled: false
+    suggested_questions: []
+    suggested_questions_after_answer:
+      enabled: false
+    text_to_speech:
+      enabled: false
+      language: ''
+      voice: ''
+  graph:
+    edges:
+    - data:
+        sourceType: http-request
+        targetType: end
+      id: edge-http-to-end
+      source: http-save
+      sourceHandle: source
+      target: end
+      targetHandle: target
+      type: custom
+    - data:
+        isInIteration: false
+        isInLoop: false
+        sourceType: start
+        targetType: llm
+      id: start-source-1765243687491-target
+      source: start
+      sourceHandle: source
+      target: '1765243687491'
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInIteration: false
+        isInLoop: false
+        sourceType: llm
+        targetType: code
+      id: 1765243687491-source-1765245041941-target
+      source: '1765243687491'
+      sourceHandle: source
+      target: '1765245041941'
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInLoop: false
+        sourceType: code
+        targetType: http-request
+      id: 1765245041941-source-http-save-target
+      source: '1765245041941'
+      sourceHandle: source
+      target: http-save
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    nodes:
+    - data:
+        desc: 输入产品和企业信息
+        selected: false
+        title: 开始
+        type: start
+        variables:
+        - label: 产品名
+          max_length: 48
+          options: []
+          required: true
+          type: text-input
+          variable: e_product_id_name
+        - label: 产品简介
+          max_length: 256
+          options: []
+          required: true
+          type: paragraph
+          variable: e_product_id_detail
+        - label: 产品序号
+          max_length: 48
+          options: []
+          required: true
+          type: text-input
+          variable: e_product_id
+        - label: 企业名
+          max_length: 48
+          options: []
+          required: true
+          type: text-input
+          variable: e_company_name
+        - label: 企业年收入
+          max_length: 48
+          options: []
+          required: true
+          type: text-input
+          variable: e_company_revenue
+        - label: 市场洞察结果
+          max_length: 4096
+          options: []
+          required: true
+          type: paragraph
+          variable: market_insight_result
+        - label: 用户id
+          max_length: 48
+          options: []
+          required: true
+          type: text-input
+          variable: user_id
+        - label: 租户id
+          max_length: 48
+          options: []
+          required: true
+          type: text-input
+          variable: tenant_id
+        - label: 任务id
+          max_length: 48
+          options: []
+          required: true
+          type: text-input
+          variable: taskId
+      height: 324
+      id: start
+      position:
+        x: 80
+        y: 282
+      positionAbsolute:
+        x: 80
+        y: 282
+      selected: false
+      type: custom
+      width: 242
+    - data:
+        authorization:
+          type: no-auth
+        body:
+          data:
+          - id: key-value-1
+            key: ''
+            type: text
+            value: "{\n  \"productId\":\"{{#start.e_product_id#}}\",\n  \"workflowTaskId\"\
+              :\"{{#start.taskId#}}\",\n  \"competitorsList\":\"{{#1765245041941.competitorsList#}}\"\
+              ,\n  \"featureComparison\":\"{{#1765243687491.structured_output.featureComparison#}}\"\
+              ,\n  \"marketPerformance\":\"{{#1765243687491.structured_output.marketPerformance#}}\"\
+              ,\n  \"pricingComparison\":\"{{#1765243687491.structured_output.pricingComparison#}}\"\
+              ,\n  \"swotAnalysis\":\"{{#1765245041941.swotAnalysis#}}\",\n  \"competitiveAdvantage\"\
+              :\"{{#1765243687491.structured_output.competitiveAdvantage#}}\",\n \
+              \ \"strategySuggestion\":\"{{#1765245041941.strategySuggestion#}}\"\n\
+              }"
+          type: json
+        desc: 保存竞品分析结果到后端
+        headers: 'Authorization:test{{#start.user_id#}}
+
+          tenant-id:{{#start.tenant_id#}}'
+        method: post
+        params: ''
+        retry_config:
+          max_retries: 3
+          retry_enabled: true
+          retry_interval: 100
+        selected: false
+        ssl_verify: true
+        timeout:
+          connect: 10
+          read: 60
+          write: 60
+        title: 保存到后端
+        type: http-request
+        url: https://agent.cstlanbaai.com/gateway/admin-api/scrm/pma-competitive-analysis/create
+      height: 198
+      id: http-save
+      position:
+        x: 951.5339324044651
+        y: 282
+      positionAbsolute:
+        x: 951.5339324044651
+        y: 282
+      selected: false
+      type: custom
+      width: 242
+    - data:
+        desc: 输出结果
+        outputs:
+        - value_selector:
+          - http-save
+          - body
+          value_type: string
+          variable: competitive_analysis_result
+        selected: false
+        title: 结束
+        type: end
+      height: 116
+      id: end
+      position:
+        x: 1250.4431565227194
+        y: 282
+      positionAbsolute:
+        x: 1250.4431565227194
+        y: 282
+      selected: false
+      type: custom
+      width: 242
+    - data:
+        context:
+          enabled: false
+          variable_selector: []
+        model:
+          completion_params:
+            temperature: 0.7
+          mode: chat
+          name: qwen3-max
+          provider: langgenius/tongyi/tongyi
+        prompt_template:
+        - id: 3b9c2d6b-1dfa-4599-9276-97bbdb3fa627
+          role: system
+          text: "背景：\n你是一个市场分析师，用户公司推出了一款产品，用户会告诉你公司名，产品名和产品简介，为了帮用户更好地理解市场环境和竞争对手的表现，你需要进行详细的产品竞品分析，这对于优化用户的产品策略和提升竞争力至关重要。\n\
+            \n目标：\n请根据产品简介，进行全面的竞品分析。分析应涵盖主要竞争对手及其产品的特性、优势、劣势、市场定位及用户反馈等方面，并提出针对性的竞争策略建议。\n\
+            \n输出要求：\n请以JSON格式输出，必须包含以下字段：\n- productId: 产品序号（从用户输入获取）\n- workflowTaskId:\
+            \ 任务ID（从用户输入获取）\n- competitorsList: 竞品列表（包含name、company、features、strengths、weaknesses、marketPosition、pricing）\n\
+            - featureComparison: 功能对比分析\n- marketPerformance: 市场表现分析\n- pricingComparison:\
+            \ 定价对比分析\n- swotAnalysis: SWOT分析（包含strengths、weaknesses、opportunities、threats）\n\
+            - competitiveAdvantage: 我方核心竞争优势\n- strategySuggestion: 竞争策略建议列表\n\n输出格式示例：\n\
+            {\n  \"productId\": \"产品序号\",\n  \"workflowTaskId\": \"任务ID\",\n  \"competitorsList\"\
+            : [\n    {\n      \"name\": \"竞品名称\",\n      \"company\": \"所属公司\",\n\
+            \      \"features\": [\"特性1\", \"特性2\"],\n      \"strengths\": [\"优势1\"\
+            , \"优势2\"],\n      \"weaknesses\": [\"劣势1\", \"劣势2\"],\n      \"marketPosition\"\
+            : \"市场定位\",\n      \"pricing\": \"定价信息\"\n    }\n  ],\n  \"featureComparison\"\
+            : \"功能对比分析\",\n  \"marketPerformance\": \"市场表现分析\",\n  \"pricingComparison\"\
+            : \"定价对比分析\",\n  \"swotAnalysis\": {\n    \"strengths\": [\"优势1\"],\n\
+            \    \"weaknesses\": [\"劣势1\"],\n    \"opportunities\": [\"机会1\"],\n \
+            \   \"threats\": [\"威胁1\"]\n  },\n  \"competitiveAdvantage\": \"我方核心竞争优势\"\
+            ,\n  \"strategySuggestion\": [\"竞争策略建议1\", \"竞争策略建议2\"]\n}\n\n风格：采用市场分析师的专业写作风格，注重数据支持和逻辑推理。\n\
+            语气：使用正式而客观的语气，保持专业性和可靠性。\n"
+        - id: 25e8b200-d293-4776-a679-fabb151ea6e7
+          role: user
+          text: '以下是企业和产品信息：
+
+            - 产品序号：{{#start.e_product_id#}}
+
+            - 任务ID：{{#start.taskId#}}
+
+            - 产品名称：{{#start.e_product_id_name#}}
+
+            - 企业名称：{{#start.e_company_name#}}
+
+            - 企业年营收规模：{{#start.e_company_revenue#}}元
+
+            - 产品主要功能：{{#start.e_product_id_detail#}}
+
+
+            【市场洞察分析结果】：
+
+            {{#start.market_insight_result#}}
+
+
+            请基于以上市场洞察结果进行竞品分析。注意：输出JSON必须包含productId和workflowTaskId字段。
+
+            '
+        selected: false
+        structured_output:
+          schema:
+            additionalProperties: false
+            properties:
+              competitiveAdvantage:
+                type: string
+              competitorsList:
+                items:
+                  additionalProperties: false
+                  properties:
+                    company:
+                      type: string
+                    features:
+                      items:
+                        type: string
+                      type: array
+                    marketPosition:
+                      type: string
+                    name:
+                      type: string
+                    pricing:
+                      type: string
+                    strengths:
+                      items:
+                        type: string
+                      type: array
+                    weaknesses:
+                      items:
+                        type: string
+                      type: array
+                  required:
+                  - name
+                  - company
+                  - features
+                  - strengths
+                  - weaknesses
+                  - marketPosition
+                  - pricing
+                  type: object
+                type: array
+              featureComparison:
+                type: string
+              marketPerformance:
+                type: string
+              pricingComparison:
+                type: string
+              productId:
+                type: string
+              strategySuggestion:
+                items:
+                  type: string
+                type: array
+              swotAnalysis:
+                additionalProperties: false
+                properties:
+                  opportunities:
+                    items:
+                      type: string
+                    type: array
+                  strengths:
+                    items:
+                      type: string
+                    type: array
+                  threats:
+                    items:
+                      type: string
+                    type: array
+                  weaknesses:
+                    items:
+                      type: string
+                    type: array
+                required:
+                - strengths
+                - weaknesses
+                - opportunities
+                - threats
+                type: object
+              workflowTaskId:
+                type: string
+            required:
+            - productId
+            - workflowTaskId
+            - competitorsList
+            - featureComparison
+            - marketPerformance
+            - pricingComparison
+            - swotAnalysis
+            - competitiveAdvantage
+            - strategySuggestion
+            type: object
+        structured_output_enabled: true
+        title: 竞品分析
+        type: llm
+        vision:
+          enabled: false
+      height: 88
+      id: '1765243687491'
+      position:
+        x: 382
+        y: 282
+      positionAbsolute:
+        x: 382
+        y: 282
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 242
+    - data:
+        code: "import json\ndef main(competitorsList: list, swotAnalysis: dict, strategySuggestion:\
+          \ list) -> dict:\n    result = {\n        \"competitorsList\": \"\",\n \
+          \       \"swotAnalysis\": \"\",\n        \"strategySuggestion\": \"\"\n\
+          \    }\n    try:\n        json_str = json.dumps(competitorsList, ensure_ascii=False,\
+          \ separators=(',', ':'))\n        result[\"competitorsList\"] = json.dumps(json_str,\
+          \ ensure_ascii=False)\n        json_str = json.dumps(swotAnalysis, ensure_ascii=False,\
+          \ separators=(',', ':'))\n        result[\"swotAnalysis\"] = json.dumps(json_str,\
+          \ ensure_ascii=False)\n        json_str = json.dumps(strategySuggestion,\
+          \ ensure_ascii=False, separators=(',', ':'))\n        result[\"strategySuggestion\"\
+          ] = json.dumps(json_str, ensure_ascii=False)\n    except Exception as e:\n\
+          \        pass\n    return result\n"
+        code_language: python3
+        outputs:
+          competitorsList:
+            children: null
+            type: string
+          strategySuggestion:
+            children: null
+            type: string
+          swotAnalysis:
+            children: null
+            type: string
+        selected: true
+        title: 转JSON
+        type: code
+        variables:
+        - value_selector:
+          - '1765243687491'
+          - structured_output
+          - competitorsList
+          value_type: object
+          variable: competitorsList
+        - value_selector:
+          - '1765243687491'
+          - structured_output
+          - swotAnalysis
+          value_type: object
+          variable: swotAnalysis
+        - value_selector:
+          - '1765243687491'
+          - structured_output
+          - strategySuggestion
+          value_type: object
+          variable: strategySuggestion
+      height: 52
+      id: '1765245041941'
+      position:
+        x: 682.6804920892272
+        y: 282
+      positionAbsolute:
+        x: 682.6804920892272
+        y: 282
+      selected: true
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 242
+    viewport:
+      x: 354.6404438156005
+      y: 299.82818369323235
+      zoom: 0.7578582832551992
+  rag_pipeline_variables: []

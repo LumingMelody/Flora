@@ -76,7 +76,7 @@ class MySQLConnectionPool(BaseConnectionPool):
         """
 
         if self.config==None:
-            from config import MYSQL_HOST, MYSQL_PORT, MYSQL_USER, MYSQL_PASSWORD, MYSQL_CHARSET, MYSQL_MAX_CONNECTIONS
+            from env import MYSQL_HOST, MYSQL_PORT, MYSQL_USER, MYSQL_PASSWORD, MYSQL_CHARSET, MYSQL_MAX_CONNECTIONS
             self.config = {
                 'host': MYSQL_HOST,
                 'port': MYSQL_PORT,
@@ -165,7 +165,7 @@ class PostgreSQLConnectionPool(BaseConnectionPool):
             psycopg2.connection: 数据库连接对象
         """
         if self.config==None:
-            from config import POSTGRESQL_HOST, POSTGRESQL_PORT, POSTGRESQL_USER, POSTGRESQL_PASSWORD
+            from env import POSTGRESQL_HOST, POSTGRESQL_PORT, POSTGRESQL_USER, POSTGRESQL_PASSWORD
             self.config = {
                 'host': POSTGRESQL_HOST,
                 'port': POSTGRESQL_PORT,
@@ -249,7 +249,7 @@ class SQLServerConnectionPool(BaseConnectionPool):
             pyodbc.Connection: 数据库连接对象
         """
         if self.config==None:
-            from config import SQLSERVER_HOST, SQLSERVER_PORT, SQLSERVER_USER, SQLSERVER_PASSWORD, SQLSERVER_DRIVER
+            from env import SQLSERVER_HOST, SQLSERVER_PORT, SQLSERVER_USER, SQLSERVER_PASSWORD, SQLSERVER_DRIVER
             self.config = {
                 'host': SQLSERVER_HOST,
                 'port': SQLSERVER_PORT,
@@ -346,7 +346,7 @@ class OracleConnectionPool(BaseConnectionPool):
             cx_Oracle.Connection: 数据库连接对象
         """
         if self.config==None:
-            from config import ORACLE_HOST, ORACLE_PORT, ORACLE_USER, ORACLE_PASSWORD, ORACLE_SID
+            from env import ORACLE_HOST, ORACLE_PORT, ORACLE_USER, ORACLE_PASSWORD, ORACLE_SID
             self.config = {
                 'host': ORACLE_HOST,
                 'port': ORACLE_PORT,
@@ -415,7 +415,7 @@ class ConnectionPoolFactory:
     """
     
     @staticmethod
-    def create_pool(db_type: str, config: Dict[str, Any]) -> BaseConnectionPool:
+    def create_pool(db_type: str, config: Optional[Dict[str, Any]] = None) -> BaseConnectionPool:
         """
         根据数据库类型创建相应的连接池实例
         

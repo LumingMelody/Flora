@@ -1,0 +1,571 @@
+app:
+  description: MQL判定标准制定
+  icon: 🤖
+  icon_background: '#FFEAD5'
+  mode: workflow
+  name: 8.0.1MQL判定标准制定
+  use_icon_as_answer_icon: false
+dependencies:
+- current_identifier: null
+  type: marketplace
+  value:
+    marketplace_plugin_unique_identifier: langgenius/tongyi:0.1.3@08f25a10c0617a3512fac091a0f0d894925357e965efe40fdf95cb48e09b62d1
+    version: null
+kind: app
+version: 0.4.0
+workflow:
+  conversation_variables: []
+  environment_variables: []
+  features:
+    file_upload:
+      allowed_file_extensions:
+      - .JPG
+      - .JPEG
+      - .PNG
+      - .GIF
+      - .WEBP
+      - .SVG
+      allowed_file_types:
+      - image
+      allowed_file_upload_methods:
+      - local_file
+      - remote_url
+      enabled: false
+      fileUploadConfig:
+        audio_file_size_limit: 50
+        batch_count_limit: 5
+        file_size_limit: 15
+        image_file_size_limit: 10
+        video_file_size_limit: 100
+        workflow_file_upload_limit: 10
+      image:
+        enabled: false
+        number_limits: 3
+        transfer_methods:
+        - local_file
+        - remote_url
+      number_limits: 3
+    opening_statement: ''
+    retriever_resource:
+      enabled: false
+    sensitive_word_avoidance:
+      enabled: false
+    speech_to_text:
+      enabled: false
+    suggested_questions: []
+    suggested_questions_after_answer:
+      enabled: false
+    text_to_speech:
+      enabled: false
+      language: ''
+      voice: ''
+  graph:
+    edges:
+    - data:
+        sourceType: start
+        targetType: llm
+      id: edge-start-to-llm
+      source: start
+      sourceHandle: source
+      target: llm-mql-criteria
+      targetHandle: target
+      type: custom
+    - data:
+        sourceType: llm
+        targetType: code
+      id: edge-llm-to-code
+      source: llm-mql-criteria
+      sourceHandle: source
+      target: code-json
+      targetHandle: target
+      type: custom
+    - data:
+        sourceType: code
+        targetType: http-request
+      id: edge-code-to-http
+      source: code-json
+      sourceHandle: source
+      target: http-save
+      targetHandle: target
+      type: custom
+    - data:
+        sourceType: http-request
+        targetType: end
+      id: edge-http-to-end
+      source: http-save
+      sourceHandle: source
+      target: end
+      targetHandle: target
+      type: custom
+    nodes:
+    - data:
+        desc: 输入产品和企业信息
+        selected: false
+        title: 开始
+        type: start
+        variables:
+        - label: 产品名
+          max_length: 48
+          options: []
+          required: true
+          type: text-input
+          variable: e_product_id_name
+        - label: 产品简介
+          max_length: 256
+          options: []
+          required: true
+          type: paragraph
+          variable: e_product_id_detail
+        - label: 产品序号
+          max_length: 48
+          options: []
+          required: true
+          type: text-input
+          variable: e_product_id
+        - label: 企业名
+          max_length: 48
+          options: []
+          required: true
+          type: text-input
+          variable: e_company_name
+        - label: 企业年收入
+          max_length: 48
+          options: []
+          required: true
+          type: text-input
+          variable: e_company_revenue
+        - label: 用户id
+          max_length: 48
+          options: []
+          required: true
+          type: text-input
+          variable: user_id
+        - label: 租户id
+          max_length: 48
+          options: []
+          required: true
+          type: text-input
+          variable: tenant_id
+        - label: 任务id
+          max_length: 48
+          options: []
+          required: true
+          type: text-input
+          variable: taskId
+      height: 298
+      id: start
+      position:
+        x: 80
+        y: 282
+      positionAbsolute:
+        x: 80
+        y: 282
+      selected: false
+      type: custom
+      width: 242
+    - data:
+        context:
+          enabled: false
+          variable_selector: []
+        desc: MQL判定标准制定分析
+        model:
+          completion_params:
+            temperature: 0.7
+          mode: chat
+          name: qwen3-max
+          provider: langgenius/tongyi/tongyi
+        prompt_template:
+        - id: prompt-system
+          role: system
+          text: '请你作为一名专业的营销运营专家，我会向你提供企业的产品和业务信息。请你为该企业制定详细的MQL判定标准和评分模型，确保能够准确识别高质量的营销线索。
+
+
+            请严格按照JSON Schema输出分析结果，必须包含以下字段：
+
+            - productId: 产品ID（字符串类型）
+
+            - workflowTaskId: 工作流任务ID（字符串类型）
+
+            - targetIndustries: 目标行业列表（数组类型）
+
+            - companySizeCriteria: 企业规模标准（对象类型）
+
+            - decisionMakerLevels: 决策者级别（数组类型）
+
+            - geographicCriteria: 地理位置标准（对象类型）
+
+            - websiteBehaviorWeights: 网站行为权重（对象类型）
+
+            - contentInteractionWeights: 内容互动权重（对象类型）
+
+            - emailInteractionWeights: 邮件互动权重（对象类型）
+
+            - eventParticipationWeights: 活动参与权重（对象类型）
+
+            - socialInteractionWeights: 社交互动权重（对象类型）
+
+            - highIntentSignals: 高意向信号（数组类型）
+
+            - mediumIntentSignals: 中意向信号（数组类型）
+
+            - lowIntentSignals: 低意向信号（数组类型）
+
+            - agentMqlQualifiedThreshold: MQL合格阈值（数字类型）
+
+            - priorityFollowupThreshold: 优先跟进阈值（数字类型）
+
+            - nurturingThreshold: 培育阈值（数字类型）
+
+            '
+        - id: prompt-user
+          role: user
+          text: '以下是企业和产品信息：
+
+            - 产品名称：{{#start.e_product_id_name#}}
+
+            - 企业名称：{{#start.e_company_name#}}
+
+            - 企业年营收规模：{{#start.e_company_revenue#}}元
+
+            - 产品主要功能：{{#start.e_product_id_detail#}}
+
+            - 产品ID：{{#start.e_product_id#}}
+
+            - 工作流任务ID：{{#start.taskId#}}
+
+
+            请为该企业制定MQL判定标准和评分模型，并在输出中包含产品ID和工作流任务ID。
+
+            '
+        selected: false
+        structured_output:
+          schema:
+            properties:
+              agentMqlQualifiedThreshold:
+                description: MQL合格阈值
+                type: number
+              companySizeCriteria:
+                description: 企业规模标准
+                type: object
+              contentInteractionWeights:
+                description: 内容互动权重
+                type: object
+              decisionMakerLevels:
+                description: 决策者级别
+                items:
+                  type: string
+                type: array
+              emailInteractionWeights:
+                description: 邮件互动权重
+                type: object
+              eventParticipationWeights:
+                description: 活动参与权重
+                type: object
+              geographicCriteria:
+                description: 地理位置标准
+                type: object
+              highIntentSignals:
+                description: 高意向信号
+                items:
+                  type: string
+                type: array
+              lowIntentSignals:
+                description: 低意向信号
+                items:
+                  type: string
+                type: array
+              mediumIntentSignals:
+                description: 中意向信号
+                items:
+                  type: string
+                type: array
+              nurturingThreshold:
+                description: 培育阈值
+                type: number
+              priorityFollowupThreshold:
+                description: 优先跟进阈值
+                type: number
+              productId:
+                description: 产品ID
+                type: string
+              socialInteractionWeights:
+                description: 社交互动权重
+                type: object
+              targetIndustries:
+                description: 目标行业列表
+                items:
+                  type: string
+                type: array
+              websiteBehaviorWeights:
+                description: 网站行为权重
+                type: object
+              workflowTaskId:
+                description: 工作流任务ID
+                type: string
+            required:
+            - productId
+            - workflowTaskId
+            - targetIndustries
+            - companySizeCriteria
+            - decisionMakerLevels
+            - geographicCriteria
+            - websiteBehaviorWeights
+            - contentInteractionWeights
+            - emailInteractionWeights
+            - eventParticipationWeights
+            - socialInteractionWeights
+            - highIntentSignals
+            - mediumIntentSignals
+            - lowIntentSignals
+            - agentMqlQualifiedThreshold
+            - priorityFollowupThreshold
+            - nurturingThreshold
+            type: object
+        structured_output_enabled: true
+        title: MQL判定标准制定
+        type: llm
+        variables: []
+        vision:
+          enabled: false
+      height: 116
+      id: llm-mql-criteria
+      position:
+        x: 384
+        y: 282
+      positionAbsolute:
+        x: 384
+        y: 282
+      selected: false
+      type: custom
+      width: 242
+    - data:
+        code: "import json\ndef main(targetIndustries: list, companySizeCriteria:\
+          \ dict, decisionMakerLevels: list, geographicCriteria: dict, websiteBehaviorWeights:\
+          \ dict, contentInteractionWeights: dict, emailInteractionWeights: dict,\
+          \ eventParticipationWeights: dict, socialInteractionWeights: dict, highIntentSignals:\
+          \ list, mediumIntentSignals: list, lowIntentSignals: list) -> dict:\n  \
+          \  result = {}\n    try:\n        result[\"targetIndustries\"] = json.dumps(targetIndustries,\
+          \ ensure_ascii=False, separators=(',', ':'))\n        result[\"companySizeCriteria\"\
+          ] = json.dumps(companySizeCriteria, ensure_ascii=False, separators=(',',\
+          \ ':'))\n        result[\"decisionMakerLevels\"] = json.dumps(decisionMakerLevels,\
+          \ ensure_ascii=False, separators=(',', ':'))\n        result[\"geographicCriteria\"\
+          ] = json.dumps(geographicCriteria, ensure_ascii=False, separators=(',',\
+          \ ':'))\n        result[\"websiteBehaviorWeights\"] = json.dumps(websiteBehaviorWeights,\
+          \ ensure_ascii=False, separators=(',', ':'))\n        result[\"contentInteractionWeights\"\
+          ] = json.dumps(contentInteractionWeights, ensure_ascii=False, separators=(',',\
+          \ ':'))\n        result[\"emailInteractionWeights\"] = json.dumps(emailInteractionWeights,\
+          \ ensure_ascii=False, separators=(',', ':'))\n        result[\"eventParticipationWeights\"\
+          ] = json.dumps(eventParticipationWeights, ensure_ascii=False, separators=(',',\
+          \ ':'))\n        result[\"socialInteractionWeights\"] = json.dumps(socialInteractionWeights,\
+          \ ensure_ascii=False, separators=(',', ':'))\n        result[\"highIntentSignals\"\
+          ] = json.dumps(highIntentSignals, ensure_ascii=False, separators=(',', ':'))\n\
+          \        result[\"mediumIntentSignals\"] = json.dumps(mediumIntentSignals,\
+          \ ensure_ascii=False, separators=(',', ':'))\n        result[\"lowIntentSignals\"\
+          ] = json.dumps(lowIntentSignals, ensure_ascii=False, separators=(',', ':'))\n\
+          \    except Exception as e:\n        pass\n    return result\n"
+        code_language: python3
+        desc: 将复杂字段转为JSON字符串
+        outputs:
+          companySizeCriteria:
+            children: null
+            type: string
+          contentInteractionWeights:
+            children: null
+            type: string
+          decisionMakerLevels:
+            children: null
+            type: string
+          emailInteractionWeights:
+            children: null
+            type: string
+          eventParticipationWeights:
+            children: null
+            type: string
+          geographicCriteria:
+            children: null
+            type: string
+          highIntentSignals:
+            children: null
+            type: string
+          lowIntentSignals:
+            children: null
+            type: string
+          mediumIntentSignals:
+            children: null
+            type: string
+          socialInteractionWeights:
+            children: null
+            type: string
+          targetIndustries:
+            children: null
+            type: string
+          websiteBehaviorWeights:
+            children: null
+            type: string
+        selected: false
+        title: 转JSON
+        type: code
+        variables:
+        - value_selector:
+          - llm-mql-criteria
+          - structured_output
+          - targetIndustries
+          value_type: array[string]
+          variable: targetIndustries
+        - value_selector:
+          - llm-mql-criteria
+          - structured_output
+          - companySizeCriteria
+          value_type: object
+          variable: companySizeCriteria
+        - value_selector:
+          - llm-mql-criteria
+          - structured_output
+          - decisionMakerLevels
+          value_type: array[string]
+          variable: decisionMakerLevels
+        - value_selector:
+          - llm-mql-criteria
+          - structured_output
+          - geographicCriteria
+          value_type: object
+          variable: geographicCriteria
+        - value_selector:
+          - llm-mql-criteria
+          - structured_output
+          - websiteBehaviorWeights
+          value_type: object
+          variable: websiteBehaviorWeights
+        - value_selector:
+          - llm-mql-criteria
+          - structured_output
+          - contentInteractionWeights
+          value_type: object
+          variable: contentInteractionWeights
+        - value_selector:
+          - llm-mql-criteria
+          - structured_output
+          - emailInteractionWeights
+          value_type: object
+          variable: emailInteractionWeights
+        - value_selector:
+          - llm-mql-criteria
+          - structured_output
+          - eventParticipationWeights
+          value_type: object
+          variable: eventParticipationWeights
+        - value_selector:
+          - llm-mql-criteria
+          - structured_output
+          - socialInteractionWeights
+          value_type: object
+          variable: socialInteractionWeights
+        - value_selector:
+          - llm-mql-criteria
+          - structured_output
+          - highIntentSignals
+          value_type: array[string]
+          variable: highIntentSignals
+        - value_selector:
+          - llm-mql-criteria
+          - structured_output
+          - mediumIntentSignals
+          value_type: array[string]
+          variable: mediumIntentSignals
+        - value_selector:
+          - llm-mql-criteria
+          - structured_output
+          - lowIntentSignals
+          value_type: array[string]
+          variable: lowIntentSignals
+      height: 80
+      id: code-json
+      position:
+        x: 536
+        y: 282
+      positionAbsolute:
+        x: 536
+        y: 282
+      selected: false
+      type: custom
+      width: 242
+    - data:
+        authorization:
+          type: no-auth
+        body:
+          data:
+          - id: key-value-1
+            key: ''
+            type: text
+            value: "{\n  \"productId\":\"{{#start.e_product_id#}}\",\n  \"workflowTaskId\"\
+              :\"{{#start.taskId#}}\",\n  \"targetIndustries\":{{#code-json.targetIndustries#}},\n\
+              \  \"companySizeCriteria\":{{#code-json.companySizeCriteria#}},\n  \"\
+              decisionMakerLevels\":{{#code-json.decisionMakerLevels#}},\n  \"geographicCriteria\"\
+              :{{#code-json.geographicCriteria#}},\n  \"websiteBehaviorWeights\":{{#code-json.websiteBehaviorWeights#}},\n\
+              \  \"contentInteractionWeights\":{{#code-json.contentInteractionWeights#}},\n\
+              \  \"emailInteractionWeights\":{{#code-json.emailInteractionWeights#}},\n\
+              \  \"eventParticipationWeights\":{{#code-json.eventParticipationWeights#}},\n\
+              \  \"socialInteractionWeights\":{{#code-json.socialInteractionWeights#}},\n\
+              \  \"highIntentSignals\":{{#code-json.highIntentSignals#}},\n  \"mediumIntentSignals\"\
+              :{{#code-json.mediumIntentSignals#}},\n  \"lowIntentSignals\":{{#code-json.lowIntentSignals#}},\n\
+              \  \"agentMqlQualifiedThreshold\":{{#llm-mql-criteria.structured_output.agentMqlQualifiedThreshold#}},\n\
+              \  \"priorityFollowupThreshold\":{{#llm-mql-criteria.structured_output.priorityFollowupThreshold#}},\n\
+              \  \"nurturingThreshold\":{{#llm-mql-criteria.structured_output.nurturingThreshold#}}\n\
+              }"
+          type: json
+        desc: 保存MQL判定标准结果到后端
+        headers: 'Authorization:test{{#start.user_id#}}
+
+
+          tenant-id:{{#start.tenant_id#}}'
+        method: post
+        params: ''
+        retry_config:
+          max_retries: 3
+          retry_enabled: true
+          retry_interval: 100
+        selected: false
+        timeout:
+          connect: 10
+          read: 60
+          write: 60
+        title: 保存到后端
+        type: http-request
+        url: https://agent.cstlanbaai.com/gateway/admin-api/scrm/mql-standard-definition/create
+      height: 198
+      id: http-save
+      position:
+        x: 840
+        y: 282
+      positionAbsolute:
+        x: 840
+        y: 282
+      selected: false
+      type: custom
+      width: 242
+    - data:
+        desc: 输出结果
+        outputs:
+        - value_selector:
+          - llm-mql-criteria
+          - structured_output
+          variable: mql_criteria_result
+        selected: false
+        title: 结束
+        type: end
+      height: 116
+      id: end
+      position:
+        x: 1100
+        y: 282
+      positionAbsolute:
+        x: 1100
+        y: 282
+      selected: false
+      type: custom
+      width: 242
+    viewport:
+      x: 0
+      y: 0
+      zoom: 1
+  rag_pipeline_variables: []

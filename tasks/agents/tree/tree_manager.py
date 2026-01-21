@@ -4,6 +4,7 @@ import logging
 from .node_service import NodeService
 from .relationship_service import RelationshipService
 from external.repositories.agent_structure_repo import AgentStructureRepository
+from env import NEO4J_URI, NEO4J_USER, NEO4J_PASSWORD
 
 
 
@@ -24,7 +25,10 @@ class TreeManager:
         self.logger = logging.getLogger(__name__)
         
 
-        self.agent_structure_repo = AgentStructureRepository()
+        if NEO4J_URI and NEO4J_USER and NEO4J_PASSWORD:
+            self.agent_structure_repo = AgentStructureRepository()
+        else:
+            self.agent_structure_repo = None
         # 初始化节点服务和关系服务
         self.node_service = NodeService(self.agent_structure_repo)
         self.relationship_service = RelationshipService(self.agent_structure_repo)
@@ -133,9 +137,13 @@ class TreeManager:
         """
         meta = self.get_agent_meta(agent_id)
         if meta:
-            return meta.get("is_leaf", False)
-        
-        # 如果没有元数据，检查是否有子节点
+            is_leaf = meta.get("is_leaf")
+            # 只有显式标记为 True 才直接返回 True，
+            # 否则回退到子节点判定，避免缺失字段导致误判。
+            if is_leaf is True:
+                return True
+
+        # 回退：检查是否有子节点
         children = self.get_children(agent_id)
         return len(children) == 0
     

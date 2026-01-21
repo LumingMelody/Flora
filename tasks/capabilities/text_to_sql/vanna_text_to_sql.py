@@ -12,7 +12,7 @@ from external.repositories.sql_metadata_repo import DatabaseMetadataRepositoryFa
 from .utils import is_safe_sql, should_learn
 
 from .vanna.vanna_factory import VannaFactory
-from config import VANNA_TYPE
+from env import VANNA_TYPE
 
 
 # 修改后的 VannaTextToSQL 类，支持多种数据库类型
@@ -26,6 +26,7 @@ class VannaTextToSQL(ITextToSQLCapability):
         self.business_id = None
         self.database = None
         self.table_name = None
+        self.db_type = db_type
         self._initialized = False
         # 支持依赖注入，便于测试
         self.connection_pool = connection_pool
@@ -52,14 +53,19 @@ class VannaTextToSQL(ITextToSQLCapability):
         agent_id = config.get("agent_id")
         agent_meta = config.get("agent_meta", {})
         db_type = agent_meta.get("database_type", "mysql")
+        self.db_type = db_type
 
         if not agent_id:
-            raise ValueError("Missing 'agent_id' in config")
+            logger.info("[VannaTextToSQL] Deferred init: missing agent_id in config.")
+            self._initialized = False
+            return
 
         data_source = agent_meta.get("database")
 
         if not data_source or "." not in data_source:
-            raise ValueError(f"Invalid database config for agent {agent_id}: {data_source}")
+            logger.info(f"[VannaTextToSQL] Deferred init for agent {agent_id}: missing database metadata.")
+            self._initialized = False
+            return
 
         self.business_id = agent_id
         self.database = data_source.split(".")[0]
@@ -121,11 +127,21 @@ class VannaTextToSQL(ITextToSQLCapability):
             logger.warning(f"[SQL] Unsafe SQL blocked: {sql}")
             raise ValueError("Generated SQL is deemed unsafe")
 
-        # 执行 SQL（这部分仍需直接查业务库，不属于元数据，可保留）
+        # 执行 SQL（直接查业务库，不依赖 pandas read_sql 以避免 DictCursor 解析问题）
         conn = self._get_database_connection()
+        records: List[Dict[str, Any]] = []
         try:
-            df = pd.read_sql(sql, conn)
-            logger.info(f"[SQL] Executed: {sql} | Rows: {len(df)}")
+            with conn.cursor() as cursor:
+                cursor.execute(sql)
+                rows = cursor.fetchall()
+                if rows:
+                    if isinstance(rows[0], dict):
+                        records = rows
+                    else:
+                        columns = [col[0] for col in cursor.description] if cursor.description else []
+                        records = [dict(zip(columns, row)) for row in rows]
+            df = pd.DataFrame(records)
+            logger.info(f"[SQL] Executed: {sql} | Rows: {len(records)}")
         finally:
             conn.close()
 
@@ -134,9 +150,9 @@ class VannaTextToSQL(ITextToSQLCapability):
             logger.info(f"[LEARN] Auto-trained on query")
 
         return {
-            "result": df.to_dict(orient="records"),
+            "result": records,
             "sql": sql,
-            "rows": len(df)
+            "rows": len(records)
         }
 
     def _get_database_connection(self):
@@ -145,10 +161,10 @@ class VannaTextToSQL(ITextToSQLCapability):
         """
         if self.connection_pool:
             return self.connection_pool.get_connection()
-        else:
-            # 回退到原始的 mysql_pool（保持向后兼容）
-            from external.repositories.sql_metadata_repo import MySQLMetadataRepository
-            return MySQLMetadataRepository()
+        # 回退：动态创建连接池并获取连接
+        from external.database.connection_pool import ConnectionPoolFactory
+        pool = ConnectionPoolFactory.create_pool(self.db_type)
+        return pool.get_connection()
 
     def _enrich_query(self, query: str, context: dict) -> str:
         if not context:

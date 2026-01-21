@@ -1,47 +1,46 @@
 """能力模块统一入口"""
+import os
 from .capability_manager import CapabilityManager
 from .registry import CapabilityRegistry
 from .capability_base import CapabilityBase
 
-# 导出子模块
-from . import context_resolver
-from . import decision
-from . import dimension
-from . import draw_charts
-from . import excution
-from . import llm
-from . import llm_memory
-from . import multifeature
-from . import optimization
-from . import parallel
-from . import result_aggregation
-# from . import task_operation
-from . import task_planning
-from . import text_to_sql
+# 子模块采用延迟加载，避免在 import 时触发重初始化
+_LAZY_SUBMODULES = {
+    "context_resolver": ".context_resolver",
+    "decision": ".decision",
+    "dimension": ".dimension",
+    "draw_charts": ".draw_charts",
+    "excution": ".excution",
+    "llm": ".llm",
+    "llm_memory": ".llm_memory",
+    "multifeature": ".multifeature",
+    "optimization": ".optimization",
+    "parallel": ".parallel",
+    "result_aggregation": ".result_aggregation",
+    "task_planning": ".task_planning",
+    "text_to_sql": ".text_to_sql",
+}
+
+
+def __getattr__(name: str):
+    if name in _LAZY_SUBMODULES:
+        import importlib
+        module = importlib.import_module(_LAZY_SUBMODULES[name], __name__)
+        globals()[name] = module
+        return module
+    raise AttributeError(f"module '{__name__}' has no attribute '{name}'")
+
 
 # 导出常用接口
 __all__ = [
     "CapabilityManager",
     "CapabilityRegistry",
     "CapabilityBase",
-    "context_resolver",
-    "decision",
-    "dimension",
-    "draw_charts",
-    "excution",
-    "llm",
-    "llm_memory",
-    "multifeature",
-    "optimization",
-    "parallel",
-    "result_aggregation",
-    "task_planning",
-    "text_to_sql"
-]
+] + list(_LAZY_SUBMODULES.keys())
 
 # 创建全局能力管理器实例
 _global_manager = None
-CONFIG_PATH = "./tasks/config.json"
+CONFIG_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "config.json"))
 
 def get_capability_manager(config_path: str = CONFIG_PATH) -> CapabilityManager:
     """

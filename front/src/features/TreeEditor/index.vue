@@ -55,8 +55,8 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue';
-import { VueFlow, addEdge } from '@vue-flow/core';
+import { ref, onMounted, nextTick, watch } from 'vue';
+import { VueFlow, addEdge, useVueFlow } from '@vue-flow/core';
 import { Background } from '@vue-flow/background';
 import '@vue-flow/core/dist/style.css';
 import GlassCard from '@/components/ui/GlassCard.vue';
@@ -64,6 +64,7 @@ import TreeNode from './nodes/TreeNode.vue';
 import { useTreeStore } from '@/stores/useTreeStore';
 
 const treeStore = useTreeStore();
+const { fitView } = useVueFlow();
 
 // 自定义节点类型
 const nodeTypes = {
@@ -72,6 +73,22 @@ const nodeTypes = {
 
 // 选中的节点
 const selectedNodes = ref<string[]>([]);
+
+// 等待节点渲染完成后重新计算布局，确保连接线正确显示
+onMounted(() => {
+  nextTick(() => {
+    setTimeout(() => {
+      fitView({ padding: 0.2 });
+    }, 100);
+  });
+});
+
+// 监听节点变化，重新计算布局
+watch(() => treeStore.nodes.length, () => {
+  nextTick(() => {
+    fitView({ padding: 0.2 });
+  });
+});
 
 // 节点点击事件
 const onNodeClick = (event: any) => {

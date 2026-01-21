@@ -23,6 +23,7 @@ from capabilities.task_planning.interface import ITaskPlanningCapability
 # 导入事件总线和EventType
 from events.event_bus import event_bus
 from common.event import EventType
+from common.noop_memory import NoopMemory
 
 
 logger = logging.getLogger(__name__)
@@ -39,6 +40,8 @@ class AgentActor(Actor):
 
         self._aggregation_state: Dict[str, Dict] = {}
         self.task_id_to_sender: Dict[str, ActorAddress] = {}
+        # 新增：保存 trace_id 到 sender 的映射（用于 NEED_INPUT 传导）
+        self.trace_id_to_sender: Dict[str, ActorAddress] = {}
         # 新增：保存task_id到ExecutionActor地址的映射（用于恢复暂停的任务）
         self.task_id_to_execution_actor: Dict[str, ActorAddress] = {}
         self.log = logging.getLogger("AgentActor")  # 初始日志，后续按 agent_id 覆盖
@@ -49,7 +52,7 @@ class AgentActor(Actor):
         # 添加当前聚合器和原始客户端地址
         self.current_aggregator = None
         self.original_client_addr = None
-        
+
         self._task_path: Optional[str] = None
 
         self.memory_cap: Optional[IMemoryCapability] = None
@@ -99,7 +102,11 @@ class AgentActor(Actor):
         self.meta=tree_manager.get_agent_meta(self.agent_id)
         try:
             # 使用新的能力获取方式
-            self.memory_cap = get_capability("llm_memory", expected_type=IMemoryCapability)
+            try:
+                self.memory_cap = get_capability("llm_memory", expected_type=IMemoryCapability)
+            except Exception as e:
+                self.log.warning(f"llm_memory unavailable, using NoopMemory: {e}")
+                self.memory_cap = NoopMemory()
             self.task_planner = get_capability("task_planning", expected_type=ITaskPlanningCapability)
             
             self.log = logging.getLogger(f"AgentActor_{self.agent_id}")
@@ -128,6 +135,7 @@ class AgentActor(Actor):
         user_input = task.get_user_input()
         user_id = task.user_id
         task_id = task.task_id
+        trace_id = task.trace_id
         reply_to = task.reply_to or sender  # 前台要求回复的地址
 
 
@@ -137,6 +145,9 @@ class AgentActor(Actor):
 
         # 记录回复地址和当前用户ID
         self.task_id_to_sender[task_id] = reply_to
+        # 同时保存 trace_id 到 sender 的映射（用于 NEED_INPUT 传导，因为子任务的 task_id 会变化）
+        if trace_id:
+            self.trace_id_to_sender[trace_id] = reply_to
         self.current_user_id = user_id
 
         self.log.info(f"[AgentActor] Handling task {task_id}: {user_input[:50]}...")
@@ -156,8 +167,25 @@ class AgentActor(Actor):
             user_id=self.current_user_id
         )
 
+        # 写入记忆（按单节点存储，检索按 scope 聚合）
+        try:
+            memory_input = task.content or task.description or user_input
+            node_scope = self._build_node_memory_scope(self.current_user_id, task.task_path)
+            root_scope = self._build_memory_scope(self.current_user_id, task.task_path)
+            metadata = {
+                "root_scope": root_scope,
+                "agent_id": self.agent_id,
+                "task_path": task.task_path
+            }
+            self.memory_cap.add_memory_intelligently(node_scope, memory_input, metadata)
+        except Exception as e:
+            self.log.warning(f"Memory write skipped: {e}")
+
         # 构建对话上下文
-        conversation_context = self.memory_cap.build_conversation_context(self.current_user_id)
+        conversation_context = self.memory_cap.build_conversation_context(
+            self._build_memory_scope(self.current_user_id, task.task_path),
+            task.content or ""
+        )
         
         # --- 流程 ⑤: 任务规划 ---
         event_bus.publish_task_event(
@@ -249,7 +277,6 @@ class AgentActor(Actor):
 
         # 关键：从映射中获取原来的ExecutionActor地址
         exec_actor = self.task_id_to_execution_actor.get(task_id)
-
         if not exec_actor:
             self.log.error(f"Cannot find ExecutionActor for task {task_id}, task cannot be resumed")
             # 通知前台恢复失败，使用ResumeTaskMessage的参数
@@ -282,6 +309,29 @@ class AgentActor(Actor):
         self.task_id_to_sender[task_id] = reply_to
 
    
+    @staticmethod
+    def _extract_root_agent_id(task_path: Optional[str]) -> str:
+        if not task_path:
+            return ""
+        parts = [part for part in task_path.split("/") if part]
+        return parts[0] if parts else ""
+
+    def _build_memory_scope(self, user_id: Optional[str], task_path: Optional[str]) -> str:
+        if not user_id:
+            return ""
+        root_agent_id = self._extract_root_agent_id(task_path) or self.agent_id
+        if root_agent_id:
+            return f"{user_id}:{root_agent_id}"
+        return user_id
+
+    def _build_node_memory_scope(self, user_id: Optional[str], task_path: Optional[str]) -> str:
+        if not user_id:
+            return ""
+        root_agent_id = self._extract_root_agent_id(task_path) or self.agent_id
+        if root_agent_id:
+            return f"{user_id}:{root_agent_id}:{self.agent_id}"
+        return f"{user_id}:{self.agent_id}"
+
 
     def _handle_task_paused_from_execution(self, message: Any, sender: ActorAddress):
         """
@@ -292,8 +342,18 @@ class AgentActor(Actor):
             sender: ExecutionActor的地址
         """
         task_id = message.task_id
-        missing_params = getattr(message, "missing_params", [])
+        missing_params = getattr(message, "missing_params", None)
         question = getattr(message, "question", "")
+        if not missing_params:
+            result_payload = getattr(message, "result", None)
+            if isinstance(result_payload, dict):
+                missing_params = result_payload.get("missing_params")
+                if not missing_params and isinstance(result_payload.get("step_result"), dict):
+                    missing_params = result_payload["step_result"].get("missing_params")
+                if not question:
+                    question = result_payload.get("question") or result_payload.get("message", "")
+        if missing_params is None:
+            missing_params = []
         execution_actor_address = getattr(message, "execution_actor_address", None)
 
         self.log.info(f"Task {task_id} needs input by ExecutionActor, forwarding with TaskCompletedMessage")
@@ -305,9 +365,15 @@ class AgentActor(Actor):
         else:
             self.log.warning(f"No execution_actor_address in need_input message for task {task_id}")
 
+        # 从传入的message中获取trace_id和task_path，如果没有则使用默认值
+        trace_id = getattr(message, "trace_id", None) or task_id
+        task_path = getattr(message, "task_path", None) or self._task_path or ""
+
         # 构建TaskCompletedMessage，直接返回给调用者
         task_result = TaskCompletedMessage(
             task_id=task_id,
+            trace_id=trace_id,
+            task_path=task_path,
             status="NEED_INPUT",
             result={
                 "missing_params": missing_params,
@@ -320,13 +386,18 @@ class AgentActor(Actor):
         if self.current_aggregator:
             self.send(self.current_aggregator, task_result)
         else:
-            # 否则，直接返回给前台InteractionActor
-            original_sender = self.task_id_to_sender.get(task_id, sender)
+            # 否则，直接返回给前台（TaskRouter）
+            # 优先使用 trace_id 查找 sender（因为子任务的 task_id 会变化，但 trace_id 不变）
+            original_sender = self.trace_id_to_sender.get(trace_id)
+            if not original_sender:
+                # 回退到 task_id 查找
+                original_sender = self.task_id_to_sender.get(task_id, sender)
+
             if original_sender:
-                # 直接发送TaskCompletedMessage，不再使用InteractTaskPausedMessage
+                self.log.info(f"Forwarding NEED_INPUT to sender for trace_id={trace_id}, task_id={task_id}")
                 self.send(original_sender, task_result)
             else:
-                self.log.warning(f"No reply_to address found for task {task_id}, cannot forward need_input message")
+                self.log.warning(f"No reply_to address found for trace_id={trace_id}, task_id={task_id}, cannot forward need_input message")
 
     def _plan_task_execution(self, task_description: str, memory_context: str = None) -> Dict[str, Any]:
         """
@@ -362,6 +433,14 @@ class AgentActor(Actor):
         """
         task_specs = []
         for plan in plans:
+            base_params = task.parameters or {}
+            plan_params = plan.get("params")
+            if plan_params is None:
+                plan_params = plan.get("parameters")
+            merged_params = base_params.copy() if isinstance(base_params, dict) else {}
+            if isinstance(plan_params, dict):
+                merged_params.update(plan_params)
+
             # 防御性处理：确保必要字段存在
             task_clean = {
                 "step": int(plan.get("step", 0)),
@@ -374,6 +453,7 @@ class AgentActor(Actor):
                 "is_dependency_expanded": bool(plan.get("is_dependency_expanded", False)),
                 "original_parent": plan.get("original_parent"),
                 "user_id": getattr(self, 'current_user_id', task.user_id),  # 优先用 self.current_user_id
+                "parameters": merged_params,
             }
 
             # 允许 plan 中包含额外字段（因 TaskSpec.Config.extra='allow'）
@@ -396,6 +476,7 @@ class AgentActor(Actor):
             enriched_context=task.enriched_context.copy(),
             user_id=getattr(self, 'current_user_id', task.user_id),
             reply_to=task.reply_to,
+            root_reply_to=task.root_reply_to,  # 传递根回调地址
             subtasks=task_specs,
             strategy="standard",  # 可根据需要从 task 或 plans 中提取策略
         )
@@ -409,7 +490,7 @@ class AgentActor(Actor):
             task_group_request: 任务组请求
             sender: 原始发送者（用于回复）
         """
-        from ..capability_actors.task_group_aggregator_actor import TaskGroupAggregatorActor
+        from capability_actors.task_group_aggregator_actor import TaskGroupAggregatorActor
 
         # 创建TaskGroupAggregatorActor
         aggregator = self.createActor(TaskGroupAggregatorActor)
@@ -424,6 +505,7 @@ class AgentActor(Actor):
         统一处理任务结果（成功、失败、错误、需要输入），使用TaskCompletedMessage向上报告
         """
         task_id = result_msg.task_id
+        trace_id = result_msg.trace_id
         result_data = result_msg.result
         status = result_msg.status
 
@@ -435,8 +517,12 @@ class AgentActor(Actor):
             # 2. 如果有聚合器，通知聚合器
             self.send(self.current_aggregator, result_msg)
         else:
-            # 3. 如果是根任务，直接返回给前台InteractionActor
-            original_sender = self.task_id_to_sender.get(task_id, sender)
+            # 3. 如果是根任务，直接返回给前台（TaskRouter）
+            # 优先使用 trace_id 查找 sender（因为子任务的 task_id 会变化，但 trace_id 不变）
+            original_sender = self.trace_id_to_sender.get(trace_id)
+            if not original_sender:
+                # 回退到 task_id 查找
+                original_sender = self.task_id_to_sender.get(task_id, sender)
 
             # 构建前台交互消息，使用TaskCompletedMessage代替TaskResultMessage
             error_str = None
@@ -444,11 +530,11 @@ class AgentActor(Actor):
                 error_str = str(result_data["error"])
             elif hasattr(result_msg, "error") and result_msg.error:
                 error_str = str(result_msg.error)
-            
+
             # 构建TaskCompletedMessage，使用SUCCESS或FAILED状态
             task_result = TaskCompletedMessage(
                 task_id=task_id,
-                trace_id=result_msg.trace_id,
+                trace_id=trace_id,
                 task_path=result_msg.task_path,
                 result=result_data,
                 status=status,  # 使用传入的status，可能是SUCCESS、FAILED、NEED_INPUT等
@@ -518,8 +604,8 @@ class AgentActor(Actor):
 
         try:
             # 使用新的能力获取方式获取LLM能力
-            from ..capabilities.llm.interface import ILLMCapability
-            from ..capabilities import get_capability
+            from capabilities.llm.interface import ILLMCapability
+            from capabilities import get_capability
             llm = get_capability("llm", expected_type=ILLMCapability)
             result = llm.generate(prompt, parse_json=True, max_tokens=300)
 

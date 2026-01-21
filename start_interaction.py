@@ -12,6 +12,6 @@ subprocess.run([
     sys.executable, "-m", "uvicorn",
     "interaction.main:app",   # 模块路径：interaction/main.py 中的 app
     "--host", "0.0.0.0",
-    "--port", "8000",
+    "--port", "8001",
     "--reload"
 ], cwd=project_root)

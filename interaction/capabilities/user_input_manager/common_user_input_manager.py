@@ -9,6 +9,18 @@ logger = logging.getLogger(__name__)
 
 class CommonUserInput(IUserInputManagerCapability):
     """用户输入管理器 - 接收并解析用户的原始输入"""
+
+    def _is_assistant_like(self, text: str, original: str) -> bool:
+        if not text:
+            return False
+        normalized = text.replace(" ", "")
+        if normalized.startswith(("你好", "您好", "嗨", "Hi", "Hello")) and len(text) > len(original):
+            return True
+        assistant_cues = [
+            "很高兴", "有什么可以帮助", "我可以帮", "我很乐意", "我愿意",
+            "你可以", "不妨", "欢迎", "请问", "如果你愿意", "我很感兴趣",
+        ]
+        return any(cue in text for cue in assistant_cues) and len(text) >= max(8, len(original) * 1.2)
     
     def initialize(self, config: Dict[str, Any]) -> None:
         """初始化用户输入管理器"""
@@ -77,8 +89,17 @@ class CommonUserInput(IUserInputManagerCapability):
         )
         
         # 3. 构造LLM Prompt
-        prompt = f"""【对话历史】
-{"\n".join([f"{turn['role']}：{turn['utterance']}" for turn in dialog_history])}
+        history_text = "\n".join(
+            f"{turn['role']}：{turn['utterance']}" for turn in dialog_history
+        )
+        prompt = f"""你是“用户输入改写器”，只允许改写用户输入，不要回答问题。
+要求：
+- 只改写用户输入，保持原意，不新增观点、建议、提问或寒暄。
+- 如果无需改写，直接输出与原文相同的 "enhanced_utterance"。
+- 不要输出任何解释性文字，严格输出 JSON。
+
+【对话历史】
+{history_text}
 
 【长期记忆】
 {memories}
@@ -98,7 +119,7 @@ class CommonUserInput(IUserInputManagerCapability):
         # 4. 调用LLM，解析结果
         logger.info(f"LLM Prompt: {prompt}")
         llm_result = self.llm.generate(prompt, parse_json=True)
-        parsed_result = llm_result
+        parsed_result = llm_result if isinstance(llm_result, dict) else {}
         # import json
         # try:
         #     parsed_result = json.loads(llm_result)
@@ -113,19 +134,25 @@ class CommonUserInput(IUserInputManagerCapability):
         #     }
         
         # 5. 构造返回数据
+        enhanced_utterance = str(parsed_result.get("enhanced_utterance") or "").strip()
+        if not enhanced_utterance:
+            enhanced_utterance = user_input.utterance
+        if self._is_assistant_like(enhanced_utterance, user_input.utterance):
+            enhanced_utterance = user_input.utterance
+
         enriched_input = {
             "session_id": user_input.session_id,
             "user_id": user_input.user_id,
             "utterance": user_input.utterance,
-            "enhanced_utterance": parsed_result["enhanced_utterance"],
-            "resolved_references": parsed_result["resolved_references"],
-            "implied_action": parsed_result["implied_action"],
-            "target_entity": parsed_result["target_entity"],
-            "new_time": parsed_result["new_time"],
+            "enhanced_utterance": enhanced_utterance,
+            "resolved_references": parsed_result.get("resolved_references", {}),
+            "implied_action": parsed_result.get("implied_action", ""),
+            "target_entity": parsed_result.get("target_entity", ""),
+            "new_time": parsed_result.get("new_time", ""),
             "dialog_history": dialog_history,
             "long_term_memories": memories,
             "timestamp": user_input.timestamp,
             "metadata": user_input.metadata
         }
-        self.history_store.add_turn(DialogTurn(role="user", utterance=user_input.utterance, enhanced_utterance=parsed_result["enhanced_utterance"], session_id=user_input.session_id, user_id=user_input.user_id))
+        self.history_store.add_turn(DialogTurn(role="user", utterance=user_input.utterance, enhanced_utterance=enhanced_utterance, session_id=user_input.session_id, user_id=user_input.user_id))
         return enriched_input

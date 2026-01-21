@@ -6,15 +6,24 @@ from typing import Any
 import sys
 import os
 
+# 添加 trigger 目录到 Python 路径（优先级最高，确保 trigger/config 优先于根目录的 config.py）
+TRIGGER_DIR = os.path.dirname(__file__)
+sys.path.insert(0, TRIGGER_DIR)
+
+# 添加项目根目录到 Python 路径（用于导入 env）
+PROJECT_ROOT = os.path.abspath(os.path.join(TRIGGER_DIR, '..'))
+if PROJECT_ROOT not in sys.path:
+    sys.path.append(PROJECT_ROOT)
+
+# 在最开始导入 env，确保 .env 文件被加载
+import env  # noqa: F401
+
 # 配置日志记录
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 )
 logger = logging.getLogger(__name__)
-
-# 添加项目根目录到Python路径
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 # 导入本地模块
 from external.messaging import message_broker
@@ -48,23 +57,18 @@ async def lifespan(app: FastAPI):
     
     # 2. 启动后台任务
     tasks = []
-    
+
     # 启动CRON调度器
     tasks.append(asyncio.create_task(cron_scheduler(lifecycle_svc, async_session_factory)))
-    
-    # 启动任务分发器 (旧版，兼容现有代码)
-    from drivers import TaskDispatcher
-    dispatcher = TaskDispatcher(broker=broker, lifecycle_service=lifecycle_svc)
-    tasks.append(asyncio.create_task(dispatcher.start()))
-    
+
     # 启动新的调度扫描器
     scanner = ScheduleScanner(broker=broker, scan_interval=10)
     tasks.append(asyncio.create_task(scanner.start()))
-    
+
     # 启动新的调度分发器
     schedule_dispatcher = ScheduleDispatcher(broker=broker, lifecycle_service=lifecycle_svc)
     tasks.append(asyncio.create_task(schedule_dispatcher.start()))
-    
+
     # 启动健康检查器
     tasks.append(asyncio.create_task(health_checker(async_session_factory)))
     
@@ -128,6 +132,6 @@ if __name__ == "__main__":
         uvicorn.run(
             "__main__:app",
             host="0.0.0.0",
-            port=8001,
+            port=8003,
             reload=True
         )

@@ -1,0 +1,420 @@
+app:
+  description: 价值观输出
+  icon: 💡
+  icon_background: '#E0F2FE'
+  mode: workflow
+  name: 9.0.3价值观输出
+  use_icon_as_answer_icon: false
+dependencies:
+- current_identifier: null
+  type: marketplace
+  value:
+    marketplace_plugin_unique_identifier: langgenius/tongyi:0.1.3@08f25a10c0617a3512fac091a0f0d894925357e965efe40fdf95cb48e09b62d1
+    version: null
+kind: app
+version: 0.4.0
+workflow:
+  conversation_variables: []
+  environment_variables: []
+  features:
+    file_upload:
+      allowed_file_extensions:
+      - .JPG
+      - .JPEG
+      - .PNG
+      - .GIF
+      - .WEBP
+      - .SVG
+      allowed_file_types:
+      - image
+      allowed_file_upload_methods:
+      - local_file
+      - remote_url
+      enabled: false
+      fileUploadConfig:
+        audio_file_size_limit: 50
+        batch_count_limit: 5
+        file_size_limit: 15
+        image_file_size_limit: 10
+        video_file_size_limit: 100
+        workflow_file_upload_limit: 10
+      image:
+        enabled: false
+        number_limits: 3
+        transfer_methods:
+        - local_file
+        - remote_url
+      number_limits: 3
+    opening_statement: ''
+    retriever_resource:
+      enabled: false
+    sensitive_word_avoidance:
+      enabled: false
+    speech_to_text:
+      enabled: false
+    suggested_questions: []
+    suggested_questions_after_answer:
+      enabled: false
+    text_to_speech:
+      enabled: false
+      language: ''
+      voice: ''
+  graph:
+    edges:
+    - data:
+        sourceType: start
+        targetType: llm
+      id: edge-start-to-llm
+      selected: false
+      source: start
+      sourceHandle: source
+      target: llm-analysis
+      targetHandle: target
+      type: custom
+    - data:
+        sourceType: llm
+        targetType: code
+      id: edge-llm-to-json
+      source: llm-analysis
+      sourceHandle: source
+      target: code-json
+      targetHandle: target
+      type: custom
+    - data:
+        isInLoop: false
+        sourceType: code
+        targetType: http-request
+      id: code-json-source-http-save-target
+      source: code-json
+      sourceHandle: source
+      target: http-save
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        sourceType: http-request
+        targetType: end
+      id: edge-http-to-end
+      source: http-save
+      sourceHandle: source
+      target: end
+      targetHandle: target
+      type: custom
+    nodes:
+    - data:
+        desc: 输入产品和企业信息
+        selected: false
+        title: 开始
+        type: start
+        variables:
+        - label: 产品名
+          max_length: 48
+          options: []
+          required: true
+          type: paragraph
+          variable: e_product_id_name
+        - label: 产品简介
+          max_length: 256
+          options: []
+          required: true
+          type: paragraph
+          variable: e_product_id_detail
+        - label: 品牌序号
+          max_length: 48
+          options: []
+          required: true
+          type: paragraph
+          variable: brand_id
+        - label: 企业名
+          max_length: 48
+          options: []
+          required: true
+          type: paragraph
+          variable: e_company_name
+        - label: 企业年收入
+          max_length: 48
+          options: []
+          required: true
+          type: paragraph
+          variable: e_company_revenue
+        - label: 品牌故事结果
+          max_length: 8192
+          options: []
+          required: true
+          type: paragraph
+          variable: brand_story_result
+        - label: 用户id
+          max_length: 48
+          options: []
+          required: true
+          type: text-input
+          variable: user_id
+        - label: 租户id
+          max_length: 48
+          options: []
+          required: true
+          type: text-input
+          variable: tenant_id
+        - label: 任务id
+          max_length: 48
+          options: []
+          required: true
+          type: text-input
+          variable: taskId
+      height: 323
+      id: start
+      position:
+        x: 80
+        y: 282
+      positionAbsolute:
+        x: 80
+        y: 282
+      selected: true
+      type: custom
+      width: 242
+    - data:
+        context:
+          enabled: false
+          variable_selector: []
+        desc: 品牌价值观提炼
+        model:
+          completion_params:
+            temperature: 0.7
+          mode: chat
+          name: qwen3-max
+          provider: langgenius/tongyi/tongyi
+        prompt_template:
+        - id: prompt-system
+          role: system
+          text: "请你作为一名专业的品牌价值观顾问，帮助提炼和输出品牌核心价值观：\n\n1. 价值观提炼：\n   - 核心价值观（3-5个关键词）\n\
+            \   - 每个价值观的内涵解读\n   - 价值观之间的��辑关系\n   - 与品牌定位的一致性验证\n\n2. 价值观体系构建：\n\
+            \   - 使命宣言（Mission Statement）\n   - 愿景描述（Vision Statement）\n   - 品牌承诺（Brand\
+            \ Promise）\n   - 行为准则（Guiding Principles）\n\n3. 价值观表达：\n   - 对内表达：员工行为指引\n\
+            \   - 对外表达：客户沟通话术\n\n请以JSON格式输出，包含以下字段：\n{\n  \"output\": {\n    \"brandId\"\
+            : \"品牌ID\",\n    \"workflowTaskId\": \"任务ID\",\n    \"coreValues\": [{\"\
+            value\": \"价值观\", \"meaning\": \"内涵\", \"behaviors\": [\"行为1\"]}],\n \
+            \   \"missionStatement\": \"使命宣言\",\n    \"visionStatement\": \"愿景描述\"\
+            ,\n    \"brandPromise\": \"品牌承诺\",\n    \"guidingPrinciples\": [\"准则1\"\
+            , \"准则2\"],\n    \"internalExpression\": \"对内表达指南\",\n    \"externalExpression\"\
+            : \"对外表达指南\"\n  }\n}\n"
+        - id: prompt-user
+          role: user
+          text: '以下是企业和产品信息：
+
+            - 产品名称：{{#start.e_product_id_name#}}
+
+            - 企业名称：{{#start.e_company_name#}}
+
+            - 企业年营收规模：{{#start.e_company_revenue#}}���
+
+            - 产品主要功能：{{#start.e_product_id_detail#}}
+
+            - 品牌ID：{{#start.brand_id#}}
+
+            - 任务ID：{{#start.taskId#}}
+
+
+            【品牌故事（来自9.0.2）】：
+
+            {{#start.brand_story_result#}}
+
+
+            请基于以上品牌故事，提炼该企业的品牌价值观体系。注意在输出的JSON中包含brandId和workflowTaskId字段。
+
+            '
+        selected: false
+        structured_output:
+          schema:
+            additionalProperties: false
+            properties:
+              output:
+                additionalProperties: false
+                properties:
+                  brandId:
+                    type: string
+                  brandPromise:
+                    type: string
+                  coreValues:
+                    items:
+                      additionalProperties: false
+                      properties:
+                        behaviors:
+                          items:
+                            type: string
+                          type: array
+                        meaning:
+                          type: string
+                        value:
+                          type: string
+                      required:
+                      - value
+                      - meaning
+                      - behaviors
+                      type: object
+                    type: array
+                  externalExpression:
+                    type: string
+                  guidingPrinciples:
+                    items:
+                      type: string
+                    type: array
+                  internalExpression:
+                    type: string
+                  missionStatement:
+                    type: string
+                  visionStatement:
+                    type: string
+                  workflowTaskId:
+                    type: string
+                required:
+                - brandId
+                - workflowTaskId
+                - coreValues
+                - missionStatement
+                - visionStatement
+                - brandPromise
+                - guidingPrinciples
+                - internalExpression
+                - externalExpression
+                type: object
+            required:
+            - output
+            type: object
+        structured_output_enabled: true
+        title: 价值观输出
+        type: llm
+        variables: []
+        vision:
+          enabled: false
+      height: 115
+      id: llm-analysis
+      position:
+        x: 396
+        y: 282
+      positionAbsolute:
+        x: 396
+        y: 282
+      selected: false
+      type: custom
+      width: 242
+    - data:
+        code: "import json\ndef main(coreValues: list, guidingPrinciples: list) ->\
+          \ dict:\n    result = {}\n    try:\n        result[\"coreValues\"] = json.dumps(coreValues,\
+          \ ensure_ascii=False, separators=(',', ':'))\n        result[\"guidingPrinciples\"\
+          ] = json.dumps(guidingPrinciples, ensure_ascii=False, separators=(',', ':'))\n\
+          \    except Exception as e:\n        pass\n    return result\n"
+        code_language: python3
+        desc: 将复杂字段转为JSON字符串
+        outputs:
+          coreValues:
+            children: null
+            type: string
+          guidingPrinciples:
+            children: null
+            type: string
+        selected: false
+        title: 转JSON
+        type: code
+        variables:
+        - value_selector:
+          - llm-analysis
+          - structured_output
+          - output
+          - coreValues
+          value_type: array[object]
+          variable: coreValues
+        - value_selector:
+          - llm-analysis
+          - structured_output
+          - output
+          - guidingPrinciples
+          value_type: array[string]
+          variable: guidingPrinciples
+      height: 79
+      id: code-json
+      position:
+        x: 688
+        y: 282
+      positionAbsolute:
+        x: 688
+        y: 282
+      selected: false
+      type: custom
+      width: 242
+    - data:
+        authorization:
+          config: null
+          type: no-auth
+        body:
+          data:
+          - id: key-value-1
+            key: ''
+            type: text
+            value: "{\n  \"brandId\":\"{{#start.brand_id#}}\",\n  \"workflowTaskId\"\
+              :\"{{#start.taskId#}}\",\n  \"coreValues\":{{#code-json.coreValues#}},\n\
+              \  \"missionStatement\":\"{{#llm-analysis.structured_output.output.missionStatement#}}\"\
+              ,\n  \"visionStatement\":\"{{#llm-analysis.structured_output.output.visionStatement#}}\"\
+              ,\n  \"brandPromise\":\"{{#llm-analysis.structured_output.output.brandPromise#}}\"\
+              ,\n  \"guidingPrinciples\":{{#code-json.guidingPrinciples#}},\n  \"\
+              internalExpression\":\"{{#llm-analysis.structured_output.output.internalExpression#}}\"\
+              ,\n  \"externalExpression\":\"{{#llm-analysis.structured_output.output.externalExpression#}}\"\
+              \n}"
+          type: json
+        headers: 'Authorization:test{{#start.user_id#}}
+
+          tenant-id:{{#start.tenant_id#}}'
+        method: post
+        params: ''
+        retry_config:
+          max_retries: 3
+          retry_enabled: true
+          retry_interval: 100
+        selected: false
+        ssl_verify: true
+        timeout:
+          max_connect_timeout: 0
+          max_read_timeout: 0
+          max_write_timeout: 0
+        title: HTTP 请求
+        type: http-request
+        url: https://agent.cstlanbaai.com/gateway/admin-api/scrm/brand-values-result/create
+        variables: []
+      height: 169
+      id: http-save
+      position:
+        x: 992
+        y: 282
+      positionAbsolute:
+        x: 992
+        y: 282
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 242
+    - data:
+        desc: 输出结果
+        outputs:
+        - value_selector:
+          - llm-analysis
+          - structured_output
+          variable: brand_values_result
+        selected: false
+        title: 结束
+        type: end
+      height: 116
+      id: end
+      position:
+        x: 1296
+        y: 282
+      positionAbsolute:
+        x: 1296
+        y: 282
+      selected: false
+      type: custom
+      width: 242
+    viewport:
+      x: 141
+      y: 120
+      zoom: 1
+  rag_pipeline_variables: []

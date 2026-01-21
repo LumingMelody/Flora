@@ -1,0 +1,441 @@
+app:
+  description: 目标客户分析
+  icon: 👥
+  icon_background: '#E4FBCC'
+  mode: workflow
+  name: 6.0.1目标客户分析
+  use_icon_as_answer_icon: false
+dependencies:
+- current_identifier: null
+  type: marketplace
+  value:
+    marketplace_plugin_unique_identifier: langgenius/tongyi:0.1.3@08f25a10c0617a3512fac091a0f0d894925357e965efe40fdf95cb48e09b62d1
+    version: null
+kind: app
+version: 0.4.0
+workflow:
+  conversation_variables: []
+  environment_variables: []
+  features:
+    file_upload:
+      allowed_file_extensions:
+      - .JPG
+      - .JPEG
+      - .PNG
+      - .GIF
+      - .WEBP
+      - .SVG
+      allowed_file_types:
+      - image
+      allowed_file_upload_methods:
+      - local_file
+      - remote_url
+      enabled: false
+      fileUploadConfig:
+        audio_file_size_limit: 50
+        batch_count_limit: 5
+        file_size_limit: 15
+        image_file_size_limit: 10
+        video_file_size_limit: 100
+        workflow_file_upload_limit: 10
+      image:
+        enabled: false
+        number_limits: 3
+        transfer_methods:
+        - local_file
+        - remote_url
+      number_limits: 3
+    opening_statement: ''
+    retriever_resource:
+      enabled: false
+    sensitive_word_avoidance:
+      enabled: false
+    speech_to_text:
+      enabled: false
+    suggested_questions: []
+    suggested_questions_after_answer:
+      enabled: false
+    text_to_speech:
+      enabled: false
+      language: ''
+      voice: ''
+  graph:
+    edges:
+    - data:
+        isInLoop: false
+        sourceType: code
+        targetType: http-request
+      id: code-json-source-http-save-target
+      source: code-json
+      sourceHandle: source
+      target: http-save
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInLoop: false
+        sourceType: http-request
+        targetType: end
+      id: http-save-source-end-target
+      source: http-save
+      sourceHandle: source
+      target: end
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInIteration: false
+        isInLoop: false
+        sourceType: start
+        targetType: llm
+      id: start-source-1765184014626-target
+      source: start
+      sourceHandle: source
+      target: '1765184014626'
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInLoop: false
+        sourceType: llm
+        targetType: code
+      id: 1765184014626-source-code-json-target
+      source: '1765184014626'
+      sourceHandle: source
+      target: code-json
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    nodes:
+    - data:
+        desc: 输入产品和企业信息
+        selected: false
+        title: 开始
+        type: start
+        variables:
+        - label: 产品名
+          max_length: 48
+          options: []
+          required: true
+          type: text-input
+          variable: e_product_id_name
+        - label: 产品简介
+          max_length: 256
+          options: []
+          required: true
+          type: paragraph
+          variable: e_product_id_detail
+        - label: 产品序号
+          max_length: 48
+          options: []
+          required: true
+          type: text-input
+          variable: e_product_id
+        - label: 企业名
+          max_length: 48
+          options: []
+          required: true
+          type: text-input
+          variable: e_company_name
+        - label: 企业年收入
+          max_length: 48
+          options: []
+          required: true
+          type: text-input
+          variable: e_company_revenue
+        - label: 核心价值点分析结果
+          max_length: 4096
+          options: []
+          required: true
+          type: paragraph
+          variable: product_value_point
+        - label: 用户id
+          max_length: 48
+          options: []
+          required: true
+          type: text-input
+          variable: user_id
+        - label: 租户id
+          max_length: 48
+          options: []
+          required: true
+          type: text-input
+          variable: tenant_id
+        - label: 任务id
+          max_length: 48
+          options: []
+          required: true
+          type: text-input
+          variable: taskId
+      height: 324
+      id: start
+      position:
+        x: 80
+        y: 282
+      positionAbsolute:
+        x: 80
+        y: 282
+      selected: false
+      type: custom
+      width: 242
+    - data:
+        code: "import json\n\ndef main(customerSegments: list, customerPersonas: list,\
+          \ acquisitionChannels: list) -> dict:\n    \"\"\"\n    对传入的列表进行JSON二次转义，返回转义后的字符串字典\n\
+          \    目的：防止接口自动反转义成对象，确保传参为字符串类型\n    \"\"\"\n    result = {\n        \"\
+          customerSegments\": \"\",\n        \"customerPersonas\": \"\",\n       \
+          \ \"acquisitionChannels\": \"\"\n    }\n    try:\n        # 第一次转义：列表 → JSON字符串；第二次转义：JSON字符串\
+          \ → 带转义的字符串\n        json_str = json.dumps(customerSegments, ensure_ascii=False,\
+          \ separators=(',', ':'))\n        result[\"customerSegments\"] = json.dumps(json_str,\
+          \ ensure_ascii=False)\n        \n        json_str = json.dumps(customerPersonas,\
+          \ ensure_ascii=False, separators=(',', ':'))\n        result[\"customerPersonas\"\
+          ] = json.dumps(json_str, ensure_ascii=False)\n        \n        json_str\
+          \ = json.dumps(acquisitionChannels, ensure_ascii=False, separators=(',',\
+          \ ':'))\n        result[\"acquisitionChannels\"] = json.dumps(json_str,\
+          \ ensure_ascii=False)\n    except Exception as e:\n        print(f\"JSON二次转义出错:\
+          \ {e}\")\n    return result\n"
+        code_language: python3
+        desc: 将数组字段转为JSON字符串
+        outputs:
+          acquisitionChannels:
+            children: null
+            type: string
+          customerPersonas:
+            children: null
+            type: string
+          customerSegments:
+            children: null
+            type: string
+        selected: false
+        title: 转JSON
+        type: code
+        variables:
+        - value_selector:
+          - '1765184014626'
+          - structured_output
+          - customerSegments
+          value_type: object
+          variable: customerSegments
+        - value_selector:
+          - '1765184014626'
+          - structured_output
+          - customerPersonas
+          value_type: object
+          variable: customerPersonas
+        - value_selector:
+          - '1765184014626'
+          - structured_output
+          - acquisitionChannels
+          value_type: object
+          variable: acquisitionChannels
+      height: 80
+      id: code-json
+      position:
+        x: 634
+        y: 282
+      positionAbsolute:
+        x: 634
+        y: 282
+      selected: false
+      type: custom
+      width: 242
+    - data:
+        authorization:
+          type: no-auth
+        body:
+          data:
+          - id: key-value-1
+            key: ''
+            type: text
+            value: "{\n  \"productId\":\"{{#start.e_product_id#}}\",\n  \"workflowTaskId\"\
+              :\"{{#start.taskId#}}\",\n  \"positioningDescription\":\"{{#1765184014626.structured_output.positioningDescription#}}\"\
+              ,\n  \"targetMarket\":\"{{#1765184014626.structured_output.targetMarket#}}\"\
+              ,\n  \"customerSegments\":\"{{#code-json.customerSegments#}}\",\n  \"\
+              customerPersonas\":\"{{#code-json.customerPersonas#}}\",\n  \"competitiveAdvantage\"\
+              :\"{{#1765184014626.structured_output.competitiveAdvantage#}}\",\n \
+              \ \"marketDemandMatch\":\"{{#1765184014626.structured_output.marketDemandMatch#}}\"\
+              ,\n  \"acquisitionChannels\":\"{{#code-json.acquisitionChannels#}}\"\
+              \n}"
+          type: json
+        desc: 保存目标客户分析结果到后端
+        headers: 'Authorization:test{{#start.user_id#}}
+
+          tenant-id:{{#start.tenant_id#}}'
+        method: post
+        params: ''
+        retry_config:
+          max_retries: 3
+          retry_enabled: true
+          retry_interval: 100
+        selected: false
+        ssl_verify: true
+        timeout:
+          connect: 10
+          read: 60
+          write: 60
+        title: 保存到后端
+        type: http-request
+        url: https://agent.cstlanbaai.com/gateway/admin-api/scrm/pma-target-customer/create
+      height: 198
+      id: http-save
+      position:
+        x: 911
+        y: 282
+      positionAbsolute:
+        x: 911
+        y: 282
+      selected: false
+      type: custom
+      width: 242
+    - data:
+        desc: 输出结果
+        outputs:
+        - value_selector:
+          - http-save
+          - body
+          value_type: string
+          variable: target_customer_result
+        selected: false
+        title: 结束
+        type: end
+      height: 116
+      id: end
+      position:
+        x: 1187
+        y: 282
+      positionAbsolute:
+        x: 1187
+        y: 282
+      selected: false
+      type: custom
+      width: 242
+    - data:
+        context:
+          enabled: false
+          variable_selector: []
+        model:
+          completion_params:
+            temperature: 0.7
+          mode: chat
+          name: qwen3-max
+          provider: langgenius/tongyi/tongyi
+        prompt_template:
+        - id: e90890dd-dc64-43f2-9d08-6b506aa6f374
+          role: system
+          text: "###目标：\n你作为一个产品分析师，你需要根据用户提供的产品价值点，分析并确定产品的市场定位。输出应包括对产品定位的详细描述，明确其目标市场、核心竞争优势以及如何满足市场需求。\n\
+            \n###输出要求：\n请以JSON格式输出，必须包含以下字段：\n- productId: 产品序号（从用户输入获取）\n- workflowTaskId:\
+            \ 任务ID（从用户输入获取）\n- positioningDescription: 产品定位声明\n- targetMarket: 目标市场描述\n\
+            - customerSegments: 客户群体列表\n- customerPersonas: 客户画像列表\n- competitiveAdvantage:\
+            \ 针对目标客户的核心竞争优势\n- marketDemandMatch: 市场需求匹配分析\n- acquisitionChannels:\
+            \ 获客渠道列表\n\n###输出格式示例：\n{\n  \"productId\": \"产品序号\",\n  \"workflowTaskId\"\
+            : \"任务ID\",\n  \"positioningDescription\": \"产品定位声明\",\n  \"targetMarket\"\
+            : \"目标市场描述\",\n  \"customerSegments\": [\"客户群体1\", \"客户群体2\"],\n  \"customerPersonas\"\
+            : [\n    {\"name\": \"画像名称\", \"characteristics\": [\"特征1\", \"特征2\"],\
+            \ \"needs\": [\"需求1\", \"需求2\"]}\n  ],\n  \"competitiveAdvantage\": \"\
+            针对目标客户的核心竞争优势\",\n  \"marketDemandMatch\": \"市场需求匹配分析\",\n  \"acquisitionChannels\"\
+            : \"获客渠道1, 获客渠道2\"\n}\n\n###思考步骤：\n1. 理解价值点 - 阅读并理解提供的价值点\n2. 识别目标市场 -\
+            \ 根据价值点，确定最有可能对该产品感兴趣的市场或客户群体\n3. 分析竞争优势 - 明确产品相对于竞争对手的核心优势\n4. 匹配市场需求\
+            \ - 确定产品如何解决市场中的特定问题或满足需求\n5. 输出结果 - 提供详细的产品定位描述\n"
+        - id: c681e7a4-4795-4dda-a502-a17bd399e41a
+          role: user
+          text: '以下是企业和产品信息：
+
+            - 产品序号：{{#start.e_product_id#}}
+
+            - 任务ID：{{#start.taskId#}}
+
+            - 产品名称：{{#start.e_product_id_name#}}
+
+            - 企业名称：{{#start.e_company_name#}}
+
+            - 企业年营收规模：{{#start.e_company_revenue#}}元
+
+            - 产品主要功能：{{#start.e_product_id_detail#}}
+
+
+            【核心价值点分析结果】：
+
+            {{#start.product_value_point#}}
+
+
+            请基于以上核心价值点分析目标客户。注意：输出JSON必须包含productId和workflowTaskId字段。
+
+            '
+        selected: true
+        structured_output:
+          schema:
+            additionalProperties: false
+            properties:
+              acquisitionChannels:
+                items:
+                  type: string
+                type: array
+              competitiveAdvantage:
+                type: string
+              customerPersonas:
+                items:
+                  additionalProperties: false
+                  properties:
+                    characteristics:
+                      items:
+                        type: string
+                      type: array
+                    name:
+                      type: string
+                    needs:
+                      items:
+                        type: string
+                      type: array
+                  required:
+                  - name
+                  - characteristics
+                  - needs
+                  type: object
+                type: array
+              customerSegments:
+                items:
+                  type: string
+                type: array
+              marketDemandMatch:
+                type: string
+              positioningDescription:
+                type: string
+              productId:
+                type: string
+              targetMarket:
+                type: string
+              workflowTaskId:
+                type: string
+            required:
+            - productId
+            - workflowTaskId
+            - positioningDescription
+            - targetMarket
+            - customerSegments
+            - customerPersonas
+            - competitiveAdvantage
+            - marketDemandMatch
+            - acquisitionChannels
+            type: object
+        structured_output_enabled: true
+        title: 目标客户分析
+        type: llm
+        vision:
+          enabled: false
+      height: 88
+      id: '1765184014626'
+      position:
+        x: 359
+        y: 282
+      positionAbsolute:
+        x: 359
+        y: 282
+      selected: true
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 242
+    viewport:
+      x: 327
+      y: 35.5
+      zoom: 1
+  rag_pipeline_variables: []

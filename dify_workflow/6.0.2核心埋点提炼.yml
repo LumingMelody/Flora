@@ -1,0 +1,443 @@
+app:
+  description: 核心埋点提炼
+  icon: 💎
+  icon_background: '#D5F5F6'
+  mode: workflow
+  name: 6.0.2核心埋点提炼
+  use_icon_as_answer_icon: false
+dependencies:
+- current_identifier: null
+  type: marketplace
+  value:
+    marketplace_plugin_unique_identifier: langgenius/tongyi:0.1.3@08f25a10c0617a3512fac091a0f0d894925357e965efe40fdf95cb48e09b62d1
+    version: null
+kind: app
+version: 0.4.0
+workflow:
+  conversation_variables: []
+  environment_variables: []
+  features:
+    file_upload:
+      allowed_file_extensions:
+      - .JPG
+      - .JPEG
+      - .PNG
+      - .GIF
+      - .WEBP
+      - .SVG
+      allowed_file_types:
+      - image
+      allowed_file_upload_methods:
+      - local_file
+      - remote_url
+      enabled: false
+      fileUploadConfig:
+        audio_file_size_limit: 50
+        batch_count_limit: 5
+        file_size_limit: 15
+        image_file_size_limit: 10
+        video_file_size_limit: 100
+        workflow_file_upload_limit: 10
+      image:
+        enabled: false
+        number_limits: 3
+        transfer_methods:
+        - local_file
+        - remote_url
+      number_limits: 3
+    opening_statement: ''
+    retriever_resource:
+      enabled: false
+    sensitive_word_avoidance:
+      enabled: false
+    speech_to_text:
+      enabled: false
+    suggested_questions: []
+    suggested_questions_after_answer:
+      enabled: false
+    text_to_speech:
+      enabled: false
+      language: ''
+      voice: ''
+  graph:
+    edges:
+    - data:
+        sourceType: http-request
+        targetType: end
+      id: edge-http-to-end
+      source: http-save
+      sourceHandle: source
+      target: end
+      targetHandle: target
+      type: custom
+    - data:
+        isInIteration: false
+        isInLoop: false
+        sourceType: start
+        targetType: llm
+      id: start-source-1765187599015-target
+      source: start
+      sourceHandle: source
+      target: '1765187599015'
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInIteration: false
+        isInLoop: false
+        sourceType: llm
+        targetType: code
+      id: 1765187599015-source-1765249398680-target
+      source: '1765187599015'
+      sourceHandle: source
+      target: '1765249398680'
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInLoop: false
+        sourceType: code
+        targetType: http-request
+      id: 1765249398680-source-http-save-target
+      source: '1765249398680'
+      sourceHandle: source
+      target: http-save
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    nodes:
+    - data:
+        desc: 输入产品和企业信息
+        selected: false
+        title: 开始
+        type: start
+        variables:
+        - label: 产品名
+          max_length: 48
+          options: []
+          required: true
+          type: text-input
+          variable: e_product_id_name
+        - label: 产品简介
+          max_length: 256
+          options: []
+          required: true
+          type: paragraph
+          variable: e_product_id_detail
+        - label: 产品序号
+          max_length: 48
+          options: []
+          required: true
+          type: text-input
+          variable: e_product_id
+        - label: 企业名
+          max_length: 48
+          options: []
+          required: true
+          type: text-input
+          variable: e_company_name
+        - label: 企业年收入
+          max_length: 48
+          options: []
+          required: true
+          type: text-input
+          variable: e_company_revenue
+        - label: 竞品分析结果
+          max_length: 4096
+          options: []
+          required: true
+          type: paragraph
+          variable: competitive_analysis_result
+        - label: 用户id
+          max_length: 48
+          options: []
+          required: true
+          type: text-input
+          variable: user_id
+        - label: 租户id
+          max_length: 48
+          options: []
+          required: true
+          type: text-input
+          variable: tenant_id
+        - label: 任务id
+          max_length: 48
+          options: []
+          required: true
+          type: text-input
+          variable: taskId
+      height: 324
+      id: start
+      position:
+        x: 80
+        y: 282
+      positionAbsolute:
+        x: 80
+        y: 282
+      selected: false
+      type: custom
+      width: 242
+    - data:
+        authorization:
+          type: no-auth
+        body:
+          data:
+          - id: key-value-1
+            key: ''
+            type: text
+            value: "{\n  \"productId\":\"{{#start.e_product_id#}}\",\n  \"workflowTaskId\"\
+              :\"{{#start.taskId#}}\",\n  \"valueDescription\":\"{{#1765187599015.structured_output.valueDescription#}}\"\
+              ,\n  \"painPoints\":\"{{#1765249398680.painPoints#}}\",\n  \"keyFeatures\"\
+              :\"{{#1765249398680.keyFeatures#}}\",\n  \"uniqueSellingPoints\":\"\
+              {{#1765249398680.uniqueSellingPoints#}}\",\n  \"customerBenefits\":\"\
+              {{#1765249398680.customerBenefits#}}\",\n  \"valueMetrics\":\"{{#1765249398680.valueMetrics#}}\"\
+              \n}"
+          type: json
+        desc: 保存核心价值点结果到后端
+        headers: 'Authorization:test{{#start.user_id#}}
+
+          tenant-id:{{#start.tenant_id#}}'
+        method: post
+        params: ''
+        retry_config:
+          max_retries: 3
+          retry_enabled: true
+          retry_interval: 100
+        selected: false
+        ssl_verify: true
+        timeout:
+          connect: 10
+          read: 60
+          write: 60
+        title: 保存到后端
+        type: http-request
+        url: https://agent.cstlanbaai.com/gateway/admin-api/scrm/pma-value-points/create
+      height: 182
+      id: http-save
+      position:
+        x: 944
+        y: 282
+      positionAbsolute:
+        x: 944
+        y: 282
+      selected: false
+      type: custom
+      width: 242
+    - data:
+        desc: 输出结果
+        outputs:
+        - value_selector:
+          - http-save
+          - body
+          value_type: string
+          variable: value_points_result
+        selected: false
+        title: 结束
+        type: end
+      height: 116
+      id: end
+      position:
+        x: 1231
+        y: 282
+      positionAbsolute:
+        x: 1231
+        y: 282
+      selected: false
+      type: custom
+      width: 242
+    - data:
+        context:
+          enabled: false
+          variable_selector: []
+        model:
+          completion_params:
+            temperature: 0.7
+          mode: chat
+          name: qwen3-max
+          provider: langgenius/tongyi/tongyi
+        prompt_template:
+        - id: 168e7d56-9518-4a47-a765-6f46a3e17426
+          role: system
+          text: "###目标：\n你作为一个成熟的市场分析师，用户有一款产品，请根据用户提供的产品描述和同类竞品描述，分析并确定该产品的主要价值点。价值点指的是产品能够解决的市场痛点或满足的需求。输出应包括对该产品价值点的详细描述。\n\
+            \n###输出要求：\n请以JSON格式输出，必须包含以下字段：\n- productId: 产品序号（从用户输入获取）\n- workflowTaskId:\
+            \ 任务ID（从用户输入获取）\n- valueDescription: 产品价值点整体描述\n- painPoints: 解决的痛点列表\n\
+            - keyFeatures: 关键特性列表\n- uniqueSellingPoints: 独特卖点列表\n- customerBenefits:\
+            \ 客户收益列表\n- valueMetrics: 价值衡量指标列表\n\n###输出格式示例：\n{\n  \"productId\":\
+            \ \"产品序号\",\n  \"workflowTaskId\": \"任务ID\",\n  \"valueDescription\":\
+            \ \"产品价值点整体描述\",\n  \"painPoints\": [\"解决的痛点1\", \"解决的痛点2\"],\n  \"keyFeatures\"\
+            : [\"关键特性1\", \"关键特性2\"],\n  \"uniqueSellingPoints\": [\"独特卖点1\", \"独特卖点2\"\
+            ],\n  \"customerBenefits\": [\"客户收益1\", \"客户收益2\"],\n  \"valueMetrics\"\
+            : [\"价值衡量指标1\", \"价值衡量指标2\"]\n}\n\n###思考步骤：\n1. 理解产品描述 - 阅读并理解产品描述的具体内容\n\
+            2. 识别关键特性与功能 - 提取产品的主要特性和功能\n3. 分析市场需求与痛点 - 根据产品特性，分析市场上存在的相关需求和痛点\n4.\
+            \ 匹配产品价值点 - 将产品特性与市场需求和痛点进行匹配，确定产品如何解决这些问题\n5. 输出结果 - 返回产品价值点描述\n"
+        - id: bf8d8058-59a1-4c0e-9ef6-2cf816887429
+          role: user
+          text: '以下是企业和产品信息：
+
+            - 产品序号：{{#start.e_product_id#}}
+
+            - 任务ID：{{#start.taskId#}}
+
+            - 产品名称：{{#start.e_product_id_name#}}
+
+            - 企业名称：{{#start.e_company_name#}}
+
+            - 企业年营收规模：{{#start.e_company_revenue#}}元
+
+            - 产品主要功能：{{#start.e_product_id_detail#}}
+
+
+            【竞品分析结果】：
+
+            {{#start.competitive_analysis_result#}}
+
+
+            请基于以上竞品分析结果提炼核心价值点和埋点。注意：输出JSON必须包含productId和workflowTaskId字段。
+
+            '
+        selected: false
+        structured_output:
+          schema:
+            additionalProperties: false
+            properties:
+              customerBenefits:
+                items:
+                  type: string
+                type: array
+              keyFeatures:
+                items:
+                  type: string
+                type: array
+              painPoints:
+                items:
+                  type: string
+                type: array
+              productId:
+                type: string
+              uniqueSellingPoints:
+                items:
+                  type: string
+                type: array
+              valueDescription:
+                type: string
+              valueMetrics:
+                items:
+                  type: string
+                type: array
+              workflowTaskId:
+                type: string
+            required:
+            - productId
+            - workflowTaskId
+            - valueDescription
+            - painPoints
+            - keyFeatures
+            - uniqueSellingPoints
+            - customerBenefits
+            - valueMetrics
+            type: object
+        structured_output_enabled: true
+        title: 核心埋点提炼
+        type: llm
+        vision:
+          enabled: false
+      height: 88
+      id: '1765187599015'
+      position:
+        x: 382
+        y: 282
+      positionAbsolute:
+        x: 382
+        y: 282
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 242
+    - data:
+        code: "import json\ndef main(painPoints: list, keyFeatures: list, uniqueSellingPoints:\
+          \ list, customerBenefits: list, valueMetrics: list) -> dict:\n    result\
+          \ = {\n        \"painPoints\": \"\",\n        \"keyFeatures\": \"\",\n \
+          \       \"uniqueSellingPoints\": \"\",\n        \"customerBenefits\": \"\
+          \",\n        \"valueMetrics\": \"\"\n    }\n    try:\n        json_str =\
+          \ json.dumps(painPoints, ensure_ascii=False, separators=(',', ':'))\n  \
+          \      result[\"painPoints\"] = json.dumps(json_str, ensure_ascii=False)\n\
+          \        json_str = json.dumps(keyFeatures, ensure_ascii=False, separators=(',',\
+          \ ':'))\n        result[\"keyFeatures\"] = json.dumps(json_str, ensure_ascii=False)\n\
+          \        json_str = json.dumps(uniqueSellingPoints, ensure_ascii=False,\
+          \ separators=(',', ':'))\n        result[\"uniqueSellingPoints\"] = json.dumps(json_str,\
+          \ ensure_ascii=False)\n        json_str = json.dumps(customerBenefits, ensure_ascii=False,\
+          \ separators=(',', ':'))\n        result[\"customerBenefits\"] = json.dumps(json_str,\
+          \ ensure_ascii=False)\n        json_str = json.dumps(valueMetrics, ensure_ascii=False,\
+          \ separators=(',', ':'))\n        result[\"valueMetrics\"] = json.dumps(json_str,\
+          \ ensure_ascii=False)\n    except Exception as e:\n        pass\n    return\
+          \ result\n"
+        code_language: python3
+        outputs:
+          customerBenefits:
+            children: null
+            type: string
+          keyFeatures:
+            children: null
+            type: string
+          painPoints:
+            children: null
+            type: string
+          uniqueSellingPoints:
+            children: null
+            type: string
+          valueMetrics:
+            children: null
+            type: string
+        selected: true
+        title: 代码执行 2
+        type: code
+        variables:
+        - value_selector:
+          - '1765187599015'
+          - structured_output
+          - painPoints
+          value_type: object
+          variable: painPoints
+        - value_selector:
+          - '1765187599015'
+          - structured_output
+          - keyFeatures
+          value_type: object
+          variable: keyFeatures
+        - value_selector:
+          - '1765187599015'
+          - structured_output
+          - uniqueSellingPoints
+          value_type: object
+          variable: uniqueSellingPoints
+        - value_selector:
+          - '1765187599015'
+          - structured_output
+          - customerBenefits
+          value_type: object
+          variable: customerBenefits
+        - value_selector:
+          - '1765187599015'
+          - structured_output
+          - valueMetrics
+          value_type: object
+          variable: valueMetrics
+      height: 52
+      id: '1765249398680'
+      position:
+        x: 658
+        y: 282
+      positionAbsolute:
+        x: 658
+        y: 282
+      selected: true
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 242
+    viewport:
+      x: -300.0000000000002
+      y: 267.49999999999994
+      zoom: 1.0000000000000002
+  rag_pipeline_variables: []

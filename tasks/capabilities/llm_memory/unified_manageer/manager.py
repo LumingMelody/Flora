@@ -1,5 +1,8 @@
 """统一记忆管理器模块"""
-from typing import Dict, Any, Optional, List
+from typing import Dict, Any, Optional, List, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from agents.tree.tree_manager import TreeManager
 import time  # 用于测试时等待 embedding 完成
 
 # 使用相对导入
@@ -9,10 +12,18 @@ from .short_term import ShortTermMemory
 
 # 导入 mem0
 from mem0 import Memory
-from config import MEM0_CONFIG
+from env import MEM0_CONFIG
 
 # === 全局共享的重量级资源（只初始化一次）===
-SHARED_MEM0_CLIENT = Memory.from_config(MEM0_CONFIG)
+_SHARED_MEM0_CLIENT = None
+
+
+def get_shared_mem0_client():
+    """Lazy init mem0 client to avoid heavy work at import time."""
+    global _SHARED_MEM0_CLIENT
+    if _SHARED_MEM0_CLIENT is None:
+        _SHARED_MEM0_CLIENT = Memory.from_config(MEM0_CONFIG)
+    return _SHARED_MEM0_CLIENT
 
 
 from datetime import datetime
@@ -32,7 +43,8 @@ class UnifiedMemoryManager():
                 qwen_client=None
                 ):
         # self.user_id = user_id
-        self.mem0 = mem0_client or SHARED_MEM0_CLIENT
+        self.mem0 = mem0_client
+        self._mem0_warned = False
         self.stm = ShortTermMemory(max_history=10)  # 仍保留短期对话历史
         self.qwen = qwen_client # ← 关键！
         # 各专用存储（可 lazy init）
@@ -45,7 +57,7 @@ class UnifiedMemoryManager():
     # 1. 六类记忆写入接口
     # ======================
 
-    def add_memory_intelligently(self,user_id,content: str):
+    def add_memory_intelligently(self, user_id, content: str, metadata: Dict = None):
         """
         智能记忆路由：
         1. 先存入短期记忆
@@ -57,11 +69,10 @@ class UnifiedMemoryManager():
             from ...registry import capability_registry
             from ...llm.interface import ILLMCapability
             self.qwen = capability_registry.get_capability(
-                "qwen", expected_type=ILLMCapability
+                "llm", expected_type=ILLMCapability
             )
         # Step 1: 存入短期记忆（原始内容）
-        self.stm.add_message(content=content,role="user", user_id=self.user_id)
-        print(user_id)
+        self.stm.add_message(user_id, "user", content)
         # Step 2: 调用 Qwen 分类
         prompt = self._build_memory_classification_prompt(content)
         try:
@@ -74,26 +85,27 @@ class UnifiedMemoryManager():
             parsed = json.loads(response.strip())
         except Exception as e:
             print(f"[MemoryRouter] Qwen 解析失败: {e}，回退为 episodic")
-            self.add_episodic_memory(content)
+            self.add_episodic_memory(user_id, content)
             return
 
         # Step 3: 按类别写入
         if "core" in parsed:
             for item in parsed["core"]:
-                self.add_core_memory(item.strip())
+                self.add_core_memory(user_id, item.strip())
 
         if "episodic" in parsed:
             for item in parsed["episodic"]:
-                self.add_episodic_memory(item.strip())
+                self.add_episodic_memory(user_id, item.strip())
 
         if "semantic" in parsed:
             for item in parsed["semantic"]:
-                self.add_semantic_memory(item.strip())
+                self.add_semantic_memory(user_id, item.strip())
 
         if "procedural" in parsed:
             for item in parsed["procedural"]:
                 # 简化：将整句作为单步流程；进阶可让 Qwen 拆 steps
                 self.add_procedural_memory(
+                    user_id=user_id,
                     domain="general",
                     task_type="user_defined",
                     title=item[:50],  # 截取标题
@@ -104,6 +116,7 @@ class UnifiedMemoryManager():
             for item in parsed["resource"]:
                 # 进阶：可用正则提取路径，这里简化处理
                 self.add_resource_memory(
+                    user_id=user_id,
                     file_path="mentioned_in_text",
                     summary=item.strip(),
                     doc_type="text"
@@ -113,6 +126,7 @@ class UnifiedMemoryManager():
             for item in parsed["vault"]:
                 # ⚠️ 安全建议：不要直接存储明文！这里仅为演示
                 self.add_vault_memory(
+                    user_id=user_id,
                     category="sensitive_auto_detected",
                     key_name="auto_" + str(hash(item))[:8],
                     value=item.strip()
@@ -154,7 +168,10 @@ class UnifiedMemoryManager():
 
     def add_core_memory(self, user_id,content: str):
         """核心记忆：用户基本信息、偏好"""
-        self.mem0.add(
+        mem0 = self._ensure_mem0()
+        if not mem0:
+            return
+        mem0.add(
             content,
             user_id=user_id,
             metadata={"type": "core", "updated_at": datetime.now().isoformat()}
@@ -167,7 +184,10 @@ class UnifiedMemoryManager():
             "type": "episodic",
             "timestamp": timestamp or datetime.now().isoformat()
         }
-        self.mem0.add(content, user_id=user_id, metadata=meta)
+        mem0 = self._ensure_mem0()
+        if not mem0:
+            return
+        mem0.add(content, user_id=user_id, metadata=meta)
 
     def add_vault_memory(self,user_id, category: str, key_name: str, value: str):
         self.vault_repo.store(user_id, category, key_name, value)
@@ -182,17 +202,23 @@ class UnifiedMemoryManager():
         """语义记忆：事实性知识"""
         meta = {"type": "semantic"}
         if category: meta["category"] = category
-        self.mem0.add(content, user_id=user_id, metadata=meta)
+        mem0 = self._ensure_mem0()
+        if not mem0:
+            return
+        mem0.add(content, user_id=user_id, metadata=meta)
 
     # ======================
     # 2. 记忆检索接口（按类型）
     # ======================
 
     def _search_by_type(self, user_id: str, memory_type: str, query: str = "", limit: int = 5):
+        mem0 = self._ensure_mem0()
+        if not mem0:
+            return []
         filters = {"type": memory_type}
         if not query:
             query = "relevant information"  # Mem0 要求 query 非空
-        results = self.mem0.search(
+        results = mem0.search(
             user_id=user_id,
             query=query,
             filters=filters,
@@ -202,12 +228,20 @@ class UnifiedMemoryManager():
 
     def get_core_memory(self, user_id: str) -> str:
         """获取核心记忆（缓存优化）"""
-        print(f"Retrieving core memory for user {user_id}")
+        if not self._ensure_mem0():
+            return ""
         if self._core_cache is None:
-            print(f"Cache miss for core memory, fetching from Mem0 for user {user_id}")
             memories = self._search_by_type(user_id, "core", limit=10)
             self._core_cache = "\n".join(memories) if memories else ""
         return self._core_cache
+
+    def _ensure_mem0(self):
+        if self.mem0 is None:
+            if not self._mem0_warned:
+                print("[Memory] mem0 disabled or unavailable, skipping mem0 operations.")
+                self._mem0_warned = True
+            return None
+        return self.mem0
 
     def get_episodic_memory(self, user_id: str, query: str, limit: int = 3) -> str:
         return "\n".join(self._search_by_type(user_id, "episodic", query, limit))
@@ -344,7 +378,11 @@ class UnifiedMemoryManager():
         raw = self._execute_retrieval_plan(user_id, plan)
         
         # 加入短期对话历史（始终需要）
-        chat_hist = self.stm.format_history(user_id,n=6)
+        chat_hist = ""
+        if user_id and user_id.count(":") == 1:
+            chat_hist = self.stm.format_history_by_scope(user_id, n=6)
+        else:
+            chat_hist = self.stm.format_history(user_id, n=6)
         if chat_hist.strip():
             raw["short_term"] = f"[近期对话]\n{chat_hist}"
 
@@ -372,7 +410,193 @@ class UnifiedMemoryManager():
         raw = self._execute_retrieval_plan(user_id, plan)
         return self._synthesize_context_with_qwen(
             user_id,
-            raw, 
-            scene="任务执行", 
+            raw,
+            scene="任务执行",
             include_vault=include_sensitive
         )
+
+    # ======================
+    # 4. 语义指针补全：父级记忆回溯
+    # ======================
+
+    def get_ancestor_context(
+        self,
+        user_id: str,
+        agent_id: str,
+        tree_manager: Any,
+        max_levels: int = 3,
+        query: str = ""
+    ) -> List[Dict[str, Any]]:
+        """
+        沿树向上回溯，收集父级 Agent 的业务记忆，用于消解代词歧义。
+
+        机制：
+        - 从当前 agent_id 开始，沿树向上遍历父级 Agent
+        - 检索每级的对话历史和核心记忆
+        - 返回按层级排序的上下文列表（近到远）
+
+        Args:
+            user_id: 用户ID
+            agent_id: 当前 Agent ID
+            tree_manager: TreeManager 实例，用于获取父级关系
+            max_levels: 最大回溯层数，默认 3 层
+            query: 可选的查询关键词，用于相关性过滤
+
+        Returns:
+            List[Dict]: 每级父节点的上下文信息
+            [
+                {
+                    "agent_id": "parent_agent_1",
+                    "level": 1,
+                    "conversation_history": "...",
+                    "core_memory": "...",
+                    "agent_description": "...",
+                    "task_goal": "..."
+                },
+                ...
+            ]
+        """
+        if not tree_manager:
+            return []
+
+        ancestor_contexts = []
+        current_id = agent_id
+        level = 0
+
+        while level < max_levels:
+            # 获取父节点
+            parent_id = tree_manager.get_parent(current_id)
+            if not parent_id:
+                break  # 已到达根节点
+
+            level += 1
+
+            # 构建父节点的记忆 scope
+            # 格式: user_id:root_agent_id:parent_agent_id
+            root_path = tree_manager.get_full_path(parent_id)
+            root_agent_id = root_path[0] if root_path else parent_id
+            parent_scope = f"{user_id}:{root_agent_id}:{parent_id}"
+
+            # 获取父节点的对话历史
+            conversation_history = ""
+            try:
+                conversation_history = self.stm.format_history_by_scope(parent_scope, n=5)
+                if not conversation_history:
+                    # 尝试更宽松的 scope
+                    broader_scope = f"{user_id}:{root_agent_id}"
+                    conversation_history = self.stm.format_history_by_scope(broader_scope, n=5)
+            except Exception as e:
+                print(f"[AncestorContext] Failed to get conversation history for {parent_id}: {e}")
+
+            # 获取父节点的核心记忆
+            core_memory = ""
+            try:
+                core_memory = self.get_core_memory(user_id)
+            except Exception as e:
+                print(f"[AncestorContext] Failed to get core memory for {parent_id}: {e}")
+
+            # 获取父节点的元数据（描述、任务目标等）
+            agent_description = ""
+            task_goal = ""
+            try:
+                parent_meta = tree_manager.get_agent_meta(parent_id)
+                if parent_meta:
+                    agent_description = parent_meta.get("description", "")
+                    # 尝试从 datascope 或 capability 中提取任务目标
+                    datascope = parent_meta.get("datascope") or parent_meta.get("data_scope", "")
+                    capability = parent_meta.get("capability", "")
+                    if datascope:
+                        task_goal = f"数据范围: {datascope}"
+                    if capability:
+                        task_goal += f" 能力: {capability}"
+            except Exception as e:
+                print(f"[AncestorContext] Failed to get agent meta for {parent_id}: {e}")
+
+            # 如果有查询关键词，进行相关性过滤
+            if query:
+                # 简单的关键词匹配过滤
+                combined_text = f"{conversation_history} {core_memory} {agent_description} {task_goal}"
+                query_keywords = set(query.lower().split())
+                combined_lower = combined_text.lower()
+                relevance_score = sum(1 for kw in query_keywords if kw in combined_lower)
+
+                # 如果完全不相关，跳过这一层
+                if relevance_score == 0 and level > 1:
+                    current_id = parent_id
+                    continue
+
+            ancestor_context = {
+                "agent_id": parent_id,
+                "level": level,
+                "conversation_history": conversation_history,
+                "core_memory": core_memory,
+                "agent_description": agent_description,
+                "task_goal": task_goal
+            }
+
+            ancestor_contexts.append(ancestor_context)
+            current_id = parent_id
+
+        return ancestor_contexts
+
+    def build_ancestor_context_summary(
+        self,
+        user_id: str,
+        agent_id: str,
+        tree_manager: Any,
+        max_levels: int = 3,
+        query: str = ""
+    ) -> str:
+        """
+        构建父级上下文的摘要文本，用于注入到 LLM prompt 中。
+
+        Args:
+            user_id: 用户ID
+            agent_id: 当前 Agent ID
+            tree_manager: TreeManager 实例
+            max_levels: 最大回溯层数
+            query: 可选的查询关键词
+
+        Returns:
+            str: 格式化的父级上下文摘要
+        """
+        ancestors = self.get_ancestor_context(
+            user_id=user_id,
+            agent_id=agent_id,
+            tree_manager=tree_manager,
+            max_levels=max_levels,
+            query=query
+        )
+
+        if not ancestors:
+            return ""
+
+        summary_parts = []
+        for ctx in ancestors:
+            level = ctx["level"]
+            agent_id = ctx["agent_id"]
+
+            parts = [f"【父级 {level} - {agent_id}】"]
+
+            if ctx.get("agent_description"):
+                parts.append(f"描述: {ctx['agent_description']}")
+
+            if ctx.get("task_goal"):
+                parts.append(f"任务目标: {ctx['task_goal']}")
+
+            if ctx.get("conversation_history"):
+                # 截取最近的对话，避免过长
+                history = ctx["conversation_history"]
+                if len(history) > 500:
+                    history = history[-500:] + "..."
+                parts.append(f"近期对话:\n{history}")
+
+            if ctx.get("core_memory"):
+                memory = ctx["core_memory"]
+                if len(memory) > 300:
+                    memory = memory[:300] + "..."
+                parts.append(f"核心记忆: {memory}")
+
+            summary_parts.append("\n".join(parts))
+
+        return "\n\n".join(summary_parts)

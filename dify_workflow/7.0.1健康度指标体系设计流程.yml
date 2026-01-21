@@ -1,0 +1,822 @@
+app:
+  description: 健康度指标体系设计流程
+  icon: 📊
+  icon_background: '#D5F5F6'
+  mode: workflow
+  name: 7.0.1健康度指标体系设计流程
+  use_icon_as_answer_icon: false
+dependencies:
+- current_identifier: null
+  type: marketplace
+  value:
+    marketplace_plugin_unique_identifier: langgenius/tongyi:0.1.3@08f25a10c0617a3512fac091a0f0d894925357e965efe40fdf95cb48e09b62d1
+    version: null
+kind: app
+version: 0.4.0
+workflow:
+  conversation_variables: []
+  environment_variables: []
+  features:
+    file_upload:
+      allowed_file_extensions:
+      - .JPG
+      - .JPEG
+      - .PNG
+      - .GIF
+      - .WEBP
+      - .SVG
+      allowed_file_types:
+      - image
+      allowed_file_upload_methods:
+      - local_file
+      - remote_url
+      enabled: false
+      fileUploadConfig:
+        audio_file_size_limit: 50
+        batch_count_limit: 5
+        file_size_limit: 15
+        image_file_size_limit: 10
+        video_file_size_limit: 100
+        workflow_file_upload_limit: 10
+      image:
+        enabled: false
+        number_limits: 3
+        transfer_methods:
+        - local_file
+        - remote_url
+      number_limits: 3
+    opening_statement: ''
+    retriever_resource:
+      enabled: false
+    sensitive_word_avoidance:
+      enabled: false
+    speech_to_text:
+      enabled: false
+    suggested_questions: []
+    suggested_questions_after_answer:
+      enabled: false
+    text_to_speech:
+      enabled: false
+      language: ''
+      voice: ''
+  graph:
+    edges:
+    - data:
+        sourceType: http-request
+        targetType: end
+      id: edge-http-to-end
+      source: http-save
+      sourceHandle: source
+      target: end
+      targetHandle: target
+      type: custom
+    - data:
+        isInIteration: false
+        isInLoop: false
+        sourceType: start
+        targetType: llm
+      id: start-source-1765267713296-target
+      source: start
+      sourceHandle: source
+      target: '1765267713296'
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInIteration: false
+        isInLoop: false
+        sourceType: llm
+        targetType: code
+      id: 1765267713296-source-1765268495197-target
+      source: '1765267713296'
+      sourceHandle: source
+      target: '1765268495197'
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInLoop: false
+        sourceType: code
+        targetType: http-request
+      id: 1765268495197-source-http-save-target
+      source: '1765268495197'
+      sourceHandle: source
+      target: http-save
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    nodes:
+    - data:
+        desc: 输入产品信息
+        selected: false
+        title: 开始
+        type: start
+        variables:
+        - label: 产品名
+          max_length: 48
+          options: []
+          required: true
+          type: text-input
+          variable: e_product_id_name
+        - label: 产品简介
+          max_length: 256
+          options: []
+          required: true
+          type: paragraph
+          variable: e_product_id_detail
+        - label: 产品序号
+          max_length: 48
+          options: []
+          required: true
+          type: text-input
+          variable: e_product_id
+        - label: 企业名
+          max_length: 48
+          options: []
+          required: true
+          type: text-input
+          variable: e_company_name
+        - label: 企业年收入
+          max_length: 48
+          options: []
+          required: true
+          type: text-input
+          variable: e_company_revenue
+        - label: 用户id
+          max_length: 48
+          options: []
+          required: true
+          type: text-input
+          variable: user_id
+        - label: 租户id
+          max_length: 48
+          options: []
+          required: true
+          type: text-input
+          variable: tenant_id
+        - label: 任务id
+          max_length: 48
+          options: []
+          required: true
+          type: text-input
+          variable: taskId
+      height: 298
+      id: start
+      position:
+        x: 80
+        y: 282
+      positionAbsolute:
+        x: 80
+        y: 282
+      selected: false
+      type: custom
+      width: 242
+    - data:
+        authorization:
+          type: no-auth
+        body:
+          data:
+          - id: key-value-1
+            key: ''
+            type: text
+            value: "{\n  \"productId\":\"{{#start.e_product_id#}}\",\n  \"workflowTaskId\"\
+              :\"{{#start.taskId#}}\",\n  \"usageDimension\":\"{{#1765268495197.usageDimension#}}\"\
+              ,\n  \"valueDimension\":\"{{#1765268495197.valueDimension#}}\",\n  \"\
+              satisfactionDimension\":\"{{#1765268495197.satisfactionDimension#}}\"\
+              ,\n  \"relationshipDimension\":\"{{#1765268495197.relationshipDimension#}}\"\
+              ,\n  \"commercialDimension\":\"{{#1765268495197.commercialDimension#}}\"\
+              ,\n  \"metricsDefinition\":\"{{#1765268495197.metricsDefinition#}}\"\
+              ,\n  \"dimensionWeights\":\"{{#1765268495197.dimensionWeights#}}\",\n\
+              \  \"levelThresholds\":\"{{#1765268495197.levelThresholds#}}\",\n  \"\
+              metricThresholds\":\"{{#1765268495197.metricThresholds#}}\"\n}"
+          type: json
+        desc: 保存健康度指标体系设计结果到后端
+        headers: 'Authorization:test{{#start.user_id#}}
+
+          tenant-id:{{#start.tenant_id#}}'
+        method: post
+        params: ''
+        retry_config:
+          max_retries: 3
+          retry_enabled: true
+          retry_interval: 100
+        selected: false
+        ssl_verify: true
+        timeout:
+          connect: 10
+          read: 60
+          write: 60
+        title: 保存到后端
+        type: http-request
+        url: https://agent.cstlanbaai.com/gateway/admin-api/scrm/health-metrics-design/create
+      height: 198
+      id: http-save
+      position:
+        x: 933.6850616648753
+        y: 282
+      positionAbsolute:
+        x: 933.6850616648753
+        y: 282
+      selected: false
+      type: custom
+      width: 242
+    - data:
+        desc: 输出结果
+        outputs:
+        - value_selector:
+          - http-save
+          - body
+          value_type: string
+          variable: metrics_design_result
+        selected: false
+        title: 结束
+        type: end
+      height: 116
+      id: end
+      position:
+        x: 1202.9216170402858
+        y: 282
+      positionAbsolute:
+        x: 1202.9216170402858
+        y: 282
+      selected: false
+      type: custom
+      width: 242
+    - data:
+        context:
+          enabled: false
+          variable_selector: []
+        model:
+          completion_params:
+            temperature: 0.7
+          mode: chat
+          name: qwen3-max
+          provider: langgenius/tongyi/tongyi
+        prompt_template:
+        - id: 5be1b20a-1331-4516-ab1f-0d9fe5e2c7d7
+          role: system
+          text: '请你作为一名专业的客户成功指标体系设计专家，帮助设计完整的客户健康度指标体系：
+
+
+            【一、确定健康度维度】
+
+            1. 产品使用维度：活跃度指标、深度使用指标、使用广度指标
+
+            2. 业务价值维度：目标达成率、ROI指标、业务产出
+
+            3. 客户满意度维度：NPS评分、CSAT评分、支持体验
+
+            4. 关系健康度维度：沟通频次、响应及时性、关键人稳定性
+
+            5. 商业健康度维度：付款情况、续约意向、增购潜力
+
+
+            【二、定义指标与权重】
+
+            为每个维度的指标定义：指标名称与定义、数据来源、计算公式、权重分配、采集频率
+
+
+            【三、设定阈值与等级】
+
+            - GREEN（健康）：80-100分
+
+            - YELLOW（关注）：60-79分
+
+            - RED（预警）：0-59分
+
+
+            请输出包含以下字段的JSON格式：
+
+            - productId: 产品ID
+
+            - workflowTaskId: 任务ID
+
+            - usageDimension: 产品使用维度定义（JSON对象）
+
+            - valueDimension: 业务价值维度定义（JSON对象）
+
+            - satisfactionDimension: 客户满意度维度定义（JSON对象）
+
+            - relationshipDimension: 关系健康度维度定义（JSON对象）
+
+            - commercialDimension: 商业健康度维度定义（JSON对象）
+
+            - metricsDefinition: 指标定义列表（数组）
+
+            - dimensionWeights: 维度权重（JSON对象）
+
+            - levelThresholds: 等级阈值（JSON对象）
+
+            - metricThresholds: 指标阈值列表（数组）
+
+            '
+        - id: eb15f57c-0d4f-4190-a313-6806144996ef
+          role: user
+          text: '以下是产品信息：
+
+            - 产品名称：{{#start.e_product_id_name#}}
+
+            - 企业名称：{{#start.e_company_name#}}
+
+            - 企业年营收规模：{{#start.e_company_revenue#}}元
+
+            - 产品主要功能：{{#start.e_product_id_detail#}}
+
+            - 产品ID：{{#start.e_product_id#}}
+
+            - 任务ID：{{#start.taskId#}}
+
+
+            请设计该产品的客户健康度指标体系。
+
+            '
+        selected: true
+        structured_output:
+          schema:
+            additionalProperties: false
+            properties:
+              commercialDimension:
+                additionalProperties: false
+                properties:
+                  dimensionId:
+                    type: string
+                  dimensionName:
+                    type: string
+                  subDimensions:
+                    items:
+                      additionalProperties: false
+                      properties:
+                        metrics:
+                          items:
+                            type: string
+                          type: array
+                        subDimensionId:
+                          type: string
+                        subDimensionName:
+                          type: string
+                        weight:
+                          type: number
+                      required:
+                      - subDimensionId
+                      - subDimensionName
+                      - metrics
+                      - weight
+                      type: object
+                    type: array
+                  totalWeight:
+                    type: number
+                required:
+                - dimensionId
+                - dimensionName
+                - subDimensions
+                - totalWeight
+                type: object
+              dimensionWeights:
+                additionalProperties: false
+                properties:
+                  commercialDimensionWeight:
+                    type: number
+                  relationshipDimensionWeight:
+                    type: number
+                  satisfactionDimensionWeight:
+                    type: number
+                  totalWeight:
+                    type: number
+                  usageDimensionWeight:
+                    type: number
+                  valueDimensionWeight:
+                    type: number
+                required:
+                - usageDimensionWeight
+                - valueDimensionWeight
+                - satisfactionDimensionWeight
+                - relationshipDimensionWeight
+                - commercialDimensionWeight
+                - totalWeight
+                type: object
+              levelThresholds:
+                additionalProperties: false
+                properties:
+                  GREEN:
+                    additionalProperties: false
+                    properties:
+                      description:
+                        type: string
+                      maxScore:
+                        type: number
+                      minScore:
+                        type: number
+                    required:
+                    - minScore
+                    - maxScore
+                    - description
+                    type: object
+                  RED:
+                    additionalProperties: false
+                    properties:
+                      description:
+                        type: string
+                      maxScore:
+                        type: number
+                      minScore:
+                        type: number
+                    required:
+                    - minScore
+                    - maxScore
+                    - description
+                    type: object
+                  YELLOW:
+                    additionalProperties: false
+                    properties:
+                      description:
+                        type: string
+                      maxScore:
+                        type: number
+                      minScore:
+                        type: number
+                    required:
+                    - minScore
+                    - maxScore
+                    - description
+                    type: object
+                required:
+                - GREEN
+                - YELLOW
+                - RED
+                type: object
+              metricThresholds:
+                items:
+                  additionalProperties: false
+                  properties:
+                    description:
+                      type: string
+                    excellentThreshold:
+                      items:
+                        type: number
+                      type: array
+                    goodThreshold:
+                      items:
+                        type: number
+                      type: array
+                    metricId:
+                      type: string
+                    metricName:
+                      type: string
+                    poorThreshold:
+                      items:
+                        type: number
+                      type: array
+                    thresholdType:
+                      type: string
+                  required:
+                  - metricId
+                  - metricName
+                  - thresholdType
+                  - excellentThreshold
+                  - goodThreshold
+                  - poorThreshold
+                  - description
+                  type: object
+                type: array
+              metricsDefinition:
+                items:
+                  additionalProperties: false
+                  properties:
+                    calculationLogic:
+                      type: string
+                    dataSource:
+                      type: string
+                    dimensionId:
+                      type: string
+                    metricId:
+                      type: string
+                    metricName:
+                      type: string
+                    subDimensionId:
+                      type: string
+                    unit:
+                      type: string
+                  required:
+                  - metricId
+                  - metricName
+                  - dimensionId
+                  - subDimensionId
+                  - calculationLogic
+                  - dataSource
+                  - unit
+                  type: object
+                type: array
+              productId:
+                type: string
+              relationshipDimension:
+                additionalProperties: false
+                properties:
+                  dimensionId:
+                    type: string
+                  dimensionName:
+                    type: string
+                  subDimensions:
+                    items:
+                      additionalProperties: false
+                      properties:
+                        metrics:
+                          items:
+                            type: string
+                          type: array
+                        subDimensionId:
+                          type: string
+                        subDimensionName:
+                          type: string
+                        weight:
+                          type: number
+                      required:
+                      - subDimensionId
+                      - subDimensionName
+                      - metrics
+                      - weight
+                      type: object
+                    type: array
+                  totalWeight:
+                    type: number
+                required:
+                - dimensionId
+                - dimensionName
+                - subDimensions
+                - totalWeight
+                type: object
+              satisfactionDimension:
+                additionalProperties: false
+                properties:
+                  dimensionId:
+                    type: string
+                  dimensionName:
+                    type: string
+                  subDimensions:
+                    items:
+                      additionalProperties: false
+                      properties:
+                        metrics:
+                          items:
+                            type: string
+                          type: array
+                        subDimensionId:
+                          type: string
+                        subDimensionName:
+                          type: string
+                        weight:
+                          type: number
+                      required:
+                      - subDimensionId
+                      - subDimensionName
+                      - metrics
+                      - weight
+                      type: object
+                    type: array
+                  totalWeight:
+                    type: number
+                required:
+                - dimensionId
+                - dimensionName
+                - subDimensions
+                - totalWeight
+                type: object
+              usageDimension:
+                additionalProperties: false
+                properties:
+                  dimensionId:
+                    type: string
+                  dimensionName:
+                    type: string
+                  subDimensions:
+                    items:
+                      additionalProperties: false
+                      properties:
+                        metrics:
+                          items:
+                            type: string
+                          type: array
+                        subDimensionId:
+                          type: string
+                        subDimensionName:
+                          type: string
+                        weight:
+                          type: number
+                      required:
+                      - subDimensionId
+                      - subDimensionName
+                      - metrics
+                      - weight
+                      type: object
+                    type: array
+                  totalWeight:
+                    type: number
+                required:
+                - dimensionId
+                - dimensionName
+                - subDimensions
+                - totalWeight
+                type: object
+              valueDimension:
+                additionalProperties: false
+                properties:
+                  dimensionId:
+                    type: string
+                  dimensionName:
+                    type: string
+                  subDimensions:
+                    items:
+                      additionalProperties: false
+                      properties:
+                        metrics:
+                          items:
+                            type: string
+                          type: array
+                        subDimensionId:
+                          type: string
+                        subDimensionName:
+                          type: string
+                        weight:
+                          type: number
+                      required:
+                      - subDimensionId
+                      - subDimensionName
+                      - metrics
+                      - weight
+                      type: object
+                    type: array
+                  totalWeight:
+                    type: number
+                required:
+                - dimensionId
+                - dimensionName
+                - subDimensions
+                - totalWeight
+                type: object
+              workflowTaskId:
+                type: string
+            required:
+            - productId
+            - workflowTaskId
+            - usageDimension
+            - valueDimension
+            - satisfactionDimension
+            - relationshipDimension
+            - commercialDimension
+            - metricsDefinition
+            - dimensionWeights
+            - levelThresholds
+            - metricThresholds
+            type: object
+        structured_output_enabled: true
+        title: LLM 2
+        type: llm
+        vision:
+          enabled: false
+      height: 88
+      id: '1765267713296'
+      position:
+        x: 358.92934969531495
+        y: 282
+      positionAbsolute:
+        x: 358.92934969531495
+        y: 282
+      selected: true
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 242
+    - data:
+        code: "import json\ndef main(usageDimension: dict, valueDimension: dict, satisfactionDimension:\
+          \ dict, relationshipDimension: dict, commercialDimension: dict, metricsDefinition:\
+          \ list, dimensionWeights: dict, levelThresholds: dict, metricThresholds:\
+          \ list) -> dict:\n    result = {\n        \"usageDimension\": \"\",\n  \
+          \      \"valueDimension\": \"\",\n        \"satisfactionDimension\": \"\"\
+          ,\n        \"relationshipDimension\": \"\",\n        \"commercialDimension\"\
+          : \"\",\n        \"metricsDefinition\": \"\",\n        \"dimensionWeights\"\
+          : \"\",\n        \"levelThresholds\": \"\",\n        \"metricThresholds\"\
+          : \"\"\n    }\n    try:\n        json_str = json.dumps(usageDimension, ensure_ascii=False,\
+          \ separators=(',', ':'))\n        result[\"usageDimension\"] = json.dumps(json_str,\
+          \ ensure_ascii=False)\n\n        json_str = json.dumps(valueDimension, ensure_ascii=False,\
+          \ separators=(',', ':'))\n        result[\"valueDimension\"] = json.dumps(json_str,\
+          \ ensure_ascii=False)\n\n        json_str = json.dumps(satisfactionDimension,\
+          \ ensure_ascii=False, separators=(',', ':'))\n        result[\"satisfactionDimension\"\
+          ] = json.dumps(json_str, ensure_ascii=False)\n\n        json_str = json.dumps(relationshipDimension,\
+          \ ensure_ascii=False, separators=(',', ':'))\n        result[\"relationshipDimension\"\
+          ] = json.dumps(json_str, ensure_ascii=False)\n\n        json_str = json.dumps(commercialDimension,\
+          \ ensure_ascii=False, separators=(',', ':'))\n        result[\"commercialDimension\"\
+          ] = json.dumps(json_str, ensure_ascii=False)\n\n        json_str = json.dumps(metricsDefinition,\
+          \ ensure_ascii=False, separators=(',', ':'))\n        result[\"metricsDefinition\"\
+          ] = json.dumps(json_str, ensure_ascii=False)\n        \n        json_str\
+          \ = json.dumps(dimensionWeights, ensure_ascii=False, separators=(',', ':'))\n\
+          \        result[\"dimensionWeights\"] = json.dumps(json_str, ensure_ascii=False)\n\
+          \        \n        json_str = json.dumps(levelThresholds, ensure_ascii=False,\
+          \ separators=(',', ':'))\n        result[\"levelThresholds\"] = json.dumps(json_str,\
+          \ ensure_ascii=False)\n        \n        json_str = json.dumps(metricThresholds,\
+          \ ensure_ascii=False, separators=(',', ':'))\n        result[\"metricThresholds\"\
+          ] = json.dumps(json_str, ensure_ascii=False)\n    except Exception as e:\n\
+          \        pass\n    return result\n"
+        code_language: python3
+        outputs:
+          commercialDimension:
+            children: null
+            type: string
+          dimensionWeights:
+            children: null
+            type: string
+          levelThresholds:
+            children: null
+            type: string
+          metricThresholds:
+            children: null
+            type: string
+          metricsDefinition:
+            children: null
+            type: string
+          relationshipDimension:
+            children: null
+            type: string
+          satisfactionDimension:
+            children: null
+            type: string
+          usageDimension:
+            children: null
+            type: string
+          valueDimension:
+            children: null
+            type: string
+        selected: false
+        title: 代码执行 2
+        type: code
+        variables:
+        - value_selector:
+          - '1765267713296'
+          - structured_output
+          - usageDimension
+          value_type: object
+          variable: usageDimension
+        - value_selector:
+          - '1765267713296'
+          - structured_output
+          - valueDimension
+          value_type: object
+          variable: valueDimension
+        - value_selector:
+          - '1765267713296'
+          - structured_output
+          - satisfactionDimension
+          value_type: object
+          variable: satisfactionDimension
+        - value_selector:
+          - '1765267713296'
+          - structured_output
+          - relationshipDimension
+          value_type: object
+          variable: relationshipDimension
+        - value_selector:
+          - '1765267713296'
+          - structured_output
+          - commercialDimension
+          value_type: object
+          variable: commercialDimension
+        - value_selector:
+          - '1765267713296'
+          - structured_output
+          - metricsDefinition
+          value_type: object
+          variable: metricsDefinition
+        - value_selector:
+          - '1765267713296'
+          - structured_output
+          - dimensionWeights
+          value_type: object
+          variable: dimensionWeights
+        - value_selector:
+          - '1765267713296'
+          - structured_output
+          - levelThresholds
+          value_type: object
+          variable: levelThresholds
+        - value_selector:
+          - '1765267713296'
+          - structured_output
+          - metricThresholds
+          value_type: object
+          variable: metricThresholds
+      height: 52
+      id: '1765268495197'
+      position:
+        x: 660.929349695315
+        y: 282
+      positionAbsolute:
+        x: 660.929349695315
+        y: 282
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 242
+    viewport:
+      x: 261.65503614540194
+      y: 207.8281836932324
+      zoom: 0.757858283255199
+  rag_pipeline_variables: []

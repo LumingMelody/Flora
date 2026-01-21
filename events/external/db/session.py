@@ -51,6 +51,9 @@ async def create_tables():
         await conn.run_sync(Base.metadata.create_all)
 
         # 2. 检查并添加缺失的列（仅支持添加可为空的新列）
+        # 仅在 SQLite 下执行 PRAGMA 逻辑，其他数据库跳过
+        if dialect != "sqlite":
+            return
         for table_name, table in Base.metadata.tables.items():
             # 查询当前表的列名（使用 PRAGMA）
             result = await conn.execute(text(f"PRAGMA table_info({table_name})"))

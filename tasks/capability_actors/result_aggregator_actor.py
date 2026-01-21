@@ -59,6 +59,9 @@ class ResultAggregatorActor(Actor):
         self._trace_id: Optional[str] = None
         self._base_task_path: Optional[str] = None
         self.task_spec: Optional[TaskSpec] = None
+
+        # 根回调地址（TaskRouter），用于 NEED_INPUT 直接回报
+        self._root_reply_to: Optional[Any] = None
         
     def _check_signal_status(self, trace_id: str) -> None:
         """
@@ -139,13 +142,15 @@ class ResultAggregatorActor(Actor):
             self._root_task_id = msg.task_id          # e.g., "step_1"
             self._trace_id = msg.trace_id or f"trace_{datetime.now().strftime('%Y%m%d%H%M%S')}"
             self._base_task_path = msg.task_path      # e.g., "root.step1"
+            # 保存根回调地址（用于 NEED_INPUT 直接回报 TaskRouter）
+            self._root_reply_to = msg.root_reply_to
 
         # 其他配置
         self._max_retries = 3
         self._timeout = 300
         self._aggregation_strategy = "sequential"
 
-        from ..agents.tree.tree_manager import treeManager
+        from agents.tree.tree_manager import treeManager
         self.registry = treeManager
         self.current_user_id = msg.user_id
 
@@ -206,10 +211,11 @@ class ResultAggregatorActor(Actor):
                 description=task_spec.description,      # ← 辅助说明
                 user_id=self.current_user_id,
                 reply_to=self.myAddress,
+                root_reply_to=self._root_reply_to,      # 传递根回调地址
                 global_context=msg.global_context,       # ← 从消息继承全局上下文
                 enriched_context=msg.enriched_context,
                 is_parameter_completion=False,
-                parameters={}                           # ← 留空或后续扩展
+                parameters=getattr(task_spec, "parameters", {}) or {}
             )
 
             self.send(agent_ref, task_msg)
@@ -226,11 +232,11 @@ class ResultAggregatorActor(Actor):
             is_leaf = self._is_leaf_node(agent_id)
 
             if is_leaf:
-                from ..agents.leaf_actor import LeafActor
+                from agents.leaf_actor import LeafActor
                 ref = self.createActor(LeafActor)
                 actor_type = "LeafActor"
             else:
-                from ..agents.agent_actor import AgentActor
+                from agents.agent_actor import AgentActor
                 ref = self.createActor(AgentActor)
                 actor_type = "AgentActor"
 
@@ -334,7 +340,7 @@ class ResultAggregatorActor(Actor):
                 try:
                     # ✅ 信号检查：在重试前检查信号状态
                     self._check_signal_status(self._trace_id)
-                    
+
                     agent_ref = self._get_or_create_actor_ref(agent_id)
                     retry_msg = AgentTaskMessage(
                         agent_id=agent_id,
@@ -345,6 +351,7 @@ class ResultAggregatorActor(Actor):
                         description=self.task_spec.description,
                         user_id=self.current_user_id,
                         reply_to=self.myAddress,
+                        root_reply_to=self._root_reply_to,            # 传递根回调地址
                         context=merged_context,                         # 或从原消息恢复
                         is_parameter_completion=False,
                         parameters={}
@@ -511,7 +518,7 @@ class ResultAggregatorActor(Actor):
         Returns:
             bool: 是否为叶子节点
         """
-        from ..agents.tree.tree_manager import TreeManager
+        from agents.tree.tree_manager import TreeManager
         tree_manager = TreeManager()
         children = tree_manager.get_children(agent_id)
         return len(children) == 0

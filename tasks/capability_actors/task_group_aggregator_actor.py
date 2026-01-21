@@ -54,18 +54,21 @@ class TaskGroupAggregatorActor(Actor):
         self.step_results: Dict[str, Any] = {}  # step_id -> result
         self.global_context: Dict[str, Any] = {}  # 【不变】全局上下文
         self.enriched_context: Dict[str, ContextEntry] = {}  # 【动态】富上下文
-        
+
         # 当前工作的 Worker (用于验证回复来源)
-        self.current_worker: Optional[Actor] = None 
+        self.current_worker: Optional[Actor] = None
 
         self.source=None
 
         self._pending_tasks: Dict[str, Any] = {}
-        
+
         # 保存任务 ID 信息
         self._task_id: Optional[str] = None
         self._trace_id: Optional[str] = None
         self._task_path: Optional[str] = None
+
+        # 根回调地址（TaskRouter），用于 NEED_INPUT 直接回报
+        self._root_reply_to: Optional[Any] = None
         
     def receiveMessage(self, msg: Any, sender: Actor) -> None:
         if isinstance(msg, ActorExitRequest):
@@ -87,6 +90,8 @@ class TaskGroupAggregatorActor(Actor):
                 if msg.status in ["SUCCESS"]:
                     result_data = msg.result
                     self._handle_step_success(result_data, sender)
+                elif msg.status in ["NEED_INPUT"]:
+                    self._handle_step_need_input(msg, sender)
                 elif msg.status in ["FAILED", "ERROR", "CANCELLED"]:
                     # 处理失败情况
                     self._handle_step_failure(msg, sender)
@@ -136,9 +141,15 @@ class TaskGroupAggregatorActor(Actor):
         # 初始化上下文 - 统一上下文传播与富集方案
         self.global_context = msg.global_context.copy() if msg.global_context else {}
         self.enriched_context = msg.enriched_context.copy() if msg.enriched_context else {}
+        root_agent_id = self._extract_root_agent_id(msg.task_path)
+        if root_agent_id and "root_agent_id" not in self.global_context:
+            self.global_context["root_agent_id"] = root_agent_id
         self.step_results = {}
         self.source=sender
-        
+
+        # 保存根回调地址（用于 NEED_INPUT 直接回报 TaskRouter）
+        self._root_reply_to = msg.root_reply_to
+
         # 保存任务 ID 信息
         self._task_id = msg.task_id
         self._trace_id = msg.trace_id
@@ -169,6 +180,13 @@ class TaskGroupAggregatorActor(Actor):
         
         # 执行第一步
         self._execute_next_step()
+
+    @staticmethod
+    def _extract_root_agent_id(task_path: Optional[str]) -> str:
+        if not task_path:
+            return ""
+        parts = [part for part in task_path.split("/") if part]
+        return parts[0] if parts else ""
 
 
     def _has_current_step(self) -> bool:
@@ -236,12 +254,10 @@ class TaskGroupAggregatorActor(Actor):
         场景：需要生成"几个方案"，或者进行参数优化
         """
         logger.info(f"--> Route: Parallel Optimizer for Step {task.step}")
-        
+
         parallel_aggregator = self.createActor(ParallelTaskAggregatorActor)
         self.current_worker = parallel_aggregator
-        
 
-        
         msg = ParallelTaskRequestMessage(
             task_id=str(uuid.uuid4()),
             trace_id=self._trace_id,
@@ -251,6 +267,7 @@ class TaskGroupAggregatorActor(Actor):
             description=task.description or "",
             spec=task,  # 注意：Parallel 需要完整 spec
             reply_to=self.myAddress,
+            root_reply_to=self._root_reply_to,  # 传递根回调地址
             user_id=self.current_user_id,
             global_context=self.global_context.copy(),
             enriched_context=self.enriched_context.copy(),
@@ -261,10 +278,10 @@ class TaskGroupAggregatorActor(Actor):
     def _dispatch_to_result_aggregator(self, task: TaskSpec) -> None:
         """分发给 ResultAggregator (Agent 任务代理)"""
         logger.info(f"--> Route: ResultAggregator for Step {task.step} (Agent)")
-        
+
         aggregator = self.createActor(ResultAggregatorActor)
         self.current_worker = aggregator
-        
+
         # 发送 ResultAggregatorTaskRequestMessage - 统一上下文传播与富集方案
         msg = ResultAggregatorTaskRequestMessage(
             task_id=str(uuid.uuid4()),
@@ -275,6 +292,7 @@ class TaskGroupAggregatorActor(Actor):
             description=task.description or "",
             spec=task,
             reply_to=self.myAddress,
+            root_reply_to=self._root_reply_to,  # 传递根回调地址
             user_id=self.current_user_id,
             global_context=self.global_context.copy(),
             enriched_context=self.enriched_context.copy(),
@@ -285,7 +303,7 @@ class TaskGroupAggregatorActor(Actor):
     def _dispatch_to_mcp_executor(self, task: TaskSpec) -> None:
         """分发给 MCP Actor (工具调用)"""
         logger.info(f"--> Route: MCP Executor for Step {task.step}")
-        
+
         mcp_worker = self.createActor(MCPCapabilityActor)
         self.current_worker = mcp_worker
 
@@ -298,7 +316,9 @@ class TaskGroupAggregatorActor(Actor):
             content=task.content or "",
             description=task.description or "",
             executor=task.executor,  # ← 关键：MCP 消息需要 executor 字段
+            params=task.parameters or {},
             reply_to=self.myAddress,
+            root_reply_to=self._root_reply_to,  # 传递根回调地址
             user_id=self.current_user_id,
             global_context=self.global_context.copy(),
             enriched_context=self.enriched_context.copy(),
@@ -354,6 +374,32 @@ class TaskGroupAggregatorActor(Actor):
         self.current_step_index += 1
         self._execute_next_step()
 
+    def _handle_step_need_input(self, msg: TaskCompletedMessage, sender: Actor) -> None:
+        """步骤需要补充参数时，直接向上层返回并暂停工作流"""
+        if not self._has_current_step():
+            logger.warning("NEED_INPUT received with no current step context.")
+            return
+
+        current_task = self._get_current_step()
+        step_key = f"step_{current_task.step}_output"
+        self.step_results[step_key] = msg.result
+
+        response = TaskCompletedMessage(
+            message_type=MessageType.TASK_COMPLETED,
+            status="NEED_INPUT",
+            result={
+                "step": current_task.step,
+                "step_result": msg.result,
+                "step_results": self.step_results,
+            },
+            task_id=self._task_id,
+            trace_id=self._trace_id,
+            task_path=self._task_path,
+            step=current_task.step,
+        )
+        target = self.source
+        self.send(target, response)
+
     def _enrich_context_from_result(self, result: Any, prefix: str, source: str = "tool_output", task_path: str = "") -> None:
         """
         将 result 整体作为 value 封装进 ContextEntry，存入 enriched_context[prefix]
@@ -367,6 +413,16 @@ class TaskGroupAggregatorActor(Actor):
         # 只有当 result 不是 None 时才记录（可选：也可保留 None）
         if result is None:
             return
+
+        # Expose top-level scalar outputs as direct context keys for later param resolution.
+        if isinstance(result, dict):
+            for key, value in result.items():
+                if key in self.enriched_context:
+                    continue
+                if isinstance(value, ContextEntry):
+                    self.enriched_context[key] = value.value
+                elif isinstance(value, (str, int, float, bool)):
+                    self.enriched_context[key] = value
 
         entry = ContextEntry(
             value=result,

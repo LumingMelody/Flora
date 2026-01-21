@@ -1,0 +1,487 @@
+app:
+  description: 自动化判定与触发流转流程
+  icon: 🤖
+  icon_background: '#FFEAD5'
+  mode: workflow
+  name: 8.0.3自动化判定与触发流转流程
+  use_icon_as_answer_icon: false
+dependencies:
+- current_identifier: null
+  type: marketplace
+  value:
+    marketplace_plugin_unique_identifier: langgenius/tongyi:0.1.3@08f25a10c0617a3512fac091a0f0d894925357e965efe40fdf95cb48e09b62d1
+    version: null
+kind: app
+version: 0.4.0
+workflow:
+  conversation_variables: []
+  environment_variables: []
+  features:
+    file_upload:
+      allowed_file_extensions:
+      - .JPG
+      - .JPEG
+      - .PNG
+      - .GIF
+      - .WEBP
+      - .SVG
+      allowed_file_types:
+      - image
+      allowed_file_upload_methods:
+      - local_file
+      - remote_url
+      enabled: false
+      fileUploadConfig:
+        audio_file_size_limit: 50
+        batch_count_limit: 5
+        file_size_limit: 15
+        image_file_size_limit: 10
+        video_file_size_limit: 100
+        workflow_file_upload_limit: 10
+      image:
+        enabled: false
+        number_limits: 3
+        transfer_methods:
+        - local_file
+        - remote_url
+      number_limits: 3
+    opening_statement: ''
+    retriever_resource:
+      enabled: false
+    sensitive_word_avoidance:
+      enabled: false
+    speech_to_text:
+      enabled: false
+    suggested_questions: []
+    suggested_questions_after_answer:
+      enabled: false
+    text_to_speech:
+      enabled: false
+      language: ''
+      voice: ''
+  graph:
+    edges:
+    - data:
+        sourceType: start
+        targetType: llm
+      id: edge-start-to-llm
+      source: start
+      sourceHandle: source
+      target: llm-mql-routing
+      targetHandle: target
+      type: custom
+    - data:
+        sourceType: llm
+        targetType: code
+      id: edge-llm-to-json
+      source: llm-mql-routing
+      sourceHandle: source
+      target: code-json
+      targetHandle: target
+      type: custom
+    - data:
+        sourceType: code
+        targetType: http-request
+      id: edge-json-to-http
+      source: code-json
+      sourceHandle: source
+      target: http-save
+      targetHandle: target
+      type: custom
+    - data:
+        sourceType: http-request
+        targetType: end
+      id: edge-http-to-end
+      source: http-save
+      sourceHandle: source
+      target: end
+      targetHandle: target
+      type: custom
+    nodes:
+    - data:
+        desc: 输入产品和企业信息
+        selected: false
+        title: 开始
+        type: start
+        variables:
+        - label: 产品名
+          max_length: 48
+          options: []
+          required: true
+          type: text-input
+          variable: e_product_id_name
+        - label: 产品简介
+          max_length: 256
+          options: []
+          required: true
+          type: paragraph
+          variable: e_product_id_detail
+        - label: 产品序号
+          max_length: 48
+          options: []
+          required: true
+          type: text-input
+          variable: e_product_id
+        - label: 企业名
+          max_length: 48
+          options: []
+          required: true
+          type: text-input
+          variable: e_company_name
+        - label: 企业年收入
+          max_length: 48
+          options: []
+          required: true
+          type: text-input
+          variable: e_company_revenue
+        - label: 自动化判定评分结果
+          max_length: 8192
+          options: []
+          required: true
+          type: paragraph
+          variable: auto_scoring_result
+        - label: 线索ID
+          max_length: 48
+          options: []
+          required: true
+          type: text-input
+          variable: lead_id
+        - label: 用户id
+          max_length: 48
+          options: []
+          required: true
+          type: text-input
+          variable: user_id
+        - label: 租户id
+          max_length: 48
+          options: []
+          required: true
+          type: text-input
+          variable: tenant_id
+        - label: 任务id
+          max_length: 48
+          options: []
+          required: true
+          type: text-input
+          variable: taskId
+      height: 350
+      id: start
+      position:
+        x: 80
+        y: 282
+      positionAbsolute:
+        x: 80
+        y: 282
+      selected: false
+      type: custom
+      width: 242
+    - data:
+        context:
+          enabled: false
+          variable_selector: []
+        desc: MQL判定后的自动化流转和分配分析
+        model:
+          completion_params:
+            temperature: 0.7
+          mode: chat
+          name: qwen3-max
+          provider: langgenius/tongyi/tongyi
+        prompt_template:
+        - id: prompt-system
+          role: system
+          text: '请你作为一名专业的销售运营专家，我会向你提供企业的产品和业务信息。请你为该企业设计MQL判定后的自动化流转和分配流程，确保高质量线索能够快速、准确地分配给合适的销售人员。
+
+
+            请严格按照JSON Schema输出分析结果，必须包含以下字段：
+
+            - leadId: 线索ID（字符串类型）
+
+            - workflowTaskId: 工作流任务ID（字符串类型）
+
+            - triggerType: 触发类型（字符串类型）
+
+            - triggerCondition: 触发条件（对象类型）
+
+            - routingRuleApplied: 应用的流转规则（字符串类型）
+
+            - routingRuleDetail: 流转规则详情（对象类型）
+
+            - assignedSdrId: 分配的SDR ID（字符串类型）
+
+            - assignedSdrName: 分配的SDR姓名（字符串类型）
+
+            - assignmentReason: 分配原因（字符串类型）
+
+            - taskCreated: 是否创建任务（布尔类型）
+
+            - notificationSent: 是否发送通知（布尔类型）
+
+            - notificationChannels: 通知渠道（数组类型）
+
+            - crmUpdated: 是否更新CRM（布尔类型）
+
+            - nurturingTriggered: 是否触发培育（布尔类型）
+
+            - slaFirstResponseHours: SLA首次响应时间（数字类型）
+
+            - slaFollowupFrequency: SLA跟进频率（字符串类型）
+
+            - routingStatus: 流转状态（字符串类型）
+
+            '
+        - id: prompt-user
+          role: user
+          text: '以下是企业和产品信息：
+
+            - 产品名称：{{#start.e_product_id_name#}}
+
+            - 企业名称：{{#start.e_company_name#}}
+
+            - 企业年营收规模：{{#start.e_company_revenue#}}元
+
+            - 产品主要功能：{{#start.e_product_id_detail#}}
+
+            - 线索ID：{{#start.lead_id#}}
+
+            - 工作流任务ID：{{#start.taskId#}}
+
+
+            【自动化判定评分结果（来自8.0.2）】：
+
+            {{#start.auto_scoring_result#}}
+
+
+            请基于以上自动化评分结果，执行MQL线索的流转分配，并在输出中包含线索ID和工作流任务ID。
+
+            '
+        selected: false
+        structured_output:
+          schema:
+            properties:
+              assignedSdrId:
+                description: 分配的SDR ID
+                type: string
+              assignedSdrName:
+                description: 分配的SDR姓名
+                type: string
+              assignmentReason:
+                description: 分配原因
+                type: string
+              crmUpdated:
+                description: 是否更新CRM
+                type: boolean
+              leadId:
+                description: 线索ID
+                type: string
+              notificationChannels:
+                description: 通知渠道
+                items:
+                  type: string
+                type: array
+              notificationSent:
+                description: 是否发送通知
+                type: boolean
+              nurturingTriggered:
+                description: 是否触发培育
+                type: boolean
+              routingRuleApplied:
+                description: 应用的流转规则
+                type: string
+              routingRuleDetail:
+                description: 流转规则详情
+                type: object
+              routingStatus:
+                description: 流转状态
+                type: string
+              slaFirstResponseHours:
+                description: SLA首次响应时间（小时）
+                type: number
+              slaFollowupFrequency:
+                description: SLA跟进频率
+                type: string
+              taskCreated:
+                description: 是否创建任务
+                type: boolean
+              triggerCondition:
+                description: 触发条件
+                type: object
+              triggerType:
+                description: 触发类型
+                type: string
+              workflowTaskId:
+                description: 工作流任务ID
+                type: string
+            required:
+            - leadId
+            - workflowTaskId
+            - triggerType
+            - triggerCondition
+            - routingRuleApplied
+            - routingRuleDetail
+            - assignedSdrId
+            - assignedSdrName
+            - assignmentReason
+            - taskCreated
+            - notificationSent
+            - notificationChannels
+            - crmUpdated
+            - nurturingTriggered
+            - slaFirstResponseHours
+            - slaFollowupFrequency
+            - routingStatus
+            type: object
+        structured_output_enabled: true
+        title: MQL流转流程
+        type: llm
+        variables: []
+        vision:
+          enabled: false
+      height: 116
+      id: llm-mql-routing
+      position:
+        x: 384
+        y: 282
+      positionAbsolute:
+        x: 384
+        y: 282
+      selected: false
+      type: custom
+      width: 242
+    - data:
+        code: "import json\ndef main(triggerCondition: dict, routingRuleDetail: dict,\
+          \ notificationChannels: list) -> dict:\n    result = {}\n    try:\n    \
+          \    result[\"triggerCondition\"] = json.dumps(triggerCondition, ensure_ascii=False,\
+          \ separators=(',', ':'))\n        result[\"routingRuleDetail\"] = json.dumps(routingRuleDetail,\
+          \ ensure_ascii=False, separators=(',', ':'))\n        result[\"notificationChannels\"\
+          ] = json.dumps(notificationChannels, ensure_ascii=False, separators=(',',\
+          \ ':'))\n    except Exception as e:\n        pass\n    return result\n"
+        code_language: python3
+        desc: 将复杂字段转为JSON字符串
+        outputs:
+          notificationChannels:
+            children: null
+            type: string
+          routingRuleDetail:
+            children: null
+            type: string
+          triggerCondition:
+            children: null
+            type: string
+        selected: false
+        title: 转JSON
+        type: code
+        variables:
+        - value_selector:
+          - llm-mql-routing
+          - structured_output
+          - triggerCondition
+          value_type: object
+          variable: triggerCondition
+        - value_selector:
+          - llm-mql-routing
+          - structured_output
+          - routingRuleDetail
+          value_type: object
+          variable: routingRuleDetail
+        - value_selector:
+          - llm-mql-routing
+          - structured_output
+          - notificationChannels
+          value_type: array[string]
+          variable: notificationChannels
+      height: 80
+      id: code-json
+      position:
+        x: 688
+        y: 282
+      positionAbsolute:
+        x: 688
+        y: 282
+      selected: false
+      type: custom
+      width: 242
+    - data:
+        authorization:
+          type: no-auth
+        body:
+          data:
+          - id: key-value-1
+            key: ''
+            type: text
+            value: "{\n  \"leadId\":\"{{#start.lead_id#}}\",\n  \"workflowTaskId\"\
+              :\"{{#start.taskId#}}\",\n  \"triggerType\":\"{{#llm-mql-routing.structured_output.triggerType#}}\"\
+              ,\n  \"triggerCondition\":{{#code-json.triggerCondition#}},\n  \"routingRuleApplied\"\
+              :\"{{#llm-mql-routing.structured_output.routingRuleApplied#}}\",\n \
+              \ \"routingRuleDetail\":{{#code-json.routingRuleDetail#}},\n  \"assignedSdrId\"\
+              :\"{{#llm-mql-routing.structured_output.assignedSdrId#}}\",\n  \"assignedSdrName\"\
+              :\"{{#llm-mql-routing.structured_output.assignedSdrName#}}\",\n  \"\
+              assignmentReason\":\"{{#llm-mql-routing.structured_output.assignmentReason#}}\"\
+              ,\n  \"taskCreated\":{{#llm-mql-routing.structured_output.taskCreated#}},\n\
+              \  \"notificationSent\":{{#llm-mql-routing.structured_output.notificationSent#}},\n\
+              \  \"notificationChannels\":{{#code-json.notificationChannels#}},\n\
+              \  \"crmUpdated\":{{#llm-mql-routing.structured_output.crmUpdated#}},\n\
+              \  \"nurturingTriggered\":{{#llm-mql-routing.structured_output.nurturingTriggered#}},\n\
+              \  \"slaFirstResponseHours\":{{#llm-mql-routing.structured_output.slaFirstResponseHours#}},\n\
+              \  \"slaFollowupFrequency\":\"{{#llm-mql-routing.structured_output.slaFollowupFrequency#}}\"\
+              ,\n  \"routingStatus\":\"{{#llm-mql-routing.structured_output.routingStatus#}}\"\
+              \n}"
+          type: json
+        dependencies:
+        - code-json
+        desc: 保存MQL流转结果到数据库
+        headers: 'Authorization:test{{#start.user_id#}}
+
+
+          tenant-id:{{#start.tenant_id#}}'
+        method: post
+        params: ''
+        retry_config:
+          max_retries: 3
+          retry_enabled: true
+          retry_interval: 100
+        selected: false
+        timeout:
+          connect: 10
+          read: 60
+          write: 60
+        title: 保存MQL流转结果
+        type: http-request
+        url: https://agent.cstlanbaai.com/gateway/admin-api/scrm/mql-trigger-routing/create
+      height: 182
+      id: http-save
+      position:
+        x: 992
+        y: 282
+      positionAbsolute:
+        x: 992
+        y: 282
+      selected: false
+      type: custom
+      width: 242
+    - data:
+        desc: 输出结��
+        outputs:
+        - value_selector:
+          - llm-mql-routing
+          - structured_output
+          - output
+          variable: mql_routing_result
+        selected: false
+        title: 结束
+        type: end
+      height: 116
+      id: end
+      position:
+        x: 1296
+        y: 282
+      positionAbsolute:
+        x: 1296
+        y: 282
+      selected: false
+      type: custom
+      width: 242
+    viewport:
+      x: 0
+      y: 0
+      zoom: 1
+  rag_pipeline_variables: []

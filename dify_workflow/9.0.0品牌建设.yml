@@ -1,0 +1,415 @@
+app:
+  description: 品牌建设主流程
+  icon: 🤖
+  icon_background: '#FFEAD5'
+  mode: workflow
+  name: 9.0.0品牌建设
+  use_icon_as_answer_icon: false
+dependencies:
+- current_identifier: null
+  type: marketplace
+  value:
+    marketplace_plugin_unique_identifier: langgenius/tongyi:0.1.3@08f25a10c0617a3512fac091a0f0d894925357e965efe40fdf95cb48e09b62d1
+    version: null
+kind: app
+version: 0.4.0
+workflow:
+  conversation_variables: []
+  environment_variables: []
+  features:
+    file_upload:
+      allowed_file_extensions:
+      - .JPG
+      - .JPEG
+      - .PNG
+      - .GIF
+      - .WEBP
+      - .SVG
+      allowed_file_types:
+      - image
+      allowed_file_upload_methods:
+      - local_file
+      - remote_url
+      enabled: false
+      fileUploadConfig:
+        audio_file_size_limit: 50
+        batch_count_limit: 5
+        file_size_limit: 15
+        image_file_size_limit: 10
+        video_file_size_limit: 100
+        workflow_file_upload_limit: 10
+      image:
+        enabled: false
+        number_limits: 3
+        transfer_methods:
+        - local_file
+        - remote_url
+      number_limits: 3
+    opening_statement: ''
+    retriever_resource:
+      enabled: false
+    sensitive_word_avoidance:
+      enabled: false
+    speech_to_text:
+      enabled: false
+    suggested_questions: []
+    suggested_questions_after_answer:
+      enabled: false
+    text_to_speech:
+      enabled: false
+      language: ''
+      voice: ''
+  graph:
+    edges:
+    - data:
+        sourceType: start
+        targetType: llm
+      id: edge-start-to-llm
+      source: start
+      sourceHandle: source
+      target: llm-brand-building
+      targetHandle: target
+      type: custom
+    - data:
+        sourceType: llm
+        targetType: code
+      id: edge-llm-to-code
+      source: llm-brand-building
+      sourceHandle: source
+      target: code-json
+      targetHandle: target
+      type: custom
+    - data:
+        sourceType: code
+        targetType: http-request
+      id: edge-code-to-http
+      source: code-json
+      sourceHandle: source
+      target: http-save
+      targetHandle: target
+      type: custom
+    - data:
+        sourceType: http-request
+        targetType: end
+      id: edge-http-to-end
+      source: http-save
+      sourceHandle: source
+      target: end
+      targetHandle: target
+      type: custom
+    nodes:
+    - data:
+        desc: 输入产品和企业信息
+        selected: false
+        title: 开始
+        type: start
+        variables:
+        - label: 产品名
+          max_length: 48
+          options: []
+          required: true
+          type: text-input
+          variable: e_product_id_name
+        - label: 产品简介
+          max_length: 256
+          options: []
+          required: true
+          type: paragraph
+          variable: e_product_id_detail
+        - label: 品牌序号
+          max_length: 48
+          options: []
+          required: true
+          type: text-input
+          variable: brand_id
+        - label: 企业名
+          max_length: 48
+          options: []
+          required: true
+          type: text-input
+          variable: e_company_name
+        - label: 企业年收入
+          max_length: 48
+          options: []
+          required: true
+          type: text-input
+          variable: e_company_revenue
+        - label: 用户id
+          max_length: 48
+          options: []
+          required: true
+          type: text-input
+          variable: user_id
+        - label: 租户id
+          max_length: 48
+          options: []
+          required: true
+          type: text-input
+          variable: tenant_id
+        - label: 任务id
+          max_length: 48
+          options: []
+          required: true
+          type: text-input
+          variable: taskId
+      height: 298
+      id: start
+      position:
+        x: 80
+        y: 282
+      positionAbsolute:
+        x: 80
+        y: 282
+      selected: false
+      type: custom
+      width: 242
+    - data:
+        context:
+          enabled: false
+          variable_selector: []
+        desc: 品牌建设整体规划分析
+        model:
+          completion_params:
+            temperature: 0.7
+          mode: chat
+          name: qwen3-max
+          provider: langgenius/tongyi/tongyi
+        prompt_template:
+        - id: prompt-system
+          role: system
+          text: "请你作为一名专业的品牌战略顾问，我会向你提供企业的产品和业务信息。请你为该企业制定全面的品牌建设整体规划，包括品牌定位、品牌故事、价值观输出等核心要素。\n\
+            \n请以JSON格式输出分析结果，必须包含以下字段：\n{\n  \"brandId\": \"品牌序号\",\n  \"workflowTaskId\"\
+            : \"任务ID\",\n  \"brandStrategyOverview\": {\n    \"strategySummary\":\
+            \ \"品牌战略概述\",\n    \"brandVision\": \"品牌愿景\",\n    \"brandMission\": \"\
+            品牌使命\",\n    \"longTermGoals\": [\"长期目标1\", \"长期目标2\"]\n  },\n  \"brandArchitecture\"\
+            : {\n    \"architectureType\": \"品牌架构类型\",\n    \"brandHierarchy\": \"\
+            品牌层级结构\"\n  },\n  \"coreElements\": {\n    \"brandPositioning\": {\"summary\"\
+            : \"品牌定位概要\"},\n    \"brandStory\": {\"summary\": \"品牌故事概要\"},\n    \"\
+            brandValues\": {\"summary\": \"品牌价值观概要\"}\n  },\n  \"implementationRoadmap\"\
+            : {\n    \"phase1\": \"品牌定位和识别系统建立\",\n    \"phase2\": \"品牌故事和价值观传播\"\n\
+            \  }\n}\n"
+        - id: prompt-user
+          role: user
+          text: '以下是企业和产品信息：
+
+            - 产品名称：{{#start.e_product_id_name#}}
+
+            - 企业名称：{{#start.e_company_name#}}
+
+            - 企业年营收规模：{{#start.e_company_revenue#}}元
+
+            - 产品主要功能：{{#start.e_product_id_detail#}}
+
+            - 品牌序号：{{#start.brand_id#}}
+
+            - 任务ID：{{#start.taskId#}}
+
+
+            请为该企业制定品牌建设整体规划，务必在输出中包含 brandId 和 workflowTaskId 字段。
+
+            '
+        selected: false
+        structured_output:
+          schema:
+            properties:
+              brandArchitecture:
+                properties:
+                  architectureType:
+                    type: string
+                  brandHierarchy:
+                    type: string
+                type: object
+              brandId:
+                description: 品牌序号
+                type: string
+              brandStrategyOverview:
+                properties:
+                  brandMission:
+                    type: string
+                  brandVision:
+                    type: string
+                  longTermGoals:
+                    items:
+                      type: string
+                    type: array
+                  strategySummary:
+                    type: string
+                type: object
+              coreElements:
+                properties:
+                  brandPositioning:
+                    type: object
+                  brandStory:
+                    type: object
+                  brandValues:
+                    type: object
+                type: object
+              implementationRoadmap:
+                properties:
+                  phase1:
+                    type: string
+                  phase2:
+                    type: string
+                type: object
+              workflowTaskId:
+                description: 任务ID
+                type: string
+            required:
+            - brandId
+            - workflowTaskId
+            - brandStrategyOverview
+            - brandArchitecture
+            - coreElements
+            - implementationRoadmap
+            type: object
+        structured_output_enabled: true
+        title: 品牌建设
+        type: llm
+        variables: []
+        vision:
+          enabled: false
+      height: 116
+      id: llm-brand-building
+      position:
+        x: 384
+        y: 282
+      positionAbsolute:
+        x: 384
+        y: 282
+      selected: false
+      type: custom
+      width: 242
+    - data:
+        code: "import json\ndef main(brandStrategyOverview: dict, brandArchitecture:\
+          \ dict, coreElements: dict, implementationRoadmap: dict) -> dict:\n    result\
+          \ = {}\n    try:\n        result[\"brandStrategyOverview\"] = json.dumps(brandStrategyOverview,\
+          \ ensure_ascii=False, separators=(',', ':'))\n        result[\"brandArchitecture\"\
+          ] = json.dumps(brandArchitecture, ensure_ascii=False, separators=(',', ':'))\n\
+          \        result[\"coreElements\"] = json.dumps(coreElements, ensure_ascii=False,\
+          \ separators=(',', ':'))\n        result[\"implementationRoadmap\"] = json.dumps(implementationRoadmap,\
+          \ ensure_ascii=False, separators=(',', ':'))\n    except Exception as e:\n\
+          \        pass\n    return result\n"
+        code_language: python3
+        desc: 将复杂字段转为JSON字符串
+        outputs:
+          brandArchitecture:
+            children: null
+            type: string
+          brandStrategyOverview:
+            children: null
+            type: string
+          coreElements:
+            children: null
+            type: string
+          implementationRoadmap:
+            children: null
+            type: string
+        selected: false
+        title: 转JSON
+        type: code
+        variables:
+        - value_selector:
+          - llm-brand-building
+          - structured_output
+          - brandStrategyOverview
+          value_type: object
+          variable: brandStrategyOverview
+        - value_selector:
+          - llm-brand-building
+          - structured_output
+          - brandArchitecture
+          value_type: object
+          variable: brandArchitecture
+        - value_selector:
+          - llm-brand-building
+          - structured_output
+          - coreElements
+          value_type: object
+          variable: coreElements
+        - value_selector:
+          - llm-brand-building
+          - structured_output
+          - implementationRoadmap
+          value_type: object
+          variable: implementationRoadmap
+      height: 80
+      id: code-json
+      position:
+        x: 536
+        y: 282
+      positionAbsolute:
+        x: 536
+        y: 282
+      selected: false
+      type: custom
+      width: 242
+    - data:
+        authorization:
+          type: no-auth
+        body:
+          data:
+          - id: key-value-1
+            key: ''
+            type: text
+            value: "{\n  \"brandId\":\"{{#start.brand_id#}}\",\n  \"workflowTaskId\"\
+              :\"{{#start.taskId#}}\",\n  \"brandStrategyOverview\":{{#code-json.brandStrategyOverview#}},\n\
+              \  \"brandArchitecture\":{{#code-json.brandArchitecture#}},\n  \"coreElements\"\
+              :{{#code-json.coreElements#}},\n  \"implementationRoadmap\":{{#code-json.implementationRoadmap#}}\n\
+              }"
+          type: json
+        desc: 保存品牌建设结果到后端
+        headers: 'Authorization:test{{#start.user_id#}}
+
+
+          tenant-id:{{#start.tenant_id#}}'
+        method: post
+        params: ''
+        retry_config:
+          max_retries: 3
+          retry_enabled: true
+          retry_interval: 100
+        selected: false
+        timeout:
+          connect: 10
+          read: 60
+          write: 60
+        title: 保存到后端
+        type: http-request
+        url: https://agent.cstlanbaai.com/gateway/admin-api/scrm/brand-building-result/create
+      height: 199
+      id: http-save
+      position:
+        x: 840
+        y: 282
+      positionAbsolute:
+        x: 840
+        y: 282
+      selected: false
+      type: custom
+      width: 242
+    - data:
+        desc: 输出结果
+        outputs:
+        - value_selector:
+          - llm-brand-building
+          - structured_output
+          variable: brand_building_result
+        selected: false
+        title: 结束
+        type: end
+      height: 117
+      id: end
+      position:
+        x: 992
+        y: 282
+      positionAbsolute:
+        x: 992
+        y: 282
+      selected: false
+      type: custom
+      width: 242
+    viewport:
+      x: 0
+      y: 0
+      zoom: 1
+  rag_pipeline_variables: []

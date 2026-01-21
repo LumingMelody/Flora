@@ -1,0 +1,429 @@
+app:
+  description: 建议定价策略
+  icon: 💰
+  icon_background: '#FEF7C3'
+  mode: workflow
+  name: 6.0.3建议定价策略
+  use_icon_as_answer_icon: false
+dependencies:
+- current_identifier: null
+  type: marketplace
+  value:
+    marketplace_plugin_unique_identifier: langgenius/tongyi:0.1.3@08f25a10c0617a3512fac091a0f0d894925357e965efe40fdf95cb48e09b62d1
+    version: null
+kind: app
+version: 0.4.0
+workflow:
+  conversation_variables: []
+  environment_variables: []
+  features:
+    file_upload:
+      allowed_file_extensions:
+      - .JPG
+      - .JPEG
+      - .PNG
+      - .GIF
+      - .WEBP
+      - .SVG
+      allowed_file_types:
+      - image
+      allowed_file_upload_methods:
+      - local_file
+      - remote_url
+      enabled: false
+      fileUploadConfig:
+        audio_file_size_limit: 50
+        batch_count_limit: 5
+        file_size_limit: 15
+        image_file_size_limit: 10
+        video_file_size_limit: 100
+        workflow_file_upload_limit: 10
+      image:
+        enabled: false
+        number_limits: 3
+        transfer_methods:
+        - local_file
+        - remote_url
+      number_limits: 3
+    opening_statement: ''
+    retriever_resource:
+      enabled: false
+    sensitive_word_avoidance:
+      enabled: false
+    speech_to_text:
+      enabled: false
+    suggested_questions: []
+    suggested_questions_after_answer:
+      enabled: false
+    text_to_speech:
+      enabled: false
+      language: ''
+      voice: ''
+  graph:
+    edges:
+    - data:
+        sourceType: http-request
+        targetType: end
+      id: edge-http-to-end
+      source: http-save
+      sourceHandle: source
+      target: end
+      targetHandle: target
+      type: custom
+    - data:
+        isInIteration: false
+        isInLoop: false
+        sourceType: start
+        targetType: llm
+      id: start-source-1765187709886-target
+      source: start
+      sourceHandle: source
+      target: '1765187709886'
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInIteration: false
+        isInLoop: false
+        sourceType: llm
+        targetType: code
+      id: 1765187709886-source-1765246354387-target
+      source: '1765187709886'
+      sourceHandle: source
+      target: '1765246354387'
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInLoop: false
+        sourceType: code
+        targetType: http-request
+      id: 1765246354387-source-http-save-target
+      source: '1765246354387'
+      sourceHandle: source
+      target: http-save
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    nodes:
+    - data:
+        desc: 输入产品和企业信息
+        selected: false
+        title: 开始
+        type: start
+        variables:
+        - label: 产品名
+          max_length: 48
+          options: []
+          required: true
+          type: text-input
+          variable: e_product_id_name
+        - label: 产品简介
+          max_length: 256
+          options: []
+          required: true
+          type: paragraph
+          variable: e_product_id_detail
+        - label: 产品序号
+          max_length: 48
+          options: []
+          required: true
+          type: text-input
+          variable: e_product_id
+        - label: 企业名
+          max_length: 48
+          options: []
+          required: true
+          type: text-input
+          variable: e_company_name
+        - label: 企业年收入
+          max_length: 48
+          options: []
+          required: true
+          type: text-input
+          variable: e_company_revenue
+        - label: 竞品分析结果
+          max_length: 4096
+          options: []
+          required: true
+          type: paragraph
+          variable: competitor_analysis_report
+        - label: 目标客户分析结果
+          max_length: 4096
+          options: []
+          required: true
+          type: paragraph
+          variable: target_customer_analysis
+        - label: 用户id
+          max_length: 48
+          options: []
+          required: true
+          type: text-input
+          variable: user_id
+        - label: 租户id
+          max_length: 48
+          options: []
+          required: true
+          type: text-input
+          variable: tenant_id
+        - label: 任务id
+          max_length: 48
+          options: []
+          required: true
+          type: text-input
+          variable: taskId
+      height: 350
+      id: start
+      position:
+        x: 80
+        y: 282
+      positionAbsolute:
+        x: 80
+        y: 282
+      selected: false
+      type: custom
+      width: 242
+    - data:
+        authorization:
+          type: no-auth
+        body:
+          data:
+          - id: key-value-1
+            key: ''
+            type: text
+            value: "{\n  \"productId\":\"{{#start.e_product_id#}}\",\n  \"workflowTaskId\"\
+              :\"{{#start.taskId#}}\",\n  \"payAbilityAnalysis\":\"{{#1765187709886.structured_output.payAbilityAnalysis#}}\"\
+              ,\n  \"willingnessToPay\":\"{{#1765187709886.structured_output.willingnessToPay#}}\"\
+              ,\n  \"suggestedPriceRange\":\"{{#1765246354387.suggestedPriceRange#}}\"\
+              ,\n  \"pricingModel\":\"{{#1765187709886.structured_output.pricingModel#}}\"\
+              ,\n  \"pricingFactors\":\"{{#1765246354387.pricingFactors#}}\",\n  \"\
+              competitivePricing\":\"{{#1765187709886.structured_output.competitivePricing#}}\"\
+              ,\n  \"valueBasedPricing\":\"{{#1765187709886.structured_output.valueBasedPricing#}}\"\
+              \n}"
+          type: json
+        desc: 保存定价策略结果到后端
+        headers: 'Authorization:test{{#start.user_id#}}
+
+          tenant-id:{{#start.tenant_id#}}'
+        method: post
+        params: ''
+        retry_config:
+          max_retries: 3
+          retry_enabled: true
+          retry_interval: 100
+        selected: false
+        ssl_verify: true
+        timeout:
+          connect: 10
+          read: 60
+          write: 60
+        title: 保存到后端
+        type: http-request
+        url: https://agent.cstlanbaai.com/gateway/admin-api/scrm/pma-pricing-strategy/create
+      height: 182
+      id: http-save
+      position:
+        x: 906
+        y: 282
+      positionAbsolute:
+        x: 906
+        y: 282
+      selected: false
+      type: custom
+      width: 242
+    - data:
+        desc: 输出结果
+        outputs:
+        - value_selector:
+          - http-save
+          - body
+          value_type: string
+          variable: pricing_strategy_result
+        selected: false
+        title: 结束
+        type: end
+      height: 116
+      id: end
+      position:
+        x: 1183
+        y: 282
+      positionAbsolute:
+        x: 1183
+        y: 282
+      selected: false
+      type: custom
+      width: 242
+    - data:
+        context:
+          enabled: false
+          variable_selector: []
+        model:
+          completion_params:
+            temperature: 0.7
+          mode: chat
+          name: qwen3-max
+          provider: langgenius/tongyi/tongyi
+        prompt_template:
+        - id: 98387eb1-0027-42d3-af2f-c5d0f53c1aa6
+          role: system
+          text: "###目标：\n请根据提供的产品品牌计划，分析目标客户的付费能力。输出应包括对目标客户群体的消费能力和支付意愿的详细分析，你需要考虑客户并不愿意付出很多价格，你要以最严苛的价格来思考，以及可能影响付费能力的因素。以人民币计价\n\
+            \n###输出要求：\n请以JSON格式输出，必须包含以下字段：\n- productId: 产品序号（从用户输入获取）\n- workflowTaskId:\
+            \ 任务ID（从用户输入获取）\n- payAbilityAnalysis: 目标客户消费能力分析\n- willingnessToPay:\
+            \ 支付意愿分析\n- suggestedPriceRange: 建议价格区间（包含min、max、optimal）\n- pricingModel:\
+            \ 建议定价模型（订阅制/一次性/分层等）\n- pricingFactors: 影响定价因素列表\n- competitivePricing:\
+            \ 竞品定价对比分析\n- valueBasedPricing: 基于价值的定价建议\n\n###输出格式示例：\n{\n  \"productId\"\
+            : \"产品序号\",\n  \"workflowTaskId\": \"任务ID\",\n  \"payAbilityAnalysis\"\
+            : \"目标客户消费能力分析\",\n  \"willingnessToPay\": \"支付意愿分析\",\n  \"suggestedPriceRange\"\
+            : {\"min\": \"最低价格\", \"max\": \"最高价格\", \"optimal\": \"最优价格\"},\n  \"\
+            pricingModel\": \"建议定价模型（订阅制/一次性/分层等）\",\n  \"pricingFactors\": [\"影响定价因素1\"\
+            , \"影响定价因素2\"],\n  \"competitivePricing\": \"竞品定价对比分析\",\n  \"valueBasedPricing\"\
+            : \"基于价值的定价建议\"\n}\n\n###思考步骤：\n1. 理解品牌计划 - 阅读并理解提供的品牌计划\n2. 识别目标市场和受众\
+            \ - 确定品牌计划中提到的目标市场和主要受众群体\n3. 分析消费能力和支付意愿 - 根据目标市场的特征，分析其消费能力和支付意愿\n4.\
+            \ 考虑影响因素 - 考虑经济环境、社会趋势、竞争情况等因素对目标客户付费能力的影响\n5. 撰写分析报告 - 基于上述分析，撰写一份详细的目标客户付费能力分析报告。以人民币计价\n"
+        - id: bed2ee9c-34a3-4ce1-8f5d-5be44c72ad78
+          role: user
+          text: '以下是企业和产品信息：
+
+            - 产品序号：{{#start.e_product_id#}}
+
+            - 任务ID：{{#start.taskId#}}
+
+            - 产品名称：{{#start.e_product_id_name#}}
+
+            - 企业名称：{{#start.e_company_name#}}
+
+            - 企业年营收规模：{{#start.e_company_revenue#}}元
+
+            - 产品主要功能：{{#start.e_product_id_detail#}}
+
+
+            【竞品分析结果】：
+
+            {{#start.competitor_analysis_report#}}
+
+
+            【目标客户分析结果】：
+
+            {{#start.target_customer_analysis#}}
+
+
+            请基于以上分析结果评估目标客户的付费能力并给出定价策略建议。注意：输出JSON必须包含productId和workflowTaskId字段。
+
+            '
+        selected: false
+        structured_output:
+          schema:
+            additionalProperties: false
+            properties:
+              competitivePricing:
+                type: string
+              payAbilityAnalysis:
+                type: string
+              pricingFactors:
+                items:
+                  type: string
+                type: array
+              pricingModel:
+                type: string
+              productId:
+                type: string
+              suggestedPriceRange:
+                additionalProperties: false
+                properties:
+                  max:
+                    type: string
+                  min:
+                    type: string
+                  optimal:
+                    type: string
+                required:
+                - min
+                - max
+                - optimal
+                type: object
+              valueBasedPricing:
+                type: string
+              willingnessToPay:
+                type: string
+              workflowTaskId:
+                type: string
+            required:
+            - productId
+            - workflowTaskId
+            - payAbilityAnalysis
+            - willingnessToPay
+            - suggestedPriceRange
+            - pricingModel
+            - pricingFactors
+            - competitivePricing
+            - valueBasedPricing
+            type: object
+        structured_output_enabled: true
+        title: 定价策略
+        type: llm
+        vision:
+          enabled: false
+      height: 88
+      id: '1765187709886'
+      position:
+        x: 349
+        y: 282
+      positionAbsolute:
+        x: 349
+        y: 282
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 242
+    - data:
+        code: "import json\ndef main(suggestedPriceRange: dict, pricingFactors: list)\
+          \ -> dict:\n    result = {\n        \"suggestedPriceRange\": \"\",\n   \
+          \     \"pricingFactors\": \"\"\n    }\n    try:\n        json_str = json.dumps(suggestedPriceRange,\
+          \ ensure_ascii=False, separators=(',', ':'))\n        result[\"suggestedPriceRange\"\
+          ] = json.dumps(json_str, ensure_ascii=False)\n\n        json_str = json.dumps(pricingFactors,\
+          \ ensure_ascii=False, separators=(',', ':'))\n        result[\"pricingFactors\"\
+          ] = json.dumps(json_str, ensure_ascii=False)\n    except Exception as e:\n\
+          \        pass\n    return result\n"
+        code_language: python3
+        outputs:
+          pricingFactors:
+            children: null
+            type: string
+          suggestedPriceRange:
+            children: null
+            type: string
+        selected: false
+        title: 转JSON
+        type: code
+        variables:
+        - value_selector:
+          - '1765187709886'
+          - structured_output
+          - suggestedPriceRange
+          value_type: object
+          variable: suggestedPriceRange
+        - value_selector:
+          - '1765187709886'
+          - structured_output
+          - pricingFactors
+          value_type: object
+          variable: pricingFactors
+      height: 52
+      id: '1765246354387'
+      position:
+        x: 618
+        y: 282
+      positionAbsolute:
+        x: 618
+        y: 282
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 242
+    viewport:
+      x: 239
+      y: 3.5
+      zoom: 1
+  rag_pipeline_variables: []

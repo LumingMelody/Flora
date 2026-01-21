@@ -1,0 +1,568 @@
+app:
+  description: 根据评价规则给客户打标签，支持单个或批量客户
+  icon: 🏷️
+  icon_background: '#D5F5F6'
+  mode: workflow
+  name: 10.0.1客户批量打标
+  use_icon_as_answer_icon: false
+dependencies:
+- current_identifier: null
+  type: marketplace
+  value:
+    marketplace_plugin_unique_identifier: langgenius/tongyi:0.1.3@08f25a10c0617a3512fac091a0f0d894925357e965efe40fdf95cb48e09b62d1
+    version: null
+kind: app
+version: 0.4.0
+workflow:
+  conversation_variables: []
+  environment_variables: []
+  features:
+    file_upload:
+      allowed_file_extensions:
+      - .JPG
+      - .JPEG
+      - .PNG
+      - .GIF
+      - .WEBP
+      - .SVG
+      allowed_file_types:
+      - image
+      allowed_file_upload_methods:
+      - local_file
+      - remote_url
+      enabled: false
+      fileUploadConfig:
+        audio_file_size_limit: 50
+        batch_count_limit: 5
+        file_size_limit: 15
+        image_file_size_limit: 10
+        video_file_size_limit: 100
+        workflow_file_upload_limit: 10
+      image:
+        enabled: false
+        number_limits: 3
+        transfer_methods:
+        - local_file
+        - remote_url
+      number_limits: 3
+    opening_statement: ''
+    retriever_resource:
+      enabled: false
+    sensitive_word_avoidance:
+      enabled: false
+    speech_to_text:
+      enabled: false
+    suggested_questions: []
+    suggested_questions_after_answer:
+      enabled: false
+    text_to_speech:
+      enabled: false
+      language: ''
+      voice: ''
+  graph:
+    edges:
+    - data:
+        isInIteration: false
+        isInLoop: false
+        sourceType: start
+        targetType: http-request
+      id: start-source-http_get_rule-target
+      source: start
+      sourceHandle: source
+      target: http_get_rule
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInIteration: false
+        isInLoop: false
+        sourceType: http-request
+        targetType: code
+      id: http_get_rule-source-code_parse_rule-target
+      source: http_get_rule
+      sourceHandle: source
+      target: code_parse_rule
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInIteration: false
+        isInLoop: false
+        sourceType: code
+        targetType: llm
+      id: code_parse_rule-source-llm_evaluate-target
+      source: code_parse_rule
+      sourceHandle: source
+      target: llm_evaluate
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInIteration: false
+        isInLoop: false
+        sourceType: llm
+        targetType: code
+      id: llm_evaluate-source-code_prepare_tags-target
+      source: llm_evaluate
+      sourceHandle: source
+      target: code_prepare_tags
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInIteration: false
+        isInLoop: false
+        sourceType: code
+        targetType: http-request
+      id: code_prepare_tags-source-http_mark_tags-target
+      source: code_prepare_tags
+      sourceHandle: source
+      target: http_mark_tags
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInLoop: false
+        sourceType: http-request
+        targetType: end
+      id: http_mark_tags-source-end-target
+      source: http_mark_tags
+      sourceHandle: source
+      target: end
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    nodes:
+    - data:
+        desc: 输入客户信息和规则ID
+        selected: false
+        title: 开始
+        type: start
+        variables:
+        - label: 规则ID
+          max_length: 48
+          options: []
+          required: true
+          type: text-input
+          variable: rule_id
+        - label: 客户信息（JSON数组）
+          max_length: 10000
+          options: []
+          required: true
+          type: paragraph
+          variable: customers_json
+        - label: 用户id
+          max_length: 48
+          options: []
+          required: true
+          type: text-input
+          variable: user_id
+        - label: 租户id
+          max_length: 48
+          options: []
+          required: true
+          type: text-input
+          variable: tenant_id
+      height: 220
+      id: start
+      position:
+        x: 80
+        y: 282
+      positionAbsolute:
+        x: 80
+        y: 282
+      selected: false
+      type: custom
+      width: 242
+    - data:
+        authorization:
+          config: null
+          type: no-auth
+        body:
+          data: []
+          type: none
+        headers: |
+          Authorization:Bearer {{#start.user_id#}}
+          tenant-id:{{#start.tenant_id#}}
+        method: get
+        params: ''
+        retry_config:
+          max_retries: 3
+          retry_enabled: true
+          retry_interval: 100
+        selected: false
+        ssl_verify: true
+        timeout:
+          max_connect_timeout: 0
+          max_read_timeout: 0
+          max_write_timeout: 0
+        title: 获取评价规则
+        type: http-request
+        url: https://your-api-domain.com/admin-api/scrm/customer-evaluation-rule/get?id={{#start.rule_id#}}
+        variables: []
+      height: 170
+      id: http_get_rule
+      position:
+        x: 400
+        y: 282
+      positionAbsolute:
+        x: 400
+        y: 282
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 242
+    - data:
+        code: |
+          import json
+
+          def main(rule_response: str, customers_json: str) -> dict:
+              result = {
+                  "rule_content": "",
+                  "customers": [],
+                  "customer_count": 0,
+                  "is_batch": False
+              }
+              try:
+                  # 解析规则响应
+                  rule_data = json.loads(rule_response)
+                  if "data" in rule_data:
+                      rule_content = rule_data["data"].get("ruleContent", "{}")
+                  else:
+                      rule_content = rule_response
+                  result["rule_content"] = rule_content if isinstance(rule_content, str) else json.dumps(rule_content, ensure_ascii=False)
+
+                  # 解析客户信息
+                  customers = json.loads(customers_json)
+                  if isinstance(customers, dict):
+                      # 单个客户，转为数组
+                      customers = [customers]
+                  result["customers"] = json.dumps(customers, ensure_ascii=False)
+                  result["customer_count"] = len(customers)
+                  result["is_batch"] = len(customers) > 1
+              except Exception as e:
+                  result["rule_content"] = f"解析失败: {str(e)}"
+              return result
+        code_language: python3
+        outputs:
+          rule_content:
+            children: null
+            type: string
+          customers:
+            children: null
+            type: string
+          customer_count:
+            children: null
+            type: number
+          is_batch:
+            children: null
+            type: boolean
+        selected: false
+        title: 解析规则和客户
+        type: code
+        variables:
+        - value_selector:
+          - http_get_rule
+          - body
+          value_type: string
+          variable: rule_response
+        - value_selector:
+          - start
+          - customers_json
+          value_type: string
+          variable: customers_json
+      height: 52
+      id: code_parse_rule
+      position:
+        x: 720
+        y: 282
+      positionAbsolute:
+        x: 720
+        y: 282
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 242
+    - data:
+        context:
+          enabled: false
+          variable_selector: []
+        model:
+          completion_params:
+            temperature: 0.3
+          mode: chat
+          name: deepseek-v3
+          provider: langgenius/tongyi/tongyi
+        prompt_template:
+        - id: evaluate-system
+          role: system
+          text: |
+            你是一名专业的客户分析师。请根据提供的评价规则，对客户进行评估并确定应该打的标签。
+
+            评估流程：
+            1. 解析评价规则中的各个维度和指标
+            2. 根据客户数据，逐一评估每个指标
+            3. 根据评分标准确定每个客户应该获得的标签
+            4. 输出每个客户的评估结果和推荐标签
+
+            请以JSON格式输出，结构如下：
+            {
+              "evaluations": [
+                {
+                  "customerId": 客户ID,
+                  "scores": {
+                    "维度名": 得分
+                  },
+                  "totalScore": 总分,
+                  "recommendedTags": ["标签1", "标签2"],
+                  "tagIds": [标签ID1, 标签ID2],
+                  "reason": "评估理由简述"
+                }
+              ]
+            }
+
+            注意：
+            - tagIds 应该是数字类型的标签ID，需要根据系统中已有的标签体系映射
+            - 如果无法确定标签ID，可以先输出标签名称，后续通过代码映射
+        - id: evaluate-user
+          role: user
+          text: |
+            【评价规则】
+            {{#code_parse_rule.rule_content#}}
+
+            【待评估客户信息】
+            {{#code_parse_rule.customers#}}
+
+            请根据规则评估以上客户，并给出推荐标签。
+        selected: false
+        structured_output:
+          schema:
+            additionalProperties: false
+            properties:
+              evaluations:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    customerId:
+                      type: number
+                    scores:
+                      type: object
+                    totalScore:
+                      type: number
+                    recommendedTags:
+                      type: array
+                      items:
+                        type: string
+                    tagIds:
+                      type: array
+                      items:
+                        type: number
+                    reason:
+                      type: string
+                  required:
+                  - customerId
+                  - recommendedTags
+                  - reason
+            required:
+            - evaluations
+            type: object
+        structured_output_enabled: true
+        title: 评估客户并推荐标签
+        type: llm
+        vision:
+          enabled: false
+      height: 88
+      id: llm_evaluate
+      position:
+        x: 1040
+        y: 282
+      positionAbsolute:
+        x: 1040
+        y: 282
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 242
+    - data:
+        code: |
+          import json
+
+          def main(evaluations: dict, is_batch: bool) -> dict:
+              result = {
+                  "request_body": "",
+                  "use_batch_api": False,
+                  "customer_ids": [],
+                  "tag_ids": []
+              }
+              try:
+                  evals = evaluations.get("evaluations", [])
+                  if not evals:
+                      result["request_body"] = json.dumps({"error": "无评估结果"})
+                      return result
+
+                  # 收集所有客户ID和标签ID
+                  all_customer_ids = []
+                  all_tag_ids = set()
+
+                  for ev in evals:
+                      cid = ev.get("customerId")
+                      if cid:
+                          all_customer_ids.append(cid)
+                      tags = ev.get("tagIds", [])
+                      for t in tags:
+                          if isinstance(t, int) and t > 0:
+                              all_tag_ids.add(t)
+
+                  result["customer_ids"] = all_customer_ids
+                  result["tag_ids"] = list(all_tag_ids)
+
+                  # 判断使用单个还是批量API
+                  if len(all_customer_ids) == 1:
+                      # 单个客户：使用 mark-tags API
+                      result["use_batch_api"] = False
+                      result["request_body"] = json.dumps({
+                          "customerId": all_customer_ids[0],
+                          "addTagIds": list(all_tag_ids)
+                      }, ensure_ascii=False)
+                  else:
+                      # 多个客户：使用 mark-tags-batch API
+                      result["use_batch_api"] = True
+                      result["request_body"] = json.dumps({
+                          "customerIds": all_customer_ids,
+                          "tagIds": list(all_tag_ids)
+                      }, ensure_ascii=False)
+
+              except Exception as e:
+                  result["request_body"] = json.dumps({"error": str(e)})
+              return result
+        code_language: python3
+        outputs:
+          request_body:
+            children: null
+            type: string
+          use_batch_api:
+            children: null
+            type: boolean
+          customer_ids:
+            children: null
+            type: array[number]
+          tag_ids:
+            children: null
+            type: array[number]
+        selected: false
+        title: 准备打标请求
+        type: code
+        variables:
+        - value_selector:
+          - llm_evaluate
+          - structured_output
+          value_type: object
+          variable: evaluations
+        - value_selector:
+          - code_parse_rule
+          - is_batch
+          value_type: boolean
+          variable: is_batch
+      height: 52
+      id: code_prepare_tags
+      position:
+        x: 1360
+        y: 282
+      positionAbsolute:
+        x: 1360
+        y: 282
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 242
+    - data:
+        authorization:
+          config: null
+          type: no-auth
+        body:
+          data:
+          - id: key-value-tags
+            key: ''
+            type: text
+            value: "{{#code_prepare_tags.request_body#}}"
+          type: json
+        headers: |
+          Authorization:Bearer {{#start.user_id#}}
+          tenant-id:{{#start.tenant_id#}}
+          Content-Type:application/json
+        method: post
+        params: ''
+        retry_config:
+          max_retries: 3
+          retry_enabled: true
+          retry_interval: 100
+        selected: false
+        ssl_verify: true
+        timeout:
+          max_connect_timeout: 0
+          max_read_timeout: 0
+          max_write_timeout: 0
+        title: 调用打标API
+        type: http-request
+        url: https://your-api-domain.com/admin-api/scrm/customer-info/mark-tags-batch
+        variables: []
+      height: 170
+      id: http_mark_tags
+      position:
+        x: 1680
+        y: 282
+      positionAbsolute:
+        x: 1680
+        y: 282
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 242
+    - data:
+        desc: 输出打标结果
+        outputs:
+        - value_selector:
+          - http_mark_tags
+          - body
+          value_type: string
+          variable: mark_result
+        - value_selector:
+          - llm_evaluate
+          - structured_output
+          value_type: object
+          variable: evaluations
+        - value_selector:
+          - code_prepare_tags
+          - customer_ids
+          value_type: array[number]
+          variable: customer_ids
+        - value_selector:
+          - code_prepare_tags
+          - tag_ids
+          value_type: array[number]
+          variable: tag_ids
+        selected: false
+        title: 结束
+        type: end
+      height: 180
+      id: end
+      position:
+        x: 2000
+        y: 282
+      positionAbsolute:
+        x: 2000
+        y: 282
+      selected: false
+      type: custom
+      width: 242
+    viewport:
+      x: 0
+      y: 100
+      zoom: 0.6
+  rag_pipeline_variables: []

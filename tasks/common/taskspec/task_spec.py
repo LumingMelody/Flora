@@ -139,11 +139,11 @@ class TaskSpec(BaseModel):
     description: str
     content: str
     user_id: Optional[str] = None
+    parameters: Dict[str, Any] = Field(default_factory=dict)
 
     # 新增控制字段
     is_parallel: bool = False
     strategy_reasoning: str = ""
     is_dependency_expanded: bool = False
     original_parent: Optional[str] = None
-
 

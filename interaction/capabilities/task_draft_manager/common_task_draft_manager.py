@@ -104,13 +104,15 @@ class CommonTaskDraft(ITaskDraftManagerCapability):
     
     def set_draft_pending_confirm(self, draft: TaskDraftDTO) -> TaskDraftDTO:
         """将草稿设置为待确认状态
-        
+
         Args:
             draft: 任务草稿DTO
-            
+
         Returns:
             更新后的任务草稿
         """
+        # 状态变化时确保 description 是最新的
+        draft.description = self._generate_description(draft)
         draft.status = TaskDraftStatus.PENDING_CONFIRM
         self.draft_storage.save_draft(draft)
         return draft
@@ -277,10 +279,10 @@ class CommonTaskDraft(ITaskDraftManagerCapability):
     
     def prepare_for_execution(self, draft: TaskDraftDTO) -> Dict[str, Any]:
         """准备任务执行所需的所有参数
-        
+
         Args:
             draft: 任务草稿DTO
-            
+
         Returns:
             执行参数字典
         """
@@ -288,6 +290,16 @@ class CommonTaskDraft(ITaskDraftManagerCapability):
         for slot_name, slot_value in draft.slots.items():
             if slot_value.confirmed:  # 关键：只取已确认的
                 parameters[slot_name] = slot_value.resolved
+
+        # 确保 description 字段存在：优先使用已生成的 description
+        if "description" not in parameters:
+            if draft.description:
+                # 优先使用 LLM 生成的 description
+                parameters["description"] = draft.description
+            elif draft.original_utterances:
+                # 降级：拼接用户原始输入
+                parameters["description"] = self._fallback_description(draft)
+
         return parameters
     
     def set_schedule(self, draft: TaskDraftDTO, schedule: ScheduleDTO) -> TaskDraftDTO:
@@ -379,20 +391,28 @@ class CommonTaskDraft(ITaskDraftManagerCapability):
     
     def _sanitize_json(self, json_str: str) -> str:
         """清理LLM返回的JSON字符串，移除可能的markdown包裹
-        
+
         Args:
             json_str: LLM返回的字符串
-            
+
         Returns:
             清理后的JSON字符串
         """
-        # 移除可能的markdown代码块
+        if not json_str:
+            return json_str
+
+        # 先去除首尾空白
+        json_str = json_str.strip()
+
+        # 移除可能的markdown代码块（支持 ```json 或 ``` 开头）
         if json_str.startswith('```json'):
             json_str = json_str[7:]
-        if json_str.startswith('```'):
+        elif json_str.startswith('```'):
             json_str = json_str[3:]
+
         if json_str.endswith('```'):
             json_str = json_str[:-3]
+
         return json_str.strip()
     
     def extract_slots_with_llm(self, task_type: str, utterance: str, current_slots: Dict[str, Any]) -> Dict[str, Any]:
@@ -453,32 +473,36 @@ class CommonTaskDraft(ITaskDraftManagerCapability):
         """
         [修改后] 根据意图更新草稿，并动态生成下一步回复
         适应场景：无固定Schema，依靠LLM动态判断缺什么参数
-        
+
         核心流程：
         1. 实体填充：将识别到的实体填入槽位（不要使用NLU，直接使用llm进行实体填充）
         2. 动态评估：调用LLM评估完整性
         3. 更新状态：根据评估结果更新draft状态
         4. 生成回复：根据状态生成合适的回复文本
         """
-        
+
+        # 0. 获取用户原始输入并保存到草稿历史中
+        original_utterance = intent_result.raw_nlu_output.get("original_utterance", "")
+        if original_utterance:
+            self.add_utterance_to_draft(draft, original_utterance)
+
         # 1. 把识别到的实体（Entities）全部填入槽位（Slots）
         # 既然槽位是虚的，我们就直接把 entity.name 当作 slot_name 存进去
         if intent_result.entities:
             for entity in intent_result.entities:
                 # SlotSource.INFERENCE 表示这是从推理中获取的
                 self.fill_entity_to_slot(
-                    draft, 
-                    entity.name, 
-                    entity.resolved_value or entity.value, 
+                    draft,
+                    entity.name,
+                    entity.resolved_value or entity.value,
                     SlotSource.INFERENCE
                 )
-        
+
         # 2. 持久化保存一下当前的草稿状态
         self.update_draft(draft)
-        
+
         # 3. [关键] 调用 LLM 动态评估当前草稿的完整性
         ##TODO：这里填槽前查询已知信息（放在event里）
-        original_utterance = intent_result.raw_nlu_output.get("original_utterance", "")
         evaluation_result = self._evaluate_draft_completeness(draft, original_utterance)
         
         # 4. 根据评估结果更新Draft状态
@@ -539,11 +563,14 @@ class CommonTaskDraft(ITaskDraftManagerCapability):
             draft.status = TaskDraftStatus.FILLING
             draft.completeness_score = 0.5  # 可以根据LLM的分析调整
             draft.next_clarification_question = evaluation_result["response_to_user"]
-        
-        # 5. 更新草稿
+
+        # 5. 生成/更新 description（单次 update_draft_from_intent 只调用一次）
+        draft.description = self._generate_description(draft)
+
+        # 6. 更新草稿
         self.update_draft(draft)
-        
-        # 6. 返回 InteractionHandler 能够理解的字典格式
+
+        # 7. 返回 InteractionHandler 能够理解的字典格式
         return {
             "task_draft": draft,
             "response_text": evaluation_result["response_to_user"],  # 直接发给用户的回复
@@ -628,3 +655,72 @@ class CommonTaskDraft(ITaskDraftManagerCapability):
         """
         evaluation_result = self._evaluate_draft_completeness(draft, last_user_utterance)
         return evaluation_result["response_to_user"], evaluation_result["is_ready"]
+
+    def _fallback_description(self, draft: TaskDraftDTO) -> str:
+        """
+        降级逻辑：拼接用户原始输入生成描述
+
+        Args:
+            draft: 当前任务草稿
+
+        Returns:
+            拼接后的描述字符串
+        """
+        user_utterances = [
+            u for u in draft.original_utterances
+            if not u.startswith("[系统补充信息]")
+        ]
+        return " ".join(user_utterances) if user_utterances else ""
+
+    def _generate_description(self, draft: TaskDraftDTO) -> str:
+        """
+        使用 LLM 根据槽位和对话历史生成任务描述
+
+        Args:
+            draft: 当前任务草稿
+
+        Returns:
+            生成的任务描述，失败时返回拼接的 utterances
+        """
+        # 提取当前已有的所有槽位（kv对）
+        current_slots = {k: v.resolved for k, v in draft.slots.items()}
+        current_slots_str = json.dumps(current_slots, ensure_ascii=False, indent=2)
+
+        # 最近对话历史（过滤系统补充信息）
+        user_utterances = [
+            u for u in draft.original_utterances
+            if not u.startswith("[系统补充信息]")
+        ]
+        dialog_history = "\n".join(user_utterances[-5:])
+
+        prompt = f"""
+你是一个任务描述生成器。根据以下信息，生成一句简洁、清晰的任务描述。
+
+【任务类型】
+{draft.task_type}
+
+【已收集的参数】
+{current_slots_str}
+
+【用户对话历史】
+{dialog_history}
+
+【要求】
+1. 用一句话概括用户想要完成的任务
+2. 包含关键参数信息（如时间、地点、对象等）
+3. 语言简洁自然，不要有多余的解释
+4. 直接输出描述，不要有引号或其他格式
+
+【输出】
+""".strip()
+
+        try:
+            response = self.llm.generate(prompt, max_tokens=100, temperature=0.3)
+            description = response.strip()
+            # 如果生成结果为空，降级
+            if not description:
+                return self._fallback_description(draft)
+            return description
+        except Exception as e:
+            self.logger.error(f"_generate_description LLM调用失败: {e}")
+            return self._fallback_description(draft)

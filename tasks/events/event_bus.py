@@ -6,6 +6,8 @@ from typing import Dict, Any, Optional, List
 import logging
 import httpx
 import uuid
+import asyncio
+import threading
 from datetime import datetime
 
 # 导入信号状态枚举
@@ -219,7 +221,51 @@ class EventPublisher:
 
         except Exception as e:
             self.log.error(f"Error in publish_task_event: {str(e)}", exc_info=True)
-    
+
+    def publish_task_event_sync(
+        self,
+        task_id: str,
+        event_type: str,
+        trace_id: str,
+        task_path: str,
+        source: str,
+        agent_id: str,
+        data: Optional[Dict[str, Any]] = None,
+        user_id: Optional[str] = None,
+        message_type: Optional[str] = None,
+        enriched_context_snapshot: Optional[Dict[str, Any]] = None,
+        error: Optional[str] = None
+    ):
+        """
+        同步版本的事件发布方法，用于在非异步上下文（如 Thespian Actor）中调用
+        """
+        def _run_in_thread():
+            try:
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+                try:
+                    loop.run_until_complete(self.publish_task_event(
+                        task_id=task_id,
+                        event_type=event_type,
+                        trace_id=trace_id,
+                        task_path=task_path,
+                        source=source,
+                        agent_id=agent_id,
+                        data=data,
+                        user_id=user_id,
+                        message_type=message_type,
+                        enriched_context_snapshot=enriched_context_snapshot,
+                        error=error
+                    ))
+                finally:
+                    loop.close()
+            except Exception as e:
+                self.log.error(f"Error in publish_task_event_sync: {str(e)}", exc_info=True)
+
+        # 在后台线程中执行，避免阻塞 Actor
+        thread = threading.Thread(target=_run_in_thread, daemon=True)
+        thread.start()
+
     async def get_signal_status(
         self, 
         trace_id: str

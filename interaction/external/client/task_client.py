@@ -1,4 +1,5 @@
 from typing import Dict, Any, Optional
+import os
 import uuid
 import requests
 from common.task_execution import TaskExecutionContextDTO
@@ -6,8 +7,10 @@ from common.base import ExecutionStatus
 
 class TaskClient:
     """任务执行客户端，用于与外部任务执行系统交互"""
-    
-    def __init__(self, base_url: str = "http://localhost:8001/api/v1", events_base_url: str = "http://localhost:8004/api/v1"):
+
+    def __init__(self, base_url: str = "http://localhost:8003/api/v1", events_base_url: str = "http://localhost:8000/api/v1"):
+        base_url = os.getenv("TASK_EXECUTION_BASE_URL", base_url)
+        events_base_url = os.getenv("EVENTS_SERVICE_BASE_URL", events_base_url)
         self.base_url = base_url.rstrip('/')
         self.events_base_url = events_base_url.rstrip('/')
          # 实际项目中，这里应该包含认证信息、超时设置等
@@ -144,6 +147,42 @@ class TaskClient:
             "request_id": request_id,
             "schedule_type": "CRON",
             "schedule_config": schedule
+        }
+
+    def register_delayed_task(
+        self,
+        task_name: str,
+        task_content: Dict[str, Any],
+        delay_seconds: int,
+        parameters: Dict[str, Any],
+        user_id: str,
+        request_id: Optional[str] = None
+    ) -> Dict[str, Any]:
+        if not request_id:
+            request_id = str(uuid.uuid4())
+
+        parameters["_user_id"] = user_id
+
+        payload = {
+            "task_name": task_name,
+            "task_content": task_content,
+            "input_params": parameters,
+            "loop_config": None,
+            "is_temporary": True,
+            "schedule_type": "DELAYED",
+            "schedule_config": {"delay_seconds": delay_seconds},
+            "request_id": request_id
+        }
+
+        resp_data = self._request("POST", "/ad-hoc-tasks", json=payload)
+
+        return {
+            "success": True,
+            "message": resp_data["message"],
+            "trace_id": resp_data["trace_id"],
+            "request_id": request_id,
+            "schedule_type": "DELAYED",
+            "schedule_config": {"delay_seconds": delay_seconds}
         }
     
     def unregister_scheduled_task(self, trace_id: Optional[str] = None, request_id: Optional[str] = None) -> Dict[str, Any]:

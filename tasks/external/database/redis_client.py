@@ -1,7 +1,7 @@
 """Redis客户端封装"""
 import redis
 from typing import Any, Optional
-from config import REDIS_HOST, REDIS_PORT, REDIS_DATABASE, REDIS_PASSWORD
+from env import REDIS_HOST, REDIS_PORT, REDIS_DATABASE, REDIS_PASSWORD
 
 
 class RedisClient:

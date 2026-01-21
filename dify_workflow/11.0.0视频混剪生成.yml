@@ -1,0 +1,979 @@
+app:
+  description: 输入主题/关键词，自动匹配素材并生成混剪视频
+  icon: 🎬
+  icon_background: '#FFE7A3'
+  mode: workflow
+  name: 11.0.0视频混剪生成
+  use_icon_as_answer_icon: false
+dependencies:
+- current_identifier: null
+  type: marketplace
+  value:
+    marketplace_plugin_unique_identifier: langgenius/tongyi:0.1.3@08f25a10c0617a3512fac091a0f0d894925357e965efe40fdf95cb48e09b62d1
+    version: null
+kind: app
+version: 0.4.0
+workflow:
+  conversation_variables: []
+  environment_variables:
+  - name: API_BASE_URL
+    value: https://agent.cstlanbaai.com/gateway
+  - name: AUTH_TOKEN
+    value: ''
+  - name: TENANT_ID
+    value: ''
+  - name: TASK_TYPE
+    value: '2'
+  - name: TASK_FROM
+    value: '1'
+  features:
+    file_upload:
+      allowed_file_extensions:
+      - .JPG
+      - .JPEG
+      - .PNG
+      - .GIF
+      - .WEBP
+      - .SVG
+      allowed_file_types:
+      - image
+      allowed_file_upload_methods:
+      - local_file
+      - remote_url
+      enabled: false
+      fileUploadConfig:
+        audio_file_size_limit: 50
+        batch_count_limit: 5
+        file_size_limit: 15
+        image_file_size_limit: 10
+        video_file_size_limit: 100
+        workflow_file_upload_limit: 10
+      image:
+        enabled: false
+        number_limits: 3
+        transfer_methods:
+        - local_file
+        - remote_url
+      number_limits: 3
+    opening_statement: ''
+    retriever_resource:
+      enabled: false
+    sensitive_word_avoidance:
+      enabled: false
+    speech_to_text:
+      enabled: false
+    suggested_questions: []
+    suggested_questions_after_answer:
+      enabled: false
+    text_to_speech:
+      enabled: false
+      language: ''
+      voice: ''
+  graph:
+    edges:
+    - data:
+        isInIteration: false
+        isInLoop: false
+        sourceType: start
+        targetType: llm
+      id: start-source-llm_tag_plan-target
+      source: start
+      sourceHandle: source
+      target: llm_tag_plan
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInIteration: false
+        isInLoop: false
+        sourceType: llm
+        targetType: code
+      id: llm_tag_plan-source-code_prepare_params-target
+      source: llm_tag_plan
+      sourceHandle: source
+      target: code_prepare_params
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInIteration: false
+        isInLoop: false
+        sourceType: code
+        targetType: iteration
+      id: code_prepare_params-source-iteration_tags-target
+      source: code_prepare_params
+      sourceHandle: source
+      target: iteration_tags
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInIteration: false
+        isInLoop: false
+        sourceType: iteration
+        targetType: code
+      id: iteration_tags-source-code_build_request-target
+      source: iteration_tags
+      sourceHandle: source
+      target: code_build_request
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInIteration: false
+        isInLoop: false
+        sourceType: code
+        targetType: http-request
+      id: code_build_request-source-http_create_video-target
+      source: code_build_request
+      sourceHandle: source
+      target: http_create_video
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInIteration: false
+        isInLoop: false
+        sourceType: http-request
+        targetType: end
+      id: http_create_video-source-end-target
+      source: http_create_video
+      sourceHandle: source
+      target: end
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInIteration: true
+        isInLoop: false
+        sourceType: iteration
+        targetType: http-request
+      id: iteration_tags-source-http_resource_by_tag-target
+      source: iteration_tags
+      sourceHandle: source
+      target: http_resource_by_tag
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInIteration: true
+        isInLoop: false
+        sourceType: http-request
+        targetType: http-request
+      id: http_resource_by_tag-source-http_resource_by_name-target
+      source: http_resource_by_tag
+      sourceHandle: source
+      target: http_resource_by_name
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInIteration: true
+        isInLoop: false
+        sourceType: http-request
+        targetType: http-request
+      id: http_resource_by_name-source-http_resource_common-target
+      source: http_resource_by_name
+      sourceHandle: source
+      target: http_resource_common
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInIteration: true
+        isInLoop: false
+        sourceType: http-request
+        targetType: code
+      id: http_resource_common-source-code_pick_resource-target
+      source: http_resource_common
+      sourceHandle: source
+      target: code_pick_resource
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInIteration: true
+        isInLoop: false
+        sourceType: code
+        targetType: iteration
+      id: code_pick_resource-source-iteration_tags-target
+      source: code_pick_resource
+      sourceHandle: source
+      target: iteration_tags
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    nodes:
+    - data:
+        desc: 输入主题或关键词
+        selected: false
+        title: 开始
+        type: start
+        variables:
+        - label: 主题/关键词
+          max_length: 200
+          options: []
+          required: true
+          type: text-input
+          variable: topic
+      height: 120
+      id: start
+      position:
+        x: 80
+        y: 282
+      positionAbsolute:
+        x: 80
+        y: 282
+      selected: false
+      type: custom
+      width: 242
+    - data:
+        context:
+          enabled: false
+          variable_selector: []
+        desc: 生成视频标签与文案
+        model:
+          completion_params:
+            temperature: 0.7
+          mode: chat
+          name: deepseek-v3
+          provider: langgenius/tongyi/tongyi
+        prompt_template:
+        - id: prompt-system
+          role: system
+          text: |-
+            你是一名短视频编导与混剪策划专家。
+            请根据用户提供的主题/关键词，生成可用于混剪视频的标签与文案配置。
+
+            规则：
+            1. 生成4-6个中文素材标签，易于在素材库中检索。
+            2. 每个标签提供对应的文案 text_content（1-2句中文描述）。
+            3. 每个标签提供 title（短标题）与 effect_text（强调词）。
+            4. 每个标签提供 duration_per_tag（4-10秒，浮点数）。
+            5. 给出 subtitle_config、title_position、effect_position、video_type（默认“混剪”）。
+
+            输出JSON字段：
+            {
+              "tags": ["标签"],
+              "text_content": {"标签": "文案"},
+              "title": {"标签": "标题"},
+              "effect_text": {"标签": "强调词"},
+              "duration_per_tag": {"标签": 5.0},
+              "subtitle_config": {"grid_position": 3, "font_size": 32, "color": "#FFFF00"},
+              "title_position": 2,
+              "effect_position": 6,
+              "video_type": "混剪"
+            }
+        - id: prompt-user
+          role: user
+          text: |-
+            主题/关键词：{{#start.topic#}}
+
+            请基于该主题生成混剪视频所需的标签与文案配置。
+        selected: false
+        structured_output:
+          schema:
+            properties:
+              duration_per_tag:
+                additionalProperties:
+                  type: number
+                type: object
+              effect_position:
+                type: number
+              effect_text:
+                additionalProperties:
+                  type: string
+                type: object
+              subtitle_config:
+                properties:
+                  color:
+                    type: string
+                  font_size:
+                    type: number
+                  grid_position:
+                    type: number
+                required:
+                - grid_position
+                - font_size
+                - color
+                type: object
+              tags:
+                items:
+                  type: string
+                type: array
+              text_content:
+                additionalProperties:
+                  type: string
+                type: object
+              title:
+                additionalProperties:
+                  type: string
+                type: object
+              title_position:
+                type: number
+              video_type:
+                type: string
+            required:
+            - tags
+            - text_content
+            - title
+            - effect_text
+            - duration_per_tag
+            - subtitle_config
+            - title_position
+            - effect_position
+            - video_type
+            type: object
+        structured_output_enabled: true
+        title: 标签与文案生成
+        type: llm
+        variables: []
+        vision:
+          enabled: false
+      height: 116
+      id: llm_tag_plan
+      position:
+        x: 384
+        y: 282
+      positionAbsolute:
+        x: 384
+        y: 282
+      selected: false
+      type: custom
+      width: 242
+    - data:
+        code: |
+          def main(tags: list, text_content: dict, title: dict, effect_text: dict,
+                   duration_per_tag: dict, subtitle_config: dict,
+                   title_position: int, effect_position: int, video_type: str) -> dict:
+              clean_tags = []
+              for tag in tags or []:
+                  if not tag:
+                      continue
+                  tag = str(tag).strip()
+                  if tag and tag not in clean_tags:
+                      clean_tags.append(tag)
+              if not clean_tags:
+                  clean_tags = ["通用"]
+              if len(clean_tags) > 6:
+                  clean_tags = clean_tags[:6]
+
+              def ensure_map(src: dict, default_prefix: str) -> dict:
+                  result = {}
+                  if isinstance(src, dict):
+                      result.update({str(k): str(v).strip() for k, v in src.items() if v is not None})
+                  for tag in clean_tags:
+                      val = result.get(tag)
+                      if not val:
+                          result[tag] = f"{default_prefix}{tag}"
+                  return result
+
+              def ensure_duration(src: dict) -> dict:
+                  result = {}
+                  if isinstance(src, dict):
+                      result.update(src)
+                  for tag in clean_tags:
+                      try:
+                          val = float(result.get(tag, 5.0))
+                      except Exception:
+                          val = 5.0
+                      if val <= 0:
+                          val = 5.0
+                      result[tag] = val
+                  return result
+
+              subtitle = {"grid_position": 3, "font_size": 32, "color": "#FFFF00"}
+              if isinstance(subtitle_config, dict):
+                  for key in subtitle:
+                      if subtitle_config.get(key) is not None:
+                          subtitle[key] = subtitle_config[key]
+
+              title_pos = int(title_position) if isinstance(title_position, (int, float)) else 2
+              effect_pos = int(effect_position) if isinstance(effect_position, (int, float)) else 6
+              video_type_val = video_type.strip() if isinstance(video_type, str) and video_type.strip() else "混剪"
+
+              return {
+                  "tags": clean_tags,
+                  "text_content": ensure_map(text_content, "文案-"),
+                  "title": ensure_map(title, "标题-"),
+                  "effect_text": ensure_map(effect_text, "亮点-"),
+                  "duration_per_tag": ensure_duration(duration_per_tag),
+                  "subtitle_config": subtitle,
+                  "title_position": title_pos,
+                  "effect_position": effect_pos,
+                  "video_type": video_type_val,
+              }
+        code_language: python3
+        desc: 清洗与补齐标签、文案、时长等配置
+        outputs:
+          duration_per_tag:
+            children: null
+            type: object
+          effect_position:
+            children: null
+            type: number
+          effect_text:
+            children: null
+            type: object
+          subtitle_config:
+            children: null
+            type: object
+          tags:
+            children: null
+            type: array
+          text_content:
+            children: null
+            type: object
+          title:
+            children: null
+            type: object
+          title_position:
+            children: null
+            type: number
+          video_type:
+            children: null
+            type: string
+        selected: false
+        title: 参数规范化
+        type: code
+        variables:
+        - value_selector:
+          - llm_tag_plan
+          - structured_output
+          - tags
+          value_type: array
+          variable: tags
+        - value_selector:
+          - llm_tag_plan
+          - structured_output
+          - text_content
+          value_type: object
+          variable: text_content
+        - value_selector:
+          - llm_tag_plan
+          - structured_output
+          - title
+          value_type: object
+          variable: title
+        - value_selector:
+          - llm_tag_plan
+          - structured_output
+          - effect_text
+          value_type: object
+          variable: effect_text
+        - value_selector:
+          - llm_tag_plan
+          - structured_output
+          - duration_per_tag
+          value_type: object
+          variable: duration_per_tag
+        - value_selector:
+          - llm_tag_plan
+          - structured_output
+          - subtitle_config
+          value_type: object
+          variable: subtitle_config
+        - value_selector:
+          - llm_tag_plan
+          - structured_output
+          - title_position
+          value_type: number
+          variable: title_position
+        - value_selector:
+          - llm_tag_plan
+          - structured_output
+          - effect_position
+          value_type: number
+          variable: effect_position
+        - value_selector:
+          - llm_tag_plan
+          - structured_output
+          - video_type
+          value_type: string
+          variable: video_type
+      height: 80
+      id: code_prepare_params
+      position:
+        x: 688
+        y: 282
+      positionAbsolute:
+        x: 688
+        y: 282
+      selected: false
+      type: custom
+      width: 242
+    - data:
+        desc: 遍历标签并匹配素材
+        iterator:
+          index_variable: tag_index
+          input_type: array
+          item_variable: tag
+          value_selector:
+          - code_prepare_params
+          - tags
+        output:
+          output_type: array
+          value_selector:
+          - code_pick_resource
+          - item
+          variable: tag_results
+        selected: false
+        title: 标签遍历
+        type: iteration
+      height: 116
+      id: iteration_tags
+      position:
+        x: 992
+        y: 282
+      positionAbsolute:
+        x: 992
+        y: 282
+      selected: false
+      type: custom
+      width: 242
+    - data:
+        authorization:
+          type: no-auth
+        body:
+          data: []
+          type: none
+        desc: 按标签搜索素材库
+        headers: |
+          Authorization:Bearer {{#env.AUTH_TOKEN#}}
+          tenant-id:{{#env.TENANT_ID#}}
+        method: get
+        params: ''
+        retry_config:
+          max_retries: 2
+          retry_enabled: true
+          retry_interval: 100
+        selected: false
+        ssl_verify: true
+        timeout:
+          max_connect_timeout: 0
+          max_read_timeout: 0
+          max_write_timeout: 0
+        title: 标签搜索
+        type: http-request
+        url: {{#env.API_BASE_URL#}}/admin-api/agent/resource/page?type=2&tag={{#iteration_tags.item#}}&fileType=1&pageNo=1&pageSize=10
+        variables: []
+      height: 170
+      id: http_resource_by_tag
+      position:
+        x: 992
+        y: 520
+      positionAbsolute:
+        x: 992
+        y: 520
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 242
+    - data:
+        authorization:
+          type: no-auth
+        body:
+          data: []
+          type: none
+        desc: 按名称搜索素材库
+        headers: |
+          Authorization:Bearer {{#env.AUTH_TOKEN#}}
+          tenant-id:{{#env.TENANT_ID#}}
+        method: get
+        params: ''
+        retry_config:
+          max_retries: 2
+          retry_enabled: true
+          retry_interval: 100
+        selected: false
+        ssl_verify: true
+        timeout:
+          max_connect_timeout: 0
+          max_read_timeout: 0
+          max_write_timeout: 0
+        title: 名称搜索
+        type: http-request
+        url: {{#env.API_BASE_URL#}}/admin-api/agent/resource/page?type=2&name={{#iteration_tags.item#}}&path=null&fileType=1&size=null&createTime=null&pageNo=1&pageSize=10&tag=null
+        variables: []
+      height: 170
+      id: http_resource_by_name
+      position:
+        x: 1248
+        y: 520
+      positionAbsolute:
+        x: 1248
+        y: 520
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 242
+    - data:
+        authorization:
+          type: no-auth
+        body:
+          data: []
+          type: none
+        desc: 使用通用素材兜底
+        headers: |
+          Authorization:Bearer {{#env.AUTH_TOKEN#}}
+          tenant-id:{{#env.TENANT_ID#}}
+        method: get
+        params: ''
+        retry_config:
+          max_retries: 2
+          retry_enabled: true
+          retry_interval: 100
+        selected: false
+        ssl_verify: true
+        timeout:
+          max_connect_timeout: 0
+          max_read_timeout: 0
+          max_write_timeout: 0
+        title: 通用兜底
+        type: http-request
+        url: {{#env.API_BASE_URL#}}/admin-api/agent/resource/page?type=2&tag=通用&fileType=1&pageNo=1&pageSize=10
+        variables: []
+      height: 170
+      id: http_resource_common
+      position:
+        x: 1504
+        y: 520
+      positionAbsolute:
+        x: 1504
+        y: 520
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 242
+    - data:
+        code: |
+          import json
+
+          def _extract_urls(payload) -> list:
+              urls = []
+              if isinstance(payload, dict):
+                  data = payload.get("data", payload)
+                  if isinstance(data, dict):
+                      items = data.get("list") or data.get("records") or data.get("items") or data.get("rows")
+                  elif isinstance(data, list):
+                      items = data
+                  else:
+                      items = []
+              elif isinstance(payload, list):
+                  items = payload
+              else:
+                  items = []
+
+              for item in items or []:
+                  if not isinstance(item, dict):
+                      continue
+                  for key in ("url", "fileUrl", "file_url", "downloadUrl", "ossUrl", "path", "link"):
+                      val = item.get(key)
+                      if isinstance(val, str) and val:
+                          urls.append(val)
+                          break
+              return urls
+
+          def _parse_body(body: str) -> list:
+              try:
+                  payload = json.loads(body or "{}");
+              except Exception:
+                  payload = {}
+              return _extract_urls(payload)
+
+          def main(tag: str, resp_tag: str, resp_name: str, resp_common: str) -> dict:
+              urls_tag = _parse_body(resp_tag)
+              urls_name = _parse_body(resp_name)
+              urls_common = _parse_body(resp_common)
+
+              if urls_tag:
+                  urls = urls_tag
+                  source = "tag"
+              elif urls_name:
+                  urls = urls_name
+                  source = "name"
+              elif urls_common:
+                  urls = urls_common
+                  source = "common"
+              else:
+                  urls = []
+                  source = "empty"
+
+              return {
+                  "item": {
+                      "tag": tag,
+                      "videos": urls[:2]
+                  },
+                  "source": source
+              }
+        code_language: python3
+        desc: 选择最优素材匹配结果
+        outputs:
+          item:
+            children: null
+            type: object
+          source:
+            children: null
+            type: string
+        selected: false
+        title: 选择素材
+        type: code
+        variables:
+        - value_selector:
+          - iteration_tags
+          - item
+          value_type: string
+          variable: tag
+        - value_selector:
+          - http_resource_by_tag
+          - body
+          value_type: string
+          variable: resp_tag
+        - value_selector:
+          - http_resource_by_name
+          - body
+          value_type: string
+          variable: resp_name
+        - value_selector:
+          - http_resource_common
+          - body
+          value_type: string
+          variable: resp_common
+      height: 80
+      id: code_pick_resource
+      position:
+        x: 1760
+        y: 520
+      positionAbsolute:
+        x: 1760
+        y: 520
+      selected: false
+      type: custom
+      width: 242
+    - data:
+        code: |
+          import json
+          import time
+
+          def main(tag_results: list, tags: list, text_content: dict, title: dict,
+                   effect_text: dict, duration_per_tag: dict, subtitle_config: dict,
+                   title_position: int, effect_position: int, video_type: str,
+                   tenant_id: str, task_type: str, task_from: str) -> dict:
+              tags = tags or []
+              tag_videos = {}
+
+              for tag in tags:
+                  videos = []
+                  for item in tag_results or []:
+                      if not isinstance(item, dict):
+                          continue
+                      if item.get("tag") == tag:
+                          videos = item.get("videos") or []
+                          break
+                  if not isinstance(videos, list):
+                      videos = []
+                  tag_videos[tag] = {"video": videos}
+
+              task_id = str(int(time.time()))
+              tenant_id_val = str(tenant_id or "")
+
+              payload = {
+                  "tags": tags,
+                  "text_content": text_content or {},
+                  "tag_videos": tag_videos,
+                  "duration_per_tag": duration_per_tag or {},
+                  "subtitle_config": subtitle_config or {},
+                  "title": title or {},
+                  "title_position": title_position,
+                  "effect_text": effect_text or {},
+                  "effect_position": effect_position,
+                  "video_type": video_type or "混剪",
+                  "id": task_id,
+                  "tenant_id": tenant_id_val,
+              }
+
+              req_param = json.dumps(payload, ensure_ascii=False, separators=(",", ":"))
+              req_param_escaped = json.dumps(req_param, ensure_ascii=False)
+
+              try:
+                  task_type_val = int(task_type)
+              except Exception:
+                  task_type_val = 2
+              try:
+                  task_from_val = int(task_from)
+              except Exception:
+                  task_from_val = 1
+
+              return {
+                  "reqParam": req_param_escaped,
+                  "taskType": task_type_val,
+                  "taskFrom": task_from_val
+              }
+        code_language: python3
+        desc: 组装视频生成接口参数
+        outputs:
+          reqParam:
+            children: null
+            type: string
+          taskFrom:
+            children: null
+            type: number
+          taskType:
+            children: null
+            type: number
+        selected: false
+        title: 组装请求参数
+        type: code
+        variables:
+        - value_selector:
+          - iteration_tags
+          - tag_results
+          value_type: array
+          variable: tag_results
+        - value_selector:
+          - code_prepare_params
+          - tags
+          value_type: array
+          variable: tags
+        - value_selector:
+          - code_prepare_params
+          - text_content
+          value_type: object
+          variable: text_content
+        - value_selector:
+          - code_prepare_params
+          - title
+          value_type: object
+          variable: title
+        - value_selector:
+          - code_prepare_params
+          - effect_text
+          value_type: object
+          variable: effect_text
+        - value_selector:
+          - code_prepare_params
+          - duration_per_tag
+          value_type: object
+          variable: duration_per_tag
+        - value_selector:
+          - code_prepare_params
+          - subtitle_config
+          value_type: object
+          variable: subtitle_config
+        - value_selector:
+          - code_prepare_params
+          - title_position
+          value_type: number
+          variable: title_position
+        - value_selector:
+          - code_prepare_params
+          - effect_position
+          value_type: number
+          variable: effect_position
+        - value_selector:
+          - code_prepare_params
+          - video_type
+          value_type: string
+          variable: video_type
+        - value_selector:
+          - env
+          - TENANT_ID
+          value_type: string
+          variable: tenant_id
+        - value_selector:
+          - env
+          - TASK_TYPE
+          value_type: string
+          variable: task_type
+        - value_selector:
+          - env
+          - TASK_FROM
+          value_type: string
+          variable: task_from
+      height: 80
+      id: code_build_request
+      position:
+        x: 1248
+        y: 282
+      positionAbsolute:
+        x: 1248
+        y: 282
+      selected: false
+      type: custom
+      width: 242
+    - data:
+        authorization:
+          type: no-auth
+        body:
+          data:
+          - id: key-value-1
+            key: ''
+            type: text
+            value: |-
+              {
+                "name": "{{#start.topic#}}",
+                "reqMethod": "/video/generate-from-tags",
+                "reqParam": {{#code_build_request.reqParam#}},
+                "reqHeader": "",
+                "taskType": {{#code_build_request.taskType#}},
+                "taskFrom": {{#code_build_request.taskFrom#}}
+              }
+          type: json
+        desc: 调用视频生成接口
+        headers: |
+          Authorization:Bearer {{#env.AUTH_TOKEN#}}
+          tenant-id:{{#env.TENANT_ID#}}
+          Content-Type:application/json
+        method: post
+        params: ''
+        retry_config:
+          max_retries: 3
+          retry_enabled: true
+          retry_interval: 100
+        selected: false
+        ssl_verify: true
+        timeout:
+          max_connect_timeout: 0
+          max_read_timeout: 0
+          max_write_timeout: 0
+        title: 生成混剪视频
+        type: http-request
+        url: {{#env.API_BASE_URL#}}/admin-api/agent/v2/task-video-info/create
+        variables: []
+      height: 190
+      id: http_create_video
+      position:
+        x: 1504
+        y: 282
+      positionAbsolute:
+        x: 1504
+        y: 282
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 242
+    - data:
+        desc: 输出视频任务结果
+        outputs:
+        - value_selector:
+          - http_create_video
+          - body
+          variable: video_task_result
+        selected: false
+        title: 结束
+        type: end
+      height: 102
+      id: end
+      position:
+        x: 1760
+        y: 282
+      positionAbsolute:
+        x: 1760
+        y: 282
+      selected: false
+      type: custom
+      width: 242

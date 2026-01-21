@@ -44,7 +44,7 @@ class Settings:
                 "health_check_interval": 60,
                 "database_url": "sqlite+aiosqlite:///./trigger.db",
                 "redis_url": "redis://localhost:6379/0",
-                "rabbitmq_url": "amqp://guest:guest@localhost:5672/",
+                "rabbitmq_url": "amqp://admin:Lanba%40123@121.36.203.36:10005/prod",
                 "worker_url": "http://localhost:8001",
                 "message_broker_type": "redis",
                 "external_system_url": "http://localhost:8003",
@@ -76,14 +76,14 @@ class Settings:
         self.worker_url = os.getenv("WORKER_URL", self._config_data.get("worker_url", "http://localhost:8001"))
         
         # Events Service URL
-        self.EVENTS_SERVICE_BASE_URL = os.getenv("EVENTS_SERVICE_BASE_URL", self._config_data.get("events_service_base_url", "http://localhost:8004"))
-        
+        self.EVENTS_SERVICE_BASE_URL = os.getenv("EVENTS_SERVICE_BASE_URL", self._config_data.get("events_service_base_url", "http://localhost:8000"))
+
         # 消息队列配置
         # 支持的值: "redis", "rabbitmq"
         self.message_broker_type = os.getenv("MESSAGE_BROKER_TYPE", self._config_data.get("message_broker_type", "redis"))
-        
+
         # 外部系统配置
-        self.EXTERNAL_SYSTEM_URL = os.getenv("EXTERNAL_SYSTEM_URL", self._config_data.get("external_system_url", "http://localhost:8004"))
+        self.EXTERNAL_SYSTEM_URL = os.getenv("EXTERNAL_SYSTEM_URL", self._config_data.get("external_system_url", "http://localhost:8000"))
         self.EXTERNAL_SYSTEM_API_KEY = os.getenv("EXTERNAL_SYSTEM_API_KEY", self._config_data.get("external_system_api_key", "default_api_key"))
         # 外部事件开关
         self.SKIP_EXTERNAL_EVENTS = os.getenv("SKIP_EXTERNAL_EVENTS", "False").lower() == "true"

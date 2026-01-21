@@ -1,7 +1,7 @@
 """Neo4j客户端封装"""
 from neo4j import GraphDatabase, Driver
 from typing import Any, List, Dict, Optional
-from config import NEO4J_URI , NEO4J_USER, NEO4J_PASSWORD
+from env import NEO4J_URI, NEO4J_USER, NEO4J_PASSWORD
 
 
 class Neo4jClient:

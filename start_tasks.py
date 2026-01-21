@@ -12,7 +12,7 @@ os.environ["PYTHONPATH"] = project_root
 subprocess.run([
     sys.executable, "-u","tasks/main.py",
     "--host", "0.0.0.0",
-    "--port", "8000",
+    "--port", "8002",
     "--rabbitmq",          # 如果需要 RabbitMQ
     "--debug",           # 如需开启 debug 模式（非热重载）
     

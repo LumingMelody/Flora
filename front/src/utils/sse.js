@@ -132,5 +132,5 @@ export function createSSEClient(url, options = {}) {
  * @returns {string} 完整的 SSE URL
  */
 export function getConversationStreamUrl(sessionId) {
-  return ` http://localhost:8000/v1/conversations/${sessionId}/stream`;
+  return `http://localhost:8001/v1/conversations/${sessionId}/stream`;
 }

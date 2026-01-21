@@ -1,0 +1,617 @@
+app:
+  description: 分级干预与反馈优化流程
+  icon: 🛠️
+  icon_background: '#E0F2FE'
+  mode: workflow
+  name: 7.0.3分级干预与反馈优化流程
+  use_icon_as_answer_icon: false
+dependencies:
+- current_identifier: null
+  type: marketplace
+  value:
+    marketplace_plugin_unique_identifier: langgenius/tongyi:0.1.3@08f25a10c0617a3512fac091a0f0d894925357e965efe40fdf95cb48e09b62d1
+    version: null
+kind: app
+version: 0.4.0
+workflow:
+  conversation_variables: []
+  environment_variables: []
+  features:
+    file_upload:
+      allowed_file_extensions:
+      - .JPG
+      - .JPEG
+      - .PNG
+      - .GIF
+      - .WEBP
+      - .SVG
+      allowed_file_types:
+      - image
+      allowed_file_upload_methods:
+      - local_file
+      - remote_url
+      enabled: false
+      fileUploadConfig:
+        audio_file_size_limit: 50
+        batch_count_limit: 5
+        file_size_limit: 15
+        image_file_size_limit: 10
+        video_file_size_limit: 100
+        workflow_file_upload_limit: 10
+      image:
+        enabled: false
+        number_limits: 3
+        transfer_methods:
+        - local_file
+        - remote_url
+      number_limits: 3
+    opening_statement: ''
+    retriever_resource:
+      enabled: false
+    sensitive_word_avoidance:
+      enabled: false
+    speech_to_text:
+      enabled: false
+    suggested_questions: []
+    suggested_questions_after_answer:
+      enabled: false
+    text_to_speech:
+      enabled: false
+      language: ''
+      voice: ''
+  graph:
+    edges:
+    - data:
+        sourceType: http-request
+        targetType: end
+      id: edge-http-to-end
+      source: http-save
+      sourceHandle: source
+      target: end
+      targetHandle: target
+      type: custom
+    - data:
+        isInIteration: false
+        isInLoop: false
+        sourceType: start
+        targetType: llm
+      id: start-source-1765337022626-target
+      source: start
+      sourceHandle: source
+      target: '1765337022626'
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInIteration: false
+        isInLoop: false
+        sourceType: llm
+        targetType: code
+      id: 1765337022626-source-1765337092169-target
+      source: '1765337022626'
+      sourceHandle: source
+      target: '1765337092169'
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInLoop: false
+        sourceType: code
+        targetType: http-request
+      id: 1765337092169-source-http-save-target
+      source: '1765337092169'
+      sourceHandle: source
+      target: http-save
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    nodes:
+    - data:
+        desc: 输入预警信息
+        selected: false
+        title: 开始
+        type: start
+        variables:
+        - label: 产品名
+          max_length: 48
+          options: []
+          required: true
+          type: text-input
+          variable: e_product_id_name
+        - label: 产品简介
+          max_length: 256
+          options: []
+          required: true
+          type: paragraph
+          variable: e_product_id_detail
+        - label: 产品序号
+          max_length: 48
+          options: []
+          required: true
+          type: text-input
+          variable: e_product_id
+        - label: 客户ID
+          max_length: 48
+          options: []
+          required: true
+          type: text-input
+          variable: customer_id
+        - label: 企业名
+          max_length: 48
+          options: []
+          required: true
+          type: text-input
+          variable: e_company_name
+        - label: 企业年收入
+          max_length: 48
+          options: []
+          required: true
+          type: text-input
+          variable: e_company_revenue
+        - label: 客户健康度评估结果
+          max_length: 8192
+          options: []
+          required: true
+          type: paragraph
+          variable: customer_health_result
+        - label: 预警触发结果
+          max_length: 8192
+          options: []
+          required: true
+          type: paragraph
+          variable: alert_trigger_result
+        - label: 用户id
+          max_length: 48
+          options: []
+          required: true
+          type: text-input
+          variable: user_id
+        - label: 租户id
+          max_length: 48
+          options: []
+          required: true
+          type: text-input
+          variable: tenant_id
+        - label: 任务id
+          max_length: 48
+          options: []
+          required: true
+          type: text-input
+          variable: taskId
+      height: 376
+      id: start
+      position:
+        x: 80
+        y: 282
+      positionAbsolute:
+        x: 80
+        y: 282
+      selected: false
+      type: custom
+      width: 242
+    - data:
+        authorization:
+          config: null
+          type: no-auth
+        body:
+          data:
+          - id: key-value-1
+            key: ''
+            type: text
+            value: "{\n  \"customerId\":\"{{#start.customer_id#}}\",\n  \"workflowTaskId\"\
+              :\"{{#start.taskId#}}\",\n  \"rootCauseAnalysis\":\"{{#1765337092169.rootCauseAnalysis#}}\"\
+              ,\n  \"rootCauseCategory\":\"{{#1765337022626.structured_output.rootCauseCategory#}}\"\
+              ,\n  \"rootCauseDetail\":\"{{#1765337022626.structured_output.rootCauseDetail#}}\"\
+              ,\n  \"impactAssessment\":\"{{#1765337092169.impactAssessment#}}\",\n\
+              \  \"interventionLevel\":\"{{#1765337022626.structured_output.interventionLevel#}}\"\
+              ,\n  \"interventionMeasures\":\"{{#1765337092169.interventionMeasures#}}\"\
+              ,\n  \"priorityMeasure\":\"{{#1765337022626.structured_output.priorityMeasure#}}\"\
+              ,\n  \"interventionOwner\":\"{{#1765337022626.structured_output.interventionOwner#}}\"\
+              ,\n  \"interventionOwnerName\":\"{{#1765337022626.structured_output.interventionOwnerName#}}\"\
+              ,\n  \"executionPlan\":”{{#1765337092169.executionPlan#}}“,\n  \"expectedOutcome\"\
+              :\"{{#1765337022626.structured_output.expectedOutcome#}}\",\n  \"lessonsLearned\"\
+              :”{{#1765337092169.lessonsLearned#}}“,\n  \"bestPractices\":”{{#1765337092169.bestPractices#}}“,\n\
+              \  \"metricsOptimization\":\"{{#1765337092169.metricsOptimization#}}\"\
+              ,\n  \"interventionOptimization\":\"{{#1765337092169.interventionOptimization#}}\"\
+              ,\n  \"processOptimization\":”{{#1765337092169.processOptimization#}}“\n\
+              }"
+          type: json
+        headers: 'Authorization:test{{#start.user_id#}}
+
+          tenant-id:{{#start.tenant_id#}}'
+        method: post
+        params: ''
+        retry_config:
+          max_retries: 3
+          retry_enabled: true
+          retry_interval: 100
+        selected: false
+        ssl_verify: true
+        timeout:
+          max_connect_timeout: 0
+          max_read_timeout: 0
+          max_write_timeout: 0
+        title: HTTP 请求
+        type: http-request
+        url: https://agent.cstlanbaai.com/gateway/admin-api/scrm/health-intervention/create
+        variables: []
+      height: 140
+      id: http-save
+      position:
+        x: 732.1960499436015
+        y: 282
+      positionAbsolute:
+        x: 732.1960499436015
+        y: 282
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 242
+    - data:
+        desc: 输出结果
+        outputs:
+        - value_selector:
+          - http-save
+          - body
+          value_type: string
+          variable: intervention_result
+        selected: false
+        title: 结束
+        type: end
+      height: 117
+      id: end
+      position:
+        x: 1043.6541384885188
+        y: 282
+      positionAbsolute:
+        x: 1043.6541384885188
+        y: 282
+      selected: false
+      type: custom
+      width: 242
+    - data:
+        context:
+          enabled: false
+          variable_selector: []
+        model:
+          completion_params:
+            temperature: 0.7
+          mode: chat
+          name: qwen3-max
+          provider: langgenius/tongyi/tongyi
+        prompt_template:
+        - id: ec1f5d1b-78cb-4d7c-8701-9584344d617b
+          role: system
+          text: "请你作为一名专业的客户成功干预专家，执行分级干预与反馈优化流程：\n\n【一、根因调查】\n1. 数据分析：健康度下降指标、时间趋势、历史对比\n\
+            2. ��因识别：产品问题、服务问题、客户问题、外部因素\n3. 影响评估：对续约、增购、口碑的影响\n\n【二、执行分级干预措施】\n1.\
+            \ 绿色客户：常规维护、增值服务、增购引导\n2. 黄色客户：主动关怀、问题解决、价值强化、培训支持\n3. 红色客户：紧急响应、挽留方案、资源倾斜、升级处理\n\
+            \n【三、记录干预结果】\n1. 干预执行记录：时间、人员、方式、措施、客户反馈\n2. 效果评估：健康度变化、满意度变化、问题解决情况\n\
+            3. 经验沉淀：成功经验、失败教训、改进建议\n\n请以JSON格式输出，包含以下字段：\n{\n    \"customerId\": \"\
+            客户ID\",\n    \"workflowTaskId\": \"任务ID\",\n    \"rootCauseAnalysis\"\
+            : {\"dataAnalysis\": \"\", \"identifiedCauses\": []},\n    \"rootCauseCategory\"\
+            : \"PRODUCT/SERVICE/CUSTOMER/EXTERNAL\",\n    \"rootCauseDetail\": \"\
+            根因详情\",\n    \"impactAssessment\": {\"renewalImpact\": \"\", \"expansionImpact\"\
+            : \"\", \"reputationImpact\": \"\"},\n    \"interventionLevel\": \"GREEN/YELLOW/RED\"\
+            ,\n    \"interventionMeasures\": [\"措施1\", \"措施2\"],\n    \"priorityMeasure\"\
+            : \"优先措施\",\n    \"interventionOwner\": \"负责人ID\",\n    \"interventionOwnerName\"\
+            : \"负责人姓名\",\n    \"executionPlan\": [{\"step\": 1, \"action\": \"\",\
+            \ \"deadline\": \"\"}],\n    \"expectedOutcome\": \"预期结果\",\n    \"lessonsLearned\"\
+            : [\"经验1\"],\n    \"bestPractices\": [\"最佳实践1\"],\n    \"metricsOptimization\"\
+            : {\"suggestion\": \"\", \"reason\": \"\"},\n    \"interventionOptimization\"\
+            : {\"suggestion\": \"\", \"expectedBenefit\": \"\"},\n    \"processOptimization\"\
+            : {\"suggestion\": \"\", \"priority\": \"HIGH/MEDIUM/LOW\"}\n  \n}\n"
+        - id: ef6f7bba-3b2d-4e0c-8dfc-378b86734338
+          role: user
+          text: '以下是客户信息：
+
+            - 产品名称：{{#start.e_product_id_name#}}
+
+            - 企业名称：{{#start.e_company_name#}}
+
+            - 企业年营收规模：{{#start.e_company_revenue#}}元
+
+            - 产品主要功能：{{#start.e_product_id_detail#}}
+
+            - 客户ID：{{#start.customer_id#}}
+
+            - 任务ID：{{#start.taskId#}}
+
+
+            【客户健康度评估结果】：
+
+            {{#start.customer_health_result#}}
+
+
+            【预警触发结果】：
+
+            {{#start.alert_trigger_result#}}
+
+
+            请基于以上健康度评估和预警信息，执行分级干预并给出优化建议。注意在输出的JSON中包含customerId和workflowTaskId字段。
+
+            '
+        selected: false
+        structured_output:
+          schema:
+            additionalProperties: false
+            properties:
+              bestPractices:
+                items:
+                  type: string
+                type: array
+              customerId:
+                type: string
+              executionPlan:
+                items:
+                  additionalProperties: false
+                  properties:
+                    action:
+                      type: string
+                    deadline:
+                      type: string
+                    step:
+                      type: number
+                  required:
+                  - step
+                  - action
+                  - deadline
+                  type: object
+                type: array
+              expectedOutcome:
+                type: string
+              impactAssessment:
+                additionalProperties: false
+                properties:
+                  expansionImpact:
+                    type: string
+                  renewalImpact:
+                    type: string
+                  reputationImpact:
+                    type: string
+                required:
+                - renewalImpact
+                - expansionImpact
+                - reputationImpact
+                type: object
+              interventionLevel:
+                type: string
+              interventionMeasures:
+                items:
+                  type: string
+                type: array
+              interventionOptimization:
+                additionalProperties: false
+                properties:
+                  expectedBenefit:
+                    type: string
+                  suggestion:
+                    type: string
+                required:
+                - suggestion
+                - expectedBenefit
+                type: object
+              interventionOwner:
+                type: string
+              interventionOwnerName:
+                type: string
+              lessonsLearned:
+                items:
+                  type: string
+                type: array
+              metricsOptimization:
+                additionalProperties: false
+                properties:
+                  reason:
+                    type: string
+                  suggestion:
+                    type: string
+                required:
+                - suggestion
+                - reason
+                type: object
+              priorityMeasure:
+                type: string
+              processOptimization:
+                additionalProperties: false
+                properties:
+                  priority:
+                    type: string
+                  suggestion:
+                    type: string
+                required:
+                - suggestion
+                - priority
+                type: object
+              rootCauseAnalysis:
+                additionalProperties: false
+                properties:
+                  dataAnalysis:
+                    type: string
+                  identifiedCauses:
+                    items:
+                      type: string
+                    type: array
+                required:
+                - dataAnalysis
+                - identifiedCauses
+                type: object
+              rootCauseCategory:
+                type: string
+              rootCauseDetail:
+                type: string
+              workflowTaskId:
+                type: string
+            required:
+            - customerId
+            - workflowTaskId
+            - rootCauseAnalysis
+            - rootCauseCategory
+            - rootCauseDetail
+            - impactAssessment
+            - interventionLevel
+            - interventionMeasures
+            - priorityMeasure
+            - interventionOwner
+            - interventionOwnerName
+            - executionPlan
+            - expectedOutcome
+            - lessonsLearned
+            - bestPractices
+            - metricsOptimization
+            - interventionOptimization
+            - processOptimization
+            type: object
+        structured_output_enabled: true
+        title: 分级干预
+        type: llm
+        vision:
+          enabled: false
+      height: 88
+      id: '1765337022626'
+      position:
+        x: 382
+        y: 282
+      positionAbsolute:
+        x: 382
+        y: 282
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 242
+    - data:
+        code: "import json\ndef main(rootCauseAnalysis: dict, impactAssessment: dict,\
+          \ interventionMeasures: list, executionPlan: list, lessonsLearned: list,\
+          \ bestPractices: list, metricsOptimization: dict, interventionOptimization:\
+          \ dict, processOptimization: dict) -> dict:\n    result = {\n        \"\
+          rootCauseAnalysis\": \"\",\n        \"impactAssessment\": \"\",\n      \
+          \  \"interventionMeasures\": \"\",\n        \"executionPlan\": \"\",\n \
+          \       \"lessonsLearned\": \"\",\n        \"bestPractices\": \"\",\n  \
+          \      \"metricsOptimization\": \"\",\n        \"interventionOptimization\"\
+          : \"\",\n        \"processOptimization\": \"\"\n    }\n    try:\n      \
+          \  json_str = json.dumps(rootCauseAnalysis, ensure_ascii=False, separators=(',',\
+          \ ':'))\n        result[\"rootCauseAnalysis\"] = json.dumps(json_str, ensure_ascii=False)\n\
+          \n        json_str = json.dumps(impactAssessment, ensure_ascii=False, separators=(',',\
+          \ ':'))\n        result[\"impactAssessment\"] = json.dumps(json_str, ensure_ascii=False)\n\
+          \n        json_str = json.dumps(interventionMeasures, ensure_ascii=False,\
+          \ separators=(',', ':'))\n        result[\"interventionMeasures\"] = json.dumps(json_str,\
+          \ ensure_ascii=False)\n\n        json_str = json.dumps(executionPlan, ensure_ascii=False,\
+          \ separators=(',', ':'))\n        result[\"executionPlan\"] = json.dumps(json_str,\
+          \ ensure_ascii=False)\n\n        json_str = json.dumps(lessonsLearned, ensure_ascii=False,\
+          \ separators=(',', ':'))\n        result[\"lessonsLearned\"] = json.dumps(json_str,\
+          \ ensure_ascii=False)\n\n        json_str = json.dumps(bestPractices, ensure_ascii=False,\
+          \ separators=(',', ':'))\n        result[\"bestPractices\"] = json.dumps(json_str,\
+          \ ensure_ascii=False)\n\n        json_str = json.dumps(metricsOptimization,\
+          \ ensure_ascii=False, separators=(',', ':'))\n        result[\"metricsOptimization\"\
+          ] = json.dumps(json_str, ensure_ascii=False)\n\n        json_str = json.dumps(interventionOptimization,\
+          \ ensure_ascii=False, separators=(',', ':'))\n        result[\"interventionOptimization\"\
+          ] = json.dumps(json_str, ensure_ascii=False)\n\n        json_str = json.dumps(processOptimization,\
+          \ ensure_ascii=False, separators=(',', ':'))\n        result[\"processOptimization\"\
+          ] = json.dumps(json_str, ensure_ascii=False)\n\n    except Exception as\
+          \ e:\n        pass\n    return result\n"
+        code_language: python3
+        outputs:
+          bestPractices:
+            children: null
+            type: string
+          executionPlan:
+            children: null
+            type: string
+          impactAssessment:
+            children: null
+            type: string
+          interventionMeasures:
+            children: null
+            type: string
+          interventionOptimization:
+            children: null
+            type: string
+          lessonsLearned:
+            children: null
+            type: string
+          metricsOptimization:
+            children: null
+            type: string
+          processOptimization:
+            children: null
+            type: string
+          rootCauseAnalysis:
+            children: null
+            type: string
+        selected: false
+        title: 代码执行 2
+        type: code
+        variables:
+        - value_selector:
+          - '1765337022626'
+          - structured_output
+          - rootCauseAnalysis
+          value_type: object
+          variable: rootCauseAnalysis
+        - value_selector:
+          - '1765337022626'
+          - structured_output
+          - impactAssessment
+          value_type: object
+          variable: impactAssessment
+        - value_selector:
+          - '1765337022626'
+          - structured_output
+          - interventionMeasures
+          value_type: object
+          variable: interventionMeasures
+        - value_selector:
+          - '1765337022626'
+          - structured_output
+          - executionPlan
+          value_type: object
+          variable: executionPlan
+        - value_selector:
+          - '1765337022626'
+          - structured_output
+          - lessonsLearned
+          value_type: object
+          variable: lessonsLearned
+        - value_selector:
+          - '1765337022626'
+          - structured_output
+          - bestPractices
+          value_type: object
+          variable: bestPractices
+        - value_selector:
+          - '1765337022626'
+          - structured_output
+          - metricsOptimization
+          value_type: object
+          variable: metricsOptimization
+        - value_selector:
+          - '1765337022626'
+          - structured_output
+          - interventionOptimization
+          value_type: object
+          variable: interventionOptimization
+        - value_selector:
+          - '1765337022626'
+          - structured_output
+          - processOptimization
+          value_type: object
+          variable: processOptimization
+      height: 52
+      id: '1765337092169'
+      position:
+        x: 376
+        y: 463.99999999999994
+      positionAbsolute:
+        x: 376
+        y: 463.99999999999994
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 242
+    viewport:
+      x: -374.91984241491946
+      y: 85.96256223984335
+      zoom: 1.360790011279711
+  rag_pipeline_variables: []

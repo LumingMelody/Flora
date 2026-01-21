@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
 from ..capability_base import CapabilityBase
 
 
@@ -31,3 +31,29 @@ class IMemoryCapability(CapabilityBase):
     def add_memory(self, user_id: str, text: str) -> None:
         """添加一条交互记录或事实"""
         pass
+
+    # 可选扩展：核心记忆管理（允许用户调整）
+    def list_core_memories(self, user_id: str, limit: int = 50) -> List[Dict[str, Any]]:
+        """列出用户核心记忆"""
+        raise NotImplementedError
+
+    def set_core_memory(self, user_id: str, key: str, value: str) -> None:
+        """设置/更新用户核心记忆"""
+        raise NotImplementedError
+
+    def delete_core_memory(self, user_id: str, key: str) -> None:
+        """删除用户核心记忆"""
+        raise NotImplementedError
+
+    def extract_and_save_core_memories(self, user_id: str, conversation_text: str) -> List[Dict[str, Any]]:
+        """
+        从对话文本中提取核心记忆并保存
+
+        Args:
+            user_id: 用户ID
+            conversation_text: 格式化的对话文本
+
+        Returns:
+            List[Dict]: 提取并保存的记忆列表，格式为 [{"action": "add|update", "key": "...", "value": "..."}]
+        """
+        raise NotImplementedError

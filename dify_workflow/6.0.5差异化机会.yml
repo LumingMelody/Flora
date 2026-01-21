@@ -1,0 +1,762 @@
+app:
+  description: 差异化机会
+  icon: 🎯
+  icon_background: '#FCE7F6'
+  mode: workflow
+  name: 6.0.5差异化机会
+  use_icon_as_answer_icon: false
+dependencies:
+- current_identifier: null
+  type: marketplace
+  value:
+    marketplace_plugin_unique_identifier: langgenius/tongyi:0.1.3@08f25a10c0617a3512fac091a0f0d894925357e965efe40fdf95cb48e09b62d1
+    version: null
+kind: app
+version: 0.4.0
+workflow:
+  conversation_variables: []
+  environment_variables: []
+  features:
+    file_upload:
+      allowed_file_extensions:
+      - .JPG
+      - .JPEG
+      - .PNG
+      - .GIF
+      - .WEBP
+      - .SVG
+      allowed_file_types:
+      - image
+      allowed_file_upload_methods:
+      - local_file
+      - remote_url
+      enabled: false
+      fileUploadConfig:
+        audio_file_size_limit: 50
+        batch_count_limit: 5
+        file_size_limit: 15
+        image_file_size_limit: 10
+        video_file_size_limit: 100
+        workflow_file_upload_limit: 10
+      image:
+        enabled: false
+        number_limits: 3
+        transfer_methods:
+        - local_file
+        - remote_url
+      number_limits: 3
+    opening_statement: ''
+    retriever_resource:
+      enabled: false
+    sensitive_word_avoidance:
+      enabled: false
+    speech_to_text:
+      enabled: false
+    suggested_questions: []
+    suggested_questions_after_answer:
+      enabled: false
+    text_to_speech:
+      enabled: false
+      language: ''
+      voice: ''
+  graph:
+    edges:
+    - data:
+        sourceType: http-request
+        targetType: end
+      id: edge-http-to-end
+      source: http-save
+      sourceHandle: source
+      target: end
+      targetHandle: target
+      type: custom
+    - data:
+        isInIteration: false
+        isInLoop: false
+        sourceType: start
+        targetType: llm
+      id: start-source-1765250530456-target
+      source: start
+      sourceHandle: source
+      target: '1765250530456'
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInIteration: false
+        isInLoop: false
+        sourceType: llm
+        targetType: code
+      id: 1765250530456-source-1765251025397-target
+      source: '1765250530456'
+      sourceHandle: source
+      target: '1765251025397'
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInLoop: false
+        sourceType: code
+        targetType: http-request
+      id: 1765251025397-source-http-save-target
+      source: '1765251025397'
+      sourceHandle: source
+      target: http-save
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInIteration: false
+        isInLoop: false
+        sourceType: start
+        targetType: http-request
+      id: start-source-1765253425481-target
+      source: start
+      sourceHandle: source
+      target: '1765253425481'
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInIteration: false
+        isInLoop: false
+        sourceType: start
+        targetType: http-request
+      id: start-source-1765253452872-target
+      source: start
+      sourceHandle: source
+      target: '1765253452872'
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInIteration: false
+        isInLoop: false
+        sourceType: start
+        targetType: http-request
+      id: start-source-1765253460760-target
+      selected: false
+      source: start
+      sourceHandle: source
+      target: '1765253460760'
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInLoop: false
+        sourceType: http-request
+        targetType: llm
+      id: 1765253452872-source-1765250530456-target
+      source: '1765253452872'
+      sourceHandle: source
+      target: '1765250530456'
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInLoop: false
+        sourceType: http-request
+        targetType: llm
+      id: 1765253460760-source-1765250530456-target
+      source: '1765253460760'
+      sourceHandle: source
+      target: '1765250530456'
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInLoop: false
+        sourceType: http-request
+        targetType: llm
+      id: 1765253425481-source-1765250530456-target
+      source: '1765253425481'
+      sourceHandle: source
+      target: '1765250530456'
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInIteration: false
+        isInLoop: false
+        sourceType: start
+        targetType: http-request
+      id: start-source-1765261857731-target
+      selected: false
+      source: start
+      sourceHandle: source
+      target: '1765261857731'
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInIteration: false
+        isInLoop: false
+        sourceType: start
+        targetType: http-request
+      id: start-source-1765261868610-target
+      selected: false
+      source: start
+      sourceHandle: source
+      target: '1765261868610'
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInLoop: false
+        sourceType: http-request
+        targetType: llm
+      id: 1765261868610-source-1765250530456-target
+      source: '1765261868610'
+      sourceHandle: source
+      target: '1765250530456'
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    - data:
+        isInLoop: false
+        sourceType: http-request
+        targetType: llm
+      id: 1765261857731-source-1765250530456-target
+      source: '1765261857731'
+      sourceHandle: source
+      target: '1765250530456'
+      targetHandle: target
+      type: custom
+      zIndex: 0
+    nodes:
+    - data:
+        desc: 输入产品和企业信息及前置分析结果
+        selected: false
+        title: 开始
+        type: start
+        variables:
+        - label: 产品名
+          max_length: 48
+          options: []
+          required: true
+          type: text-input
+          variable: e_product_id_name
+        - label: 产品简介
+          max_length: 256
+          options: []
+          required: true
+          type: paragraph
+          variable: e_product_id_detail
+        - label: 产品序号
+          max_length: 48
+          options: []
+          required: true
+          type: text-input
+          variable: e_product_id
+        - label: 企业名
+          max_length: 48
+          options: []
+          required: true
+          type: text-input
+          variable: e_company_name
+        - label: 企业年收入
+          max_length: 48
+          options: []
+          required: true
+          type: text-input
+          variable: e_company_revenue
+        - label: 用户id
+          max_length: 48
+          options: []
+          required: true
+          type: text-input
+          variable: user_id
+        - label: 租户id
+          max_length: 48
+          options: []
+          required: true
+          type: text-input
+          variable: tenant_id
+        - label: 任务id
+          max_length: 48
+          options: []
+          required: true
+          type: text-input
+          variable: taskId
+      height: 298
+      id: start
+      position:
+        x: -167
+        y: 224
+      positionAbsolute:
+        x: -167
+        y: 224
+      selected: false
+      type: custom
+      width: 242
+    - data:
+        authorization:
+          type: no-auth
+        body:
+          data:
+          - id: key-value-1
+            key: ''
+            type: text
+            value: "{\n  \"productId\":\"{{#start.e_product_id#}}\",\n  \"workflowTaskId\"\
+              :\"{{#start.taskId#}}\",\n  \"coreAdvantages\":\"{{#1765251025397.coreAdvantages#}}\"\
+              ,\n  \"problemsSolved\":\"{{#1765251025397.problemsSolved#}}\",\n  \"\
+              targetAudience\":\"{{#1765250530456.structured_output.targetAudience#}}\"\
+              ,\n  \"customerValue\":\"{{#1765250530456.structured_output.customerValue#}}\"\
+              ,\n  \"differentiationOpportunities\":{{#1765251025397.differentiationOpportunities#}},\n\
+              \  \"uniqueValueProposition\":\"{{#1765250530456.structured_output.uniqueValueProposition#}}\"\
+              ,\n  \"positioningStatement\":\"{{#1765250530456.structured_output.positioningStatement#}}\"\
+              \n}"
+          type: json
+        desc: 保存差异化机会结果到后端
+        headers: 'Authorization:test{{#start.user_id#}}
+
+          tenant-id:{{#start.tenant_id#}}'
+        method: post
+        params: ''
+        retry_config:
+          max_retries: 3
+          retry_enabled: true
+          retry_interval: 100
+        selected: false
+        ssl_verify: true
+        timeout:
+          connect: 10
+          read: 60
+          write: 60
+        title: 保存到后端
+        type: http-request
+        url: https://agent.cstlanbaai.com/gateway/admin-api/scrm/pma-value-proposition/create
+      height: 198
+      id: http-save
+      position:
+        x: 973
+        y: 246
+      positionAbsolute:
+        x: 973
+        y: 246
+      selected: false
+      type: custom
+      width: 242
+    - data:
+        desc: 输出结果
+        outputs:
+        - value_selector:
+          - http-save
+          - body
+          value_type: string
+          variable: differentiation_result
+        selected: false
+        title: 结束
+        type: end
+      height: 116
+      id: end
+      position:
+        x: 1258
+        y: 246
+      positionAbsolute:
+        x: 1258
+        y: 246
+      selected: false
+      type: custom
+      width: 242
+    - data:
+        context:
+          enabled: false
+          variable_selector: []
+        model:
+          completion_params:
+            temperature: 0.7
+          mode: chat
+          name: qwen3-max
+          provider: langgenius/tongyi/tongyi
+        prompt_template:
+        - id: e1007938-6bd6-4c6c-869b-1fe221a8c1b0
+          role: system
+          text: "###目标：\n请根据提供的产品定位和价值点，生成一份详细的价值主张报告。该报告应包括产品的核心优势、解决的问题、目标市场以及如何满足客户需求。\n\
+            \n###输出要求：\n请以JSON格式输出，必须包含以下字段：\n- productId: 产品序号（从用户输入获取）\n- workflowTaskId:\
+            \ 任务ID（从用户输入获取）\n- coreAdvantages: 核心优势列表\n- problemsSolved: 解决的问题列表\n\
+            - targetAudience: 目标受众描述\n- customerValue: 客户价值主张\n- differentiationOpportunities:\
+            \ 差异化机会列表（包含opportunity、feasibility、impact）\n- uniqueValueProposition:\
+            \ 独特价值主张（UVP）\n- positioningStatement: 定位声明\n\n###输出格式示例：\n{\n  \"productId\"\
+            : \"产品序号\",\n  \"workflowTaskId\": \"任务ID\",\n  \"coreAdvantages\": [\"\
+            核心优势1\", \"核心优势2\"],\n  \"problemsSolved\": [\"解决的问题1\", \"解决的问题2\"],\n\
+            \  \"targetAudience\": \"目标受众描述\",\n  \"customerValue\": \"客户价值主张\",\n\
+            \  \"differentiationOpportunities\": [\n    {\"opportunity\": \"差异化机会\"\
+            , \"feasibility\": \"可行性\", \"impact\": \"影响程度\"}\n  ],\n  \"uniqueValueProposition\"\
+            : \"独特价值主张（UVP）\",\n  \"positioningStatement\": \"定位声明\"\n}\n\n###思考步骤：\n\
+            1. 理解产品定位和价值点 - 阅读并理解提供的产品定位和价值点\n2. 提炼核心优势 - 根据提供的信息，提炼出产品的核心优势和独特卖点\n\
+            3. 识别解决问题 - 明确产品解决了哪些具体问题或需求\n4. 确定目标市场 - 确定产品的目标市场和主要受众群体\n5. 撰写价值主张报告\
+            \ - 基于上述分析，撰写一份详细的价值主张报告\n"
+        - id: f5b2a0a2-71b2-4a80-aec5-9237dcbeacb1
+          role: user
+          text: '以下是企业和产品信息：
+
+            - 产品序号：{{#start.e_product_id#}}
+
+            - 任务ID：{{#start.taskId#}}
+
+            - 产品名称：{{#start.e_product_id_name#}}
+
+            - 企业名称：{{#start.e_company_name#}}
+
+            - 企业年营收规模：{{#start.e_company_revenue#}}元
+
+            - 产品主要功能：{{#start.e_product_id_detail#}}
+
+
+            【市场洞察结果】：
+
+            {{#1765253425481.body#}}
+
+
+            【竞品分析结果】：
+
+            {{#1765253452872.body#}}
+
+
+            【核心价值点分析结果】：
+
+            {{#1765253460760.body#}}
+
+
+            【目标客户分析结果】：
+
+            {{#1765261857731.body#}}
+
+
+            【定价策略结果】：
+
+            {{#1765261868610.body#}}
+
+
+            请基于以上所有分析结果，识别产品的差异化机会，并提炼独特价值主张（UVP）。注意：输出JSON必须包含productId和workflowTaskId字段。
+
+            '
+        selected: false
+        structured_output:
+          schema:
+            additionalProperties: false
+            properties:
+              coreAdvantages:
+                items:
+                  type: string
+                type: array
+              customerValue:
+                type: string
+              differentiationOpportunities:
+                items:
+                  additionalProperties: false
+                  properties:
+                    feasibility:
+                      type: string
+                    impact:
+                      type: string
+                    opportunity:
+                      type: string
+                  required:
+                  - opportunity
+                  - feasibility
+                  - impact
+                  type: object
+                type: array
+              positioningStatement:
+                type: string
+              problemsSolved:
+                items:
+                  type: string
+                type: array
+              productId:
+                type: string
+              targetAudience:
+                type: string
+              uniqueValueProposition:
+                type: string
+              workflowTaskId:
+                type: string
+            required:
+            - productId
+            - workflowTaskId
+            - coreAdvantages
+            - problemsSolved
+            - targetAudience
+            - customerValue
+            - differentiationOpportunities
+            - uniqueValueProposition
+            - positioningStatement
+            type: object
+        structured_output_enabled: true
+        title: 差异化机会
+        type: llm
+        vision:
+          enabled: false
+      height: 88
+      id: '1765250530456'
+      position:
+        x: 424
+        y: 246
+      positionAbsolute:
+        x: 424
+        y: 246
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 242
+    - data:
+        code: "import json\ndef main(coreAdvantages: list, problemsSolved: list, differentiationOpportunities:\
+          \ list) -> dict:\n    result = {\n        \"coreAdvantages\": \"\",\n  \
+          \      \"problemsSolved\": \"\",\n        \"differentiationOpportunities\"\
+          : \"\"\n    }\n    try:\n        json_str = json.dumps(coreAdvantages, ensure_ascii=False,\
+          \ separators=(',', ':'))\n        result[\"coreAdvantages\"] = json.dumps(json_str,\
+          \ ensure_ascii=False)\n        json_str = json.dumps(problemsSolved, ensure_ascii=False,\
+          \ separators=(',', ':'))\n        result[\"problemsSolved\"] = json.dumps(json_str,\
+          \ ensure_ascii=False)\n        json_str = json.dumps(differentiationOpportunities,\
+          \ ensure_ascii=False, separators=(',', ':'))\n        result[\"differentiationOpportunities\"\
+          ] = json.dumps(json_str, ensure_ascii=False)\n    except Exception as e:\n\
+          \        pass\n    return result\n"
+        code_language: python3
+        outputs:
+          coreAdvantages:
+            children: null
+            type: string
+          differentiationOpportunities:
+            children: null
+            type: string
+          problemsSolved:
+            children: null
+            type: string
+        selected: false
+        title: 代码执行 2
+        type: code
+        variables:
+        - value_selector:
+          - '1765250530456'
+          - structured_output
+          - coreAdvantages
+          value_type: object
+          variable: coreAdvantages
+        - value_selector:
+          - '1765250530456'
+          - structured_output
+          - problemsSolved
+          value_type: object
+          variable: problemsSolved
+        - value_selector:
+          - '1765250530456'
+          - structured_output
+          - differentiationOpportunities
+          value_type: object
+          variable: differentiationOpportunities
+      height: 52
+      id: '1765251025397'
+      position:
+        x: 691
+        y: 246
+      positionAbsolute:
+        x: 691
+        y: 246
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 242
+    - data:
+        authorization:
+          config: null
+          type: no-auth
+        body:
+          data: []
+          type: none
+        headers: 'Authorization:test{{#start.user_id#}}
+
+          tenant-id:{{#start.tenant_id#}}'
+        method: get
+        params: id:{{#start.taskId#}}
+        retry_config:
+          max_retries: 3
+          retry_enabled: true
+          retry_interval: 100
+        selected: false
+        ssl_verify: true
+        timeout:
+          max_connect_timeout: 0
+          max_read_timeout: 0
+          max_write_timeout: 0
+        title: HTTP 市场洞察
+        type: http-request
+        url: https://agent.cstlanbaai.com/gateway/admin-api/scrm/pma-market-insight/get
+        variables: []
+      height: 154
+      id: '1765253425481'
+      position:
+        x: 126
+        y: -32
+      positionAbsolute:
+        x: 126
+        y: -32
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 242
+    - data:
+        authorization:
+          config: null
+          type: no-auth
+        body:
+          data: []
+          type: none
+        headers: 'Authorization:test{{#start.user_id#}}
+
+          tenant-id:{{#start.tenant_id#}}'
+        method: get
+        params: ''
+        retry_config:
+          max_retries: 3
+          retry_enabled: true
+          retry_interval: 100
+        selected: true
+        ssl_verify: true
+        timeout:
+          max_connect_timeout: 0
+          max_read_timeout: 0
+          max_write_timeout: 0
+        title: HTTP 竞品分析结果
+        type: http-request
+        url: https://agent.cstlanbaai.com/gateway/admin-api/scrm/pma-competitive-analysis/get
+        variables: []
+      height: 154
+      id: '1765253452872'
+      position:
+        x: 126
+        y: 138
+      positionAbsolute:
+        x: 126
+        y: 138
+      selected: true
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 242
+    - data:
+        authorization:
+          config: null
+          type: no-auth
+        body:
+          data: []
+          type: none
+        headers: 'Authorization:test{{#start.user_id#}}
+
+          tenant-id:{{#start.tenant_id#}}'
+        method: get
+        params: ''
+        retry_config:
+          max_retries: 3
+          retry_enabled: true
+          retry_interval: 100
+        selected: false
+        ssl_verify: true
+        timeout:
+          max_connect_timeout: 0
+          max_read_timeout: 0
+          max_write_timeout: 0
+        title: HTTP 核心价值点分析结果
+        type: http-request
+        url: https://agent.cstlanbaai.com/gateway/admin-api/scrm/pma-value-points/get
+        variables: []
+      height: 154
+      id: '1765253460760'
+      position:
+        x: 126
+        y: 302
+      positionAbsolute:
+        x: 126
+        y: 302
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 242
+    - data:
+        authorization:
+          config: null
+          type: no-auth
+        body:
+          data: []
+          type: none
+        headers: 'Authorization:test{{#start.user_id#}}
+
+          tenant-id:{{#start.tenant_id#}}'
+        method: get
+        params: ''
+        retry_config:
+          max_retries: 3
+          retry_enabled: true
+          retry_interval: 100
+        selected: false
+        ssl_verify: true
+        timeout:
+          max_connect_timeout: 0
+          max_read_timeout: 0
+          max_write_timeout: 0
+        title: HTTP 目标客户分析结果
+        type: http-request
+        url: https://agent.cstlanbaai.com/gateway/admin-api/scrm/pma-target-customer/get
+        variables: []
+      height: 154
+      id: '1765261857731'
+      position:
+        x: 126
+        y: 463
+      positionAbsolute:
+        x: 126
+        y: 463
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 242
+    - data:
+        authorization:
+          config: null
+          type: no-auth
+        body:
+          data: []
+          type: none
+        headers: 'Authorization:test{{#start.user_id#}}
+
+          tenant-id:{{#start.tenant_id#}}'
+        method: get
+        params: ''
+        retry_config:
+          max_retries: 3
+          retry_enabled: true
+          retry_interval: 100
+        selected: false
+        ssl_verify: true
+        timeout:
+          max_connect_timeout: 0
+          max_read_timeout: 0
+          max_write_timeout: 0
+        title: HTTP 定价策略结果
+        type: http-request
+        url: https://agent.cstlanbaai.com/gateway/admin-api/scrm/pma-pricing-strategy/get
+        variables: []
+      height: 154
+      id: '1765261868610'
+      position:
+        x: 126
+        y: 629
+      positionAbsolute:
+        x: 126
+        y: 629
+      selected: false
+      sourcePosition: right
+      targetPosition: left
+      type: custom
+      width: 242
+    viewport:
+      x: 259
+      y: 66.5
+      zoom: 1
+  rag_pipeline_variables: []

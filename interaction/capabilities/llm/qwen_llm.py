@@ -26,24 +26,23 @@ class QwenLLM(ILLMCapability):
 
     def initialize(self, config: Dict[str, Any]) -> None:
         # 从配置中获取参数（如果提供）
-        api_key = None
-        if 'api_key' in config:
-            api_key = config['api_key'] 
-        else:
-            # 尝试从 config 获取 API Key（如果未传入）
-           
+        api_key = config.get("api_key") if config else None
+        if not api_key:
+            import os
+            api_key = os.getenv("DASHSCOPE_API_KEY", "")
+        if not api_key:
             try:
-                from config import DASHSCOPE_API_KEY
+                from env import DASHSCOPE_API_KEY
                 api_key = DASHSCOPE_API_KEY
             except ImportError:
                 pass
 
-            if not api_key:
-                raise ValueError("DashScope API key is required. Provide via 'api_key' or config.DASHSCOPE_API_KEY")
+        if not api_key:
+            raise ValueError("DashScope API key is required. Provide via 'api_key' or DASHSCOPE_API_KEY")
 
             # 初始化 DashScope SDK
         import dashscope
-        print("DashScope API key: ", api_key)
+        print("DashScope API key loaded")
         dashscope.api_key = api_key
         self.dashscope = dashscope
         if 'model_name' in config:

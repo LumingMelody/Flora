@@ -15,13 +15,15 @@ class CapabilityConfig:
     能力配置管理类，负责从 config.json 加载配置
     """
     
-    def __init__(self, config_path: str = "./tasks/config.json"):
+    def __init__(self, config_path: str = None):
         """
         初始化配置管理
         
         Args:
             config_path: 配置文件路径
         """
+        if not config_path:
+            config_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "config.json"))
         self.config_path = config_path
         self.logger = logging.getLogger(__name__)
         # 核心修改：这里不再调用 _get_config_from_main，而是直接加载文件

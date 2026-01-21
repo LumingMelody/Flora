@@ -1,5 +1,7 @@
 from pathlib import Path
 from typing import List, Optional, TYPE_CHECKING
+import os
+import re
 
 # 只在类型检查时导入，避免运行时循环导入
 if TYPE_CHECKING:
@@ -7,16 +9,39 @@ if TYPE_CHECKING:
 
 import yaml
 import numpy as np
-from sentence_transformers import SentenceTransformer
+
+
+def _sanitize_filename(name: str) -> str:
+    """
+    清理文件名，移除或替换非法字符（兼容 Windows/Linux/macOS）
+
+    非法字符: < > : " / \\ | ? *
+    """
+    # 替换非法字符为下划线
+    sanitized = re.sub(r'[<>:"/\\|?*]', '_', name)
+    # 替换连续下划线为单个
+    sanitized = re.sub(r'_+', '_', sanitized)
+    # 移除首尾下划线
+    sanitized = sanitized.strip('_')
+    # 限制长度（Windows 最大路径 260，文件名建议不超过 200）
+    if len(sanitized) > 200:
+        sanitized = sanitized[:200]
+    return sanitized
+
 
 class FileBasedProceduralRepository:
     def __init__(self, procedures_dir: str):
         self.dir = Path(procedures_dir)
         self.dir.mkdir(exist_ok=True)
-        ##TODO:从本地加载模型，后续待调整
-        self.model = SentenceTransformer( "sentence-transformers/all-MiniLM-L6-v2",
-            local_files_only=True  # 👈 确保不联网
-        )
+        # 默认关闭向量模型，避免模型加载锁导致服务阻塞。
+        use_embeddings = os.getenv("PROCEDURAL_USE_EMBEDDINGS", "false").lower() == "true"
+        self.model = None
+        if use_embeddings:
+            from sentence_transformers import SentenceTransformer
+            self.model = SentenceTransformer(
+                "sentence-transformers/all-MiniLM-L6-v2",
+                local_files_only=True
+            )
         self._load()
 
     def _load(self):
@@ -32,7 +57,7 @@ class FileBasedProceduralRepository:
                 text = f"{proc.get('title', '')}\n{proc.get('description', '')}\n{' '.join(proc.get('steps', []))}"
                 proc["search_text"] = text
                 self.procedures.append(proc)
-        if self.procedures:
+        if self.model and self.procedures:
             texts = [p["search_text"] for p in self.procedures]
             self.embeddings = self.model.encode(texts)
         else:
@@ -40,7 +65,9 @@ class FileBasedProceduralRepository:
 
     def add_procedure(self, user_id: str, domain: str, task_type: str, title: str, steps: List[str], description: str = "", tags: List[str] = None):
         # 建议用 user_id + domain + task_type 组合作为文件名，避免冲突
-        proc_id = f"{user_id}_{domain}_{task_type}".replace(" ", "_").lower()
+        # 使用 _sanitize_filename 清理非法字符（兼容 Windows）
+        raw_id = f"{user_id}_{domain}_{task_type}".replace(" ", "_").lower()
+        proc_id = _sanitize_filename(raw_id)
         path = self.dir / f"{proc_id}.yaml"
         data = {
             "user_id": user_id,          # 👈 保存 user_id
@@ -58,17 +85,44 @@ class FileBasedProceduralRepository:
     def search(self, user_id: str, query: str, domain: Optional[str] = None, limit: int = 3) -> List[str]:
         if not self.procedures:
             return []
-        
+
+        is_scope_prefix = user_id.count(":") == 1
+        prefix = f"{user_id}:"
+
+        if not self.model or self.embeddings.size == 0:
+            query_lower = query.lower()
+            results = []
+            for proc in self.procedures:
+                proc_user_id = proc.get("user_id")
+                if proc_user_id != user_id:
+                    if not is_scope_prefix or not proc_user_id.startswith(prefix):
+                        continue
+                if domain is not None and proc.get("domain") != domain:
+                    continue
+                if query_lower not in proc.get("search_text", "").lower():
+                    continue
+                formatted = (
+                    f"【{proc['title']}】\n"
+                    f"用户: {proc['user_id']} | 领域: {proc['domain']} | 类型: {proc['task_type']}\n"
+                    f"步骤:\n" + "\n".join(f"- {step}" for step in proc["steps"])
+                )
+                results.append(formatted)
+                if len(results) >= limit:
+                    break
+            return results
+
         query_emb = self.model.encode([query])[0]
         scores = np.dot(self.embeddings, query_emb)
-        
+
         results = []
         # 遍历所有条目，按得分从高到低筛选
         for idx in np.argsort(scores)[::-1]:
             proc = self.procedures[idx]
             # 按 user_id 过滤
-            if proc.get("user_id") != user_id:
-                continue
+            proc_user_id = proc.get("user_id")
+            if proc_user_id != user_id:
+                if not is_scope_prefix or not proc_user_id.startswith(prefix):
+                    continue
             # 按 domain 过滤（如果指定了）
             if domain is not None and proc.get("domain") != domain:
                 continue
@@ -80,5 +134,5 @@ class FileBasedProceduralRepository:
             results.append(formatted)
             if len(results) >= limit:
                 break
-        
+
         return results

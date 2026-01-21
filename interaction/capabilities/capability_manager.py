@@ -172,6 +172,11 @@ class CapabilityManager:
                     if active_implementation == cap_name:
                         self.registry.register(capability_type=cap_type, factory=factory_wrapper)
                         self.logger.info(f"Registered '{cap_name}' as default handler for '{cap_type}'")
+                        if cap_type.endswith("_manager"):
+                            alias = cap_type[:-len("_manager")]
+                            if alias and not self.registry.has_capability(alias):
+                                self.registry.register(capability_type=alias, factory=factory_wrapper)
+                                self.logger.info(f"Registered '{cap_name}' as alias '{alias}'")
                         
                     self.logger.info(f"Initialized: {cap_name}")
                     

@@ -33,7 +33,7 @@ class CommonTaskPlanning(ITaskPlanningCapability):
 
     def initialize(self, config: Dict[str, Any]) -> bool:
  
-        from ...agents.tree.tree_manager import treeManager
+        from agents.tree.tree_manager import treeManager
 
         self.tree_manager = treeManager
         from ..llm.interface import ILLMCapability
@@ -57,7 +57,15 @@ class CommonTaskPlanning(ITaskPlanningCapability):
             # 记忆在这里影响：Agent vs MCP 的选择，以及第一层参数的提取
             base_plan = self._semantic_decomposition(agent_id, user_input, memory_context)
             if not base_plan:
-                return []
+                return [
+                    {
+                        "step": 1,
+                        "type": "MCP",
+                        "executor": "mcp_llm",
+                        "content": user_input,
+                        "description": "auto_fallback",
+                    }
+                ]
 
             # Phase 2: 结构化扩充（透传记忆）
             # 将 memory_context 打包进 context，传递给 Neo4j 协同规划层
@@ -89,12 +97,28 @@ class CommonTaskPlanning(ITaskPlanningCapability):
 
     def _semantic_decomposition(self, agent_id: str, user_input: str, memory_context: str) -> List[Dict]:
         candidates = self._get_candidate_agents_info(agent_id)
+        candidate_ids = {item.get("id") for item in candidates if item.get("id")}
+        if not candidate_ids:
+            return [
+                {
+                    "step": 1,
+                    "type": "AGENT",
+                    "executor": agent_id,
+                    "content": user_input,
+                    "description": "auto_fallback",
+                }
+            ]
         
         # 构建增强版 Prompt
         prompt = self._build_enhanced_planning_prompt(user_input, memory_context, candidates)
         
         response = self._call_llm(prompt)
         plans = self._parse_llm_json(response)
+        for plan in plans:
+            if str(plan.get("type", "")).upper() == "AGENT":
+                if plan.get("executor") not in candidate_ids:
+                    plan["executor"] = agent_id
+                    plan["description"] = plan.get("description") or "auto_fallback"
         self.logger.info(f"[CommonTaskPlanner] LLM response:\n{plans}")
         return plans
 

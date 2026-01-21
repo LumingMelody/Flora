@@ -112,7 +112,9 @@ class CommonIntentRecognition(IIntentRecognitionManagerCapability):
 
         llm_raw = ""
         try:
+            self.logger.info(f"Stage2 开始调用 LLM，prompt 长度: {len(stage2_prompt)}")
             llm_raw = self.llm.generate(stage2_prompt)
+            self.logger.info(f"Stage2 LLM Response: {llm_raw[:200] if llm_raw else 'empty'}...")
             parsed = json.loads(llm_raw)
 
             primary_str = parsed.get("primary_intent")

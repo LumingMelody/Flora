@@ -1,10 +1,11 @@
-import logging 
-from typing import Dict, Any, Optional
+import logging
+from typing import Dict, Any, Optional, List
 from mem0 import Memory
 from .interface import IMemoryCapability
 
 # 导入自定义 Qwen embedding
 from .qwen_embedding import QwenEmbedding
+from interaction.external.rag import DifyRagClient
 import os
 from pathlib import Path
 
@@ -16,6 +17,8 @@ class Mem0Memory(IMemoryCapability):
     """
     def __init__(self):
         self.client: Optional[Memory] = None
+        self.rag_client: Optional[DifyRagClient] = None
+        self.rag_top_k = 3
 
     def initialize(self, config: Dict[str, Any]) -> None:
         """
@@ -32,6 +35,7 @@ class Mem0Memory(IMemoryCapability):
         }
         """
         mem0_config = config.get("mem0", {})
+        rag_config = config.get("rag", {})
         if not mem0_config:
             print("[INFO] 使用 Qwen (OpenAI 兼容模式 - 环境变量版) + Chroma 配置")
             default_path = "./data/memory_chroma"
@@ -81,6 +85,30 @@ class Mem0Memory(IMemoryCapability):
 
         print(f"[INFO] Mem0 已初始化，配置 keys: {list(mem0_config.keys())}")
 
+        self._init_rag_client(rag_config)
+
+    def _init_rag_client(self, rag_config: Dict[str, Any]) -> None:
+        api_key = rag_config.get("api_key") or os.getenv("DIFY_API_KEY")
+        dataset_id = rag_config.get("dataset_id") or os.getenv("DIFY_DATASET_ID")
+        base_url = rag_config.get("base_url") or os.getenv("DIFY_BASE_URL", "https://api.dify.ai/v1")
+        endpoint = rag_config.get("endpoint")
+        enabled = rag_config.get("enabled", True)
+
+        if not enabled:
+            return
+
+        if not api_key:
+            logger.info("Dify RAG 未配置 api_key，跳过初始化。")
+            return
+
+        self.rag_top_k = rag_config.get("top_k", self.rag_top_k)
+        self.rag_client = DifyRagClient(
+            api_key=api_key,
+            base_url=base_url,
+            dataset_id=dataset_id,
+            endpoint=endpoint,
+        )
+
     def shutdown(self) -> None:
         pass
 
@@ -92,14 +120,205 @@ class Mem0Memory(IMemoryCapability):
             return "记忆服务未初始化。"
         try:
             results = self.client.search(query, user_id=user_id, limit=limit)
-            if not results["results"]:
-                return "暂无相关记忆。"
-            return "\n".join([f"- {m['memory']}" for m in results])
+            items = self._extract_results(results)
+            rag_items = self._search_rag(query=query, user_id=user_id, limit=limit)
+            if not items and not rag_items:
+                core_items = self._get_core_items(user_id=user_id, limit=limit)
+                if not core_items:
+                    return "暂无相关记忆。"
+                items = core_items
+            combined = items + rag_items
+            return "\n".join([f"- {self._format_memory(m)}" for m in combined])
         except Exception as e:
             logger.error(f"搜索记忆时出错: {str(e)}")
             return "记忆服务暂不可用。"
 
     def add_memory(self, user_id: str, text: str) -> None:
         if self.client:
-            self.client.add(text, user_id=user_id)
+            self.client.add(text, user_id=user_id, metadata={"type": "conversation"})
             print(f"   [MemoryDB] 已异步存入记忆: {text[:20]}...")
+
+    def list_core_memories(self, user_id: str, limit: int = 50):
+        if not self.client:
+            return []
+        items = self._get_core_items(user_id=user_id, limit=limit)
+        results = []
+        for item in items:
+            meta = item.get("metadata", {}) if isinstance(item, dict) else {}
+            # 直接获取原始文本，不使用 _format_memory 避免重复添加 key 前缀
+            text = item.get("memory") or item.get("text") or item.get("content") or "" if isinstance(item, dict) else str(item)
+            results.append({
+                "id": self._get_memory_id(item),
+                "key": meta.get("key", ""),
+                "value": text,
+            })
+        return results
+
+    def set_core_memory(self, user_id: str, key: str, value: str) -> None:
+        if not self.client:
+            return
+        existing = self._find_core_memory_by_key(user_id=user_id, key=key)
+        if existing:
+            memory_id = self._get_memory_id(existing)
+            if memory_id:
+                # Mem0 update() 只接受字符串作为 data 参数
+                self.client.update(memory_id, data=value)
+                return
+        # 使用 infer=False 禁用 Mem0 的智能合并逻辑，直接存储原始记忆
+        self.client.add(value, user_id=user_id, metadata={"type": "core", "key": key}, infer=False)
+
+    def delete_core_memory(self, user_id: str, key: str) -> None:
+        if not self.client:
+            return
+        existing = self._find_core_memory_by_key(user_id=user_id, key=key)
+        memory_id = self._get_memory_id(existing) if existing else None
+        if memory_id:
+            self.client.delete(memory_id)
+
+    def _get_core_items(self, user_id: str, limit: int = 50):
+        if not self.client:
+            return []
+        results = self.client.get_all(user_id=user_id, filters={"type": "core"}, limit=limit)
+        return self._extract_results(results)
+
+    def _search_rag(self, query: str, user_id: str, limit: int) -> List[Dict[str, Any]]:
+        if not self.rag_client:
+            return []
+        rag_results = self.rag_client.search(query=query, user_id=user_id, top_k=min(limit, self.rag_top_k))
+        formatted: List[Dict[str, Any]] = []
+        for item in rag_results:
+            formatted.append({
+                "memory": item.get("text", ""),
+                "metadata": {
+                    "type": "rag",
+                    "score": item.get("score"),
+                }
+            })
+        return formatted
+
+    @staticmethod
+    def _extract_results(results):
+        if results is None:
+            return []
+        if isinstance(results, dict):
+            items = results.get("results")
+            if isinstance(items, list):
+                return items
+        if isinstance(results, list):
+            return results
+        return []
+
+    @staticmethod
+    def _get_memory_id(item):
+        if not isinstance(item, dict):
+            return None
+        return item.get("id") or item.get("memory_id")
+
+    @staticmethod
+    def _format_memory(item) -> str:
+        if not isinstance(item, dict):
+            return str(item)
+        meta = item.get("metadata", {}) or {}
+        text = item.get("memory") or item.get("text") or item.get("content") or ""
+        if meta.get("type") == "core" and meta.get("key"):
+            return f"{meta['key']}: {text}"
+        return text
+
+    def _find_core_memory_by_key(self, user_id: str, key: str):
+        items = self._get_core_items(user_id=user_id, limit=100)
+        for item in items:
+            meta = item.get("metadata", {}) if isinstance(item, dict) else {}
+            if meta.get("key") == key:
+                return item
+        return None
+
+    def extract_and_save_core_memories(self, user_id: str, conversation_text: str) -> List[Dict[str, Any]]:
+        """
+        从对话文本中提取核心记忆并保存
+
+        Args:
+            user_id: 用户ID
+            conversation_text: 格式化的对话文本
+
+        Returns:
+            List[Dict]: 提取并保存的记忆列表，格式为 [{"action": "add|update", "key": "...", "value": "..."}]
+        """
+        # 获取 LLM 能力
+        from ..llm.interface import ILLMCapability
+        from ..registry import capability_registry
+
+        try:
+            llm_cap = capability_registry.get_capability("llm", ILLMCapability)
+        except Exception as e:
+            logger.warning(f"[核心记忆提取] LLM 能力不可用: {e}")
+            return []
+
+        # 获取用户现有核心记忆
+        existing_memories = self.list_core_memories(user_id=user_id, limit=50)
+
+        # 格式化已有记忆
+        existing_memories_text = ""
+        if existing_memories:
+            for mem in existing_memories:
+                key = mem.get("key", "")
+                value = mem.get("value", "")
+                if key and value:
+                    existing_memories_text += f"- {key}: {value}\n"
+        if not existing_memories_text:
+            existing_memories_text = "（暂无已有记忆）"
+
+        prompt = f"""你是一个记忆提取助手。请从对话中提取用户的核心信息。
+
+【已有记忆】
+{existing_memories_text}
+
+【最近对话】
+{conversation_text}
+
+【任务】
+1. 从对话中识别用户的核心信息，包括但不限于：
+   - 用户身份信息（姓名、角色、部门等）
+   - 用户偏好（沟通方式、常用工具等）
+   - 用户联系方式（电话、邮箱、常用联系人等）
+   - 用户目标/需求（当前项目、关注点等）
+   - 业务上下文（负责的业务、关注的指标等）
+2. 对比已有记忆，判断是新增还是更新：
+   - 如果是全新的信息，action 为 "add"
+   - 如果用户明确表示更新（如"换成"、"改为"、"现在是"），action 为 "update"
+   - 如果信息与已有记忆相同，不要输出
+3. 只提取明确提到的信息，不要猜测或推断
+
+【输出格式】
+请严格输出 JSON 格式，不要包含其他文字：
+{{
+  "memories": [
+    {{"action": "add", "key": "记忆键名", "value": "记忆内容"}},
+    {{"action": "update", "key": "已有记忆键名", "value": "更新后的内容"}}
+  ]
+}}
+
+如果对话中没有值得提取的核心信息，返回：
+{{"memories": []}}
+"""
+
+        try:
+            result = llm_cap.generate(prompt, parse_json=True)
+            extracted_memories = []
+            if isinstance(result, dict) and "memories" in result:
+                extracted_memories = result["memories"]
+
+            # 存储提取的核心记忆
+            saved_memories = []
+            for mem in extracted_memories:
+                action = mem.get("action", "add")
+                key = mem.get("key", "")
+                value = mem.get("value", "")
+                if key and value:
+                    self.set_core_memory(user_id=user_id, key=key, value=value)
+                    saved_memories.append({"action": action, "key": key, "value": value})
+                    logger.info(f"[核心记忆] {action}: {key} = {value}")
+
+            return saved_memories
+        except Exception as e:
+            logger.warning(f"[核心记忆提取] LLM 调用或解析失败: {e}")
+            return []

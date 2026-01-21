@@ -6,7 +6,7 @@ from typing import List, Tuple, Any, Optional
 from vanna.base import VannaBase
 from vanna.chromadb import ChromaDB_VectorStore
 from dashscope import Generation
-from config import DASHSCOPE_API_KEY
+from env import DASHSCOPE_API_KEY
 from .ivanna_service import IVannaService  # 引入接口
 
 from .vanna_factory import register_vanna

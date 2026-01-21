@@ -1,13 +1,37 @@
 import asyncio
 from datetime import datetime, timezone, timedelta
-from sqlalchemy.ext.asyncio import AsyncSession
+import json
 import logging
 
-from external.db.impl import create_scheduled_task_repo
-from external.db.session import dialect, async_session_factory
-from external.messaging.base import MessageBroker
+from trigger.external.db.impl import create_scheduled_task_repo, create_task_definition_repo
+from trigger.external.db.session import async_session_factory, dialect
+from trigger.external.messaging import MessageBroker
 
 logger = logging.getLogger(__name__)
+
+
+async def get_root_agent_id(definition_id: str, session) -> str:
+    """
+    根据 definition_id 获取对应的根节点 agent_id
+
+    Args:
+        definition_id: 任务定义ID
+        session: 数据库会话
+
+    Returns:
+        str: 根节点 agent_id，如果未找到则返回默认值
+    """
+    try:
+        def_repo = create_task_definition_repo(session, dialect)
+        definition = await def_repo.get(definition_id)
+
+        if definition and definition.content:
+            content = definition.content if isinstance(definition.content, dict) else json.loads(definition.content)
+            return content.get("root_agent_id", "default")
+    except Exception as e:
+        logger.warning(f"Failed to get root_agent_id for definition {definition_id}: {e}")
+
+    return "default"
 
 
 class ScheduleScanner:
@@ -55,18 +79,32 @@ class ScheduleScanner:
                 try:
                     # 更新状态为已调度
                     await repo.update_status(task.id, "SCHEDULED")
-                    
-                    # 构建执行消息
+
+                    # 从 input_params 中提取 user_id
+                    input_params = task.input_params or {}
+                    user_id = input_params.get("_user_id", "system")
+
+                    # 获取根节点 agent_id
+                    agent_id = await get_root_agent_id(task.definition_id, session)
+
+                    # 构建执行消息（匹配 tasks 端 callback 期望的格式）
                     execute_msg = {
-                        "task_id": task.id,
-                        "definition_id": task.definition_id,
-                        "trace_id": task.trace_id,
-                        "input_params": task.input_params,
-                        "scheduled_time": task.scheduled_time.isoformat(),
-                        "round_index": task.round_index,
-                        "schedule_config": task.schedule_config
+                        "msg_type": "START_TASK",
+                        "task_id": str(task.id),  # 数据库主键，用于状态更新
+                        "trace_id": task.trace_id,  # 业务追踪ID，用于外部系统关联
+                        "user_input": input_params.get("description", ""),  # 任务描述作为 user_input
+                        "user_id": user_id,
+                        "agent_id": agent_id,  # 根节点 agent_id
+                        # 附加调度相关信息
+                        "schedule_meta": {
+                            "definition_id": task.definition_id,
+                            "scheduled_time": task.scheduled_time.isoformat(),
+                            "round_index": task.round_index,
+                            "schedule_config": task.schedule_config,
+                            "input_params": input_params
+                        }
                     }
-                    
+
                     # 推送到消息队列
                     await self.broker.publish("task.scheduled", execute_msg)
                     

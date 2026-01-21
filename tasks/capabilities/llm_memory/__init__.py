@@ -1,10 +1,21 @@
 """LLM记忆系统能力模块"""
 
-from .unified_memory import UnifiedMemory
-from .unified_manageer.manager import UnifiedMemoryManager
-from .unified_manageer.short_term import ShortTermMemory
+_LAZY_EXPORTS = {
+    "UnifiedMemory": (".unified_memory", "UnifiedMemory"),
+    "UnifiedMemoryManager": (".unified_manageer.manager", "UnifiedMemoryManager"),
+    "ShortTermMemory": (".unified_manageer.short_term", "ShortTermMemory"),
+}
 
 
+def __getattr__(name: str):
+    if name in _LAZY_EXPORTS:
+        import importlib
+        module_path, attr_name = _LAZY_EXPORTS[name]
+        module = importlib.import_module(module_path, __name__)
+        value = getattr(module, attr_name)
+        globals()[name] = value
+        return value
+    raise AttributeError(f"module '{__name__}' has no attribute '{name}'")
 
-__all__ = ['UnifiedMemory', 'UnifiedMemoryManager', 'ShortTermMemory']
 
+__all__ = list(_LAZY_EXPORTS.keys())

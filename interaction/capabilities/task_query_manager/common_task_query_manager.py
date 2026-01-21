@@ -352,17 +352,35 @@ class CommonTaskQuery(ITaskQueryManagerCapability):
                 return []
 
         # --- 场景 2：列表查找 (按 User ID + 内存过滤) ---
-        
-        # 1. 提取 Client 支持的参数 (这里只有 time_range)
+
+        # 1. 提取 Client 支持的参数，将 time_range 转换为 start_time/end_time
         time_range = filters.get("time_range")
-        # 注意：如果 client 的 time_range 参数需要特定格式（如 datetime），
-        # 这里可能需要根据 "today"/"yesterday" 做一下转换。
-        # 假设 client 内部能处理这些字符串或者 filters 已经是处理好的格式。
-        
-        # 2. 从接口获取“宽泛”的任务列表
+        start_time = None
+        end_time = None
+
+        if time_range:
+            from datetime import datetime, timedelta
+            now = datetime.now()
+            if time_range == "today":
+                start_time = now.replace(hour=0, minute=0, second=0, microsecond=0).strftime("%Y-%m-%d %H:%M:%S")
+                end_time = now.strftime("%Y-%m-%d %H:%M:%S")
+            elif time_range == "yesterday":
+                yesterday = now - timedelta(days=1)
+                start_time = yesterday.replace(hour=0, minute=0, second=0, microsecond=0).strftime("%Y-%m-%d %H:%M:%S")
+                end_time = yesterday.replace(hour=23, minute=59, second=59, microsecond=0).strftime("%Y-%m-%d %H:%M:%S")
+            elif time_range == "this_week":
+                start_of_week = now - timedelta(days=now.weekday())
+                start_time = start_of_week.replace(hour=0, minute=0, second=0, microsecond=0).strftime("%Y-%m-%d %H:%M:%S")
+                end_time = now.strftime("%Y-%m-%d %H:%M:%S")
+            elif time_range == "this_month":
+                start_time = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0).strftime("%Y-%m-%d %H:%M:%S")
+                end_time = now.strftime("%Y-%m-%d %H:%M:%S")
+
+        # 2. 从接口获取"宽泛"的任务列表
         raw_tasks = self.task_client.get_tasks_status_by_user(
             user_id=user_id,
-            time_range=time_range
+            start_time=start_time,
+            end_time=end_time
         )
         
         if not raw_tasks:

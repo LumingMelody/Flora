@@ -9,7 +9,7 @@ from abc import ABC
 from cachetools import TTLCache
 
 from .interface import IMemoryCapability
-from .unified_manageer.manager import UnifiedMemoryManager, SHARED_MEM0_CLIENT
+from .unified_manageer.manager import UnifiedMemoryManager, get_shared_mem0_client
 from .unified_manageer.memory_interfaces import (
     IVaultRepository,
     IProceduralRepository,
@@ -61,6 +61,7 @@ class UnifiedMemory(IMemoryCapability):
     # 类级缓存：所有实例共享，按 user_id 复用 manager
     _manager_cache: TTLCache = TTLCache(maxsize=500, ttl=3600)
     _cache_lock = threading.Lock()
+    _state_store: Dict[str, Any] = {}
 
     def __init__(
         self,
@@ -99,30 +100,8 @@ class UnifiedMemory(IMemoryCapability):
         """初始化记忆能力，获取或创建 UnifiedMemoryManager 实例"""
         if self.is_initialized:
             return
-
-        try:
-            with self._cache_lock:
-                # if self.user_id in self._manager_cache:
-                #     self._memory_manager = self._manager_cache[self.user_id]
-                #     logger.debug(f"Reusing cached UnifiedMemoryManager for user={self.user_id}")
-                # else:
-                # 初始化共享仓库
-                _init_shared_repos()
-                logger.info(f"Creating new UnifiedMemoryManager ")
-                self._memory_manager = UnifiedMemoryManager(
-                    vault_repo=self._vault_repo or _SHARED_VAULT_REPO,
-                    procedural_repo=self._procedural_repo or _SHARED_PROCEDURAL_REPO,
-                    resource_repo=self._resource_repo or _SHARED_RESOURCE_REPO,
-                    mem0_client=self._mem0_client or SHARED_MEM0_CLIENT,
-                    qwen_client=self._qwen_client 
-                )
-                
-
-            self.is_initialized = True
-
-        except Exception as e:
-            logger.error(f"Failed to initialize MemoryCapability: {e}", exc_info=True)
-            self.is_initialized = False
+        # Lazy init: defer heavy resources until first use.
+        self.is_initialized = True
 
         # """
         # 初始化：读取配置 -> 初始化Repos -> 初始化工厂
@@ -181,12 +160,49 @@ class UnifiedMemory(IMemoryCapability):
         self._ensure_initialized()
         return self._memory_manager.get_core_memory(user_id)
 
+    def save_state(self, task_id: str, state_data: Any) -> None:
+        if not task_id:
+            return
+        self._state_store[task_id] = state_data
+
+    def load_state(self, task_id: str):
+        if not task_id:
+            return None
+        return self._state_store.get(task_id)
+
     def _ensure_initialized(self):
         if not self.is_initialized:
             raise RuntimeError(
-                f"MemoryCapability   is not initialized. "
-                "Call initialize() first."
+                "MemoryCapability is not initialized. Call initialize() first."
             )
+        if self._memory_manager is not None:
+            return
+        try:
+            with self._cache_lock:
+                if self._memory_manager is not None:
+                    return
+                _init_shared_repos()
+                if self._qwen_client is None:
+                    try:
+                        from ..registry import capability_registry
+                        from ..llm.interface import ILLMCapability
+                        self._qwen_client = capability_registry.get_capability(
+                            "llm", expected_type=ILLMCapability
+                        )
+                    except Exception as e:
+                        logger.warning(f"LLM capability unavailable for memory: {e}")
+                logger.info("Creating new UnifiedMemoryManager")
+                self._memory_manager = UnifiedMemoryManager(
+                    vault_repo=self._vault_repo or _SHARED_VAULT_REPO,
+                    procedural_repo=self._procedural_repo or _SHARED_PROCEDURAL_REPO,
+                    resource_repo=self._resource_repo or _SHARED_RESOURCE_REPO,
+                    mem0_client=self._mem0_client,
+                    qwen_client=self._qwen_client
+                )
+        except Exception as e:
+            self.is_initialized = False
+            logger.error(f"Failed to initialize MemoryCapability: {e}", exc_info=True)
+            raise
 
     # ==============================
     # 扩展状态信息（覆盖基类方法）
