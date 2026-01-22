@@ -194,6 +194,7 @@ class PostgreSQLEventInstanceRepository(EventInstanceRepository):
         from common.enums import ActorType
         return EventInstance(
             id=db.id,
+            task_id=db.task_id or "unknown_task",
             trace_id=db.trace_id,
             request_id=db.request_id,
             parent_id=db.parent_id,
