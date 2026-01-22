@@ -5,6 +5,7 @@ from vanna.base import VannaBase
 from vanna.chromadb import ChromaDB_VectorStore
 from .ivanna_service import IVannaService
 from .vanna_factory import register_vanna
+from .local_embedding import get_local_embedding_function
 from openai import OpenAI
 import os
 
@@ -19,7 +20,13 @@ class GPTVanna(ChromaDB_VectorStore, VannaBase, IVannaService):
         chroma_path: str = "./chroma",
         **kwargs
     ):
-        ChromaDB_VectorStore.__init__(self, config={"path": chroma_path, "collection": business_id})
+        # 使用本地 ONNX 模型作为 embedding function
+        embedding_function = get_local_embedding_function()
+        ChromaDB_VectorStore.__init__(self, config={
+            "path": chroma_path,
+            "collection": business_id,
+            "embedding_function": embedding_function
+        })
         self.business_id = business_id
         self.model = model
         self.api_key = api_key or os.getenv("OPENAI_API_KEY")
