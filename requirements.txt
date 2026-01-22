@@ -21,7 +21,7 @@ pandas
 plotly
 numpy
 minio
-sentence-transformers
+sentence-transformers[onnx]
 dashscope
 openai
 vanna==0.7.9
