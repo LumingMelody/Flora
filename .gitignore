@@ -1,13 +1,16 @@
 ~$market_code.xlsx
+# 敏感配置文件（包含密码等）
 config.py
-config.json
+tasks/config.py
+# 保留 JSON 配置文件，但忽略特定的
+# config.json - 已移除，允许提交
+# interaction_config.json - 已移除，允许提交
+# trigger_config.json - 已移除，允许提交
+event_config.json
 market_tree.csv
 test5.py
 test15.py
 test16.py
-interaction_config.json
-event_config.json
-trigger_config.json
 records (1)(4).json
 # Python
 __pycache__/

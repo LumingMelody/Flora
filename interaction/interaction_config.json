@@ -1,0 +1,108 @@
+{
+  "global_config": {
+    "log_level": "INFO",
+    "rabbitmq": "amqp://admin:Lanba%40123@121.36.203.36:10005/prod"
+  },
+  "capabilities": {
+    "llm": {
+      "enabled": true,
+      "active_impl": "qwen_llm",
+      "qwen_llm": {
+        "model_name": "qwen-max",
+        "vl_model_name": "qwen-vl-max"
+      }
+    },
+    "memory": {
+      "active_impl": "mem0_memory",
+      "enabled": true,
+      "mem0_memory": {
+        "mem0": {
+          "vector_store": {
+            "provider": "chroma",
+            "config": {
+              "collection_name": "user_memories",
+              "path": "./data/memory_chroma"
+            }
+          },
+          "embedder": {
+            "provider": "openai",
+            "config": {
+              "model": "text-embedding-v2"
+            }
+          },
+          "memory": {
+            "type": "graph",
+            "enable_reasoning": true
+          },
+          "llm": {
+            "provider": "openai",
+            "config": {
+              "model": "qwen-plus"
+            }
+          }
+        },
+        "rag": {
+            "api_key": "dataset-hIWes7wm6ZHocv6LScv1XS1F",
+            "dataset_id": "a77e9092-e62a-4444-8eb8-8e53eeb2adde",
+            "base_url": "http://121.36.203.36:81/v1",
+            "enabled": true
+        }
+      }
+    },
+    "context_manager": {
+      "enabled": true,
+      "active_impl": "common_context_manager",
+      "common_context_manager": {
+        "db_path": "./dialog.db",
+        "max_connections": 5
+      }
+    },
+    "user_input": {
+      "enabled": true,
+      "active_impl": "common_user_input",
+      "common_user_input": {
+        "context_window": 5
+      }
+    },
+    "intent_recognition": {
+      "enabled": true,
+      "active_impl": "common_intent_recognition",
+      "common_intent_recognition": {}
+    },
+    "dialog_state": {
+      "enabled": true,
+      "active_impl": "common_dialog_state",
+      "common_dialog_state": {}
+    },
+    "task_draft": {
+      "enabled": true,
+      "active_impl": "common_task_draft",
+      "common_task_draft": {}
+    },
+    "task_query": {
+      "enabled": true,
+      "active_impl": "common_task_query",
+      "common_task_query": {}
+    },
+    "task_control": {
+      "enabled": true,
+      "active_impl": "common_task_control",
+      "common_task_control": {}
+    },
+    "schedule": {
+      "enabled": true,
+      "active_impl": "common_schedule_manager",
+      "common_schedule_manager": {}
+    },
+    "task_execution": {
+      "enabled": true,
+      "active_impl": "common_task_execution_manager",
+      "common_task_execution_manager": {}
+    },
+    "system_response": {
+      "enabled": true,
+      "active_impl": "common_system_response",
+      "common_system_response": {}
+    }
+  }
+}
