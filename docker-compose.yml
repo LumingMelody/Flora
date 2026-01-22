@@ -183,6 +183,7 @@ services:
       - NEO4J_PASSWORD=${NEO4J_PASSWORD}
       - DIFY_API_KEY=${DIFY_API_KEY}
       - DIFY_BASE_URL=${DIFY_BASE_URL}
+      - EMBEDDING_MODEL_PATH=/app/all-MiniLM-L6-v2(1)/onnx
       # 服务间通信
       - INTERACTION_SERVICE_URL=http://interaction:8001
       - EVENTS_SERVICE_URL=http://events:8000
