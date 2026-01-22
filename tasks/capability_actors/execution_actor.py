@@ -13,7 +13,7 @@ from typing import Dict, Any, Optional, List, Union
 
 from common.messages.task_messages import ExecuteTaskMessage, ExecutionResultMessage
 from capabilities import get_capability
-from capabilities.excution import BaseExecution
+from capabilities.execution import BaseExecution
 from capabilities.llm.interface import ILLMCapability
 from capabilities.llm_memory.interface import IMemoryCapability
 
@@ -34,7 +34,7 @@ class ExecutionActor(Actor):
     def __init__(self):
         self.logger = logging.getLogger(__name__)
         self._pending_requests = {}  # task_id -> request_info
-        self._excution:BaseExecution = get_capability("excution", BaseExecution)  # 添加连接器管理器实例
+        self._execution:BaseExecution = get_capability("execution", BaseExecution)  # 添加连接器管理器实例
         self.logger.info("ExecutionActor initialized")
         self.task_id=None
         self.trace_id=None
@@ -179,7 +179,7 @@ class ExecutionActor(Actor):
         #     task_path=self.task_path,
         #     event_type=EventType.CAPABILITY_EXECUTED.value,
         #     source="ExecutionActor",
-        #     agent_id="excution",
+        #     agent_id="execution",
         #     data={"capability": capability, "status": "started"}
         # )
 
@@ -222,7 +222,7 @@ class ExecutionActor(Actor):
                 "enriched_context": self.enriched_context,
             }
 
-            result = self._excution.execute(
+            result = self._execution.execute(
                 connector_name="dify",
                 inputs=inputs,
                 params=params
@@ -267,7 +267,7 @@ class ExecutionActor(Actor):
             inputs = running_config.get("inputs", {})
 
             # 执行 HTTP 请求
-            result = self._excution.execute(
+            result = self._execution.execute(
                 connector_name="http",
                 inputs=inputs,
                 params=running_config  # 整个 running_config 作为 params 传入
