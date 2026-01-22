@@ -15,9 +15,15 @@ class ProceduralStore:
     def __init__(self, model_name: str = "all-MiniLM-L6-v2"):
         self.procedures_dir = Path(PROCEDURES_DIR)
         self.procedures_dir.mkdir(exist_ok=True)
-        ##TODO:从本地加载模型，后续待调整
-        self.model = SentenceTransformer( "sentence-transformers/all-MiniLM-L6-v2",
-            local_files_only=True  # 👈 确保不联网
+        # 使用本地 ONNX 模型 (Docker 中为 /app，本地开发时向上查找)
+        local_model_path = os.environ.get(
+            "EMBEDDING_MODEL_PATH",
+            str(Path(__file__).parent.parent.parent.parent.parent / "all-MiniLM-L6-v2(1)" / "onnx")
+        )
+        self.model = SentenceTransformer(
+            local_model_path,
+            backend="onnx",
+            local_files_only=True
         )
         self.procedures = []      # List[Dict]
         self.embeddings = None    # np.ndarray

@@ -1,3 +1,4 @@
+import os
 from pathlib import Path
 from typing import List, Optional, TYPE_CHECKING
 
@@ -13,9 +14,15 @@ class FileBasedProceduralRepository:
     def __init__(self, procedures_dir: str):
         self.dir = Path(procedures_dir)
         self.dir.mkdir(exist_ok=True)
-        ##TODO:从本地加载模型，后续待调整
-        self.model = SentenceTransformer( "sentence-transformers/all-MiniLM-L6-v2",
-            local_files_only=True  # 👈 确保不联网
+        # 使用本地 ONNX 模型 (Docker 中为 /app，本地开发时向上查找)
+        local_model_path = os.environ.get(
+            "EMBEDDING_MODEL_PATH",
+            str(Path(__file__).parent.parent.parent / "all-MiniLM-L6-v2(1)" / "onnx")
+        )
+        self.model = SentenceTransformer(
+            local_model_path,
+            backend="onnx",
+            local_files_only=True
         )
         self._load()
 
