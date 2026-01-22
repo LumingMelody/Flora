@@ -1,32 +1,43 @@
 from typing import List, Optional
+import os
 from common.dialog import DialogTurn
 from .interface import IContextManagerCapability
-from external.database import SQLiteConnectionPool, DialogRepository
+from external.database import DialogRepository
 
+# 数据库类型
+DB_TYPE = os.getenv('DB_TYPE', 'sqlite').lower()
 
 
 class CommonContextManager(IContextManagerCapability):
     """
-    通用上下文管理器实现，使用SQLite存储对话历史
+    通用上下文管理器实现，支持 SQLite 和 MySQL 存储对话历史
     """
-    
+
     def __init__(self):
         super().__init__()
         self.pool = None
         self.repo = None
         self.db_path = None
-    
+
     def initialize(self, config: dict) -> None:
         """
         初始化上下文管理器
-        
+
         Args:
             config: 配置字典，包含数据库路径等配置
         """
-        self.db_path = config.get("db_path", "./dialog.db")
         max_connections = config.get("max_connections", 5)
-        self.logger.info(f"初始化上下文管理器，数据库路径: {self.db_path}，最大连接数: {max_connections}")
-        self.pool = SQLiteConnectionPool(self.db_path, max_connections)
+
+        if DB_TYPE == 'mysql':
+            from external.database.mysql_pool import MySQLConnectionPool
+            self.logger.info(f"初始化上下文管理器，使用 MySQL，最大连接数: {max_connections}")
+            self.pool = MySQLConnectionPool(database='flora_interaction')
+        else:
+            from external.database import SQLiteConnectionPool
+            self.db_path = config.get("db_path", "./dialog.db")
+            self.logger.info(f"初始化上下文管理器，使用 SQLite，数据库路径: {self.db_path}，最大连接数: {max_connections}")
+            self.pool = SQLiteConnectionPool(self.db_path, max_connections)
+
         self.repo = DialogRepository(self.pool)
         self.logger.info("上下文管理器初始化完成")
     

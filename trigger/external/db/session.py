@@ -1,17 +1,33 @@
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
-from sqlalchemy.pool import NullPool
+from sqlalchemy.pool import NullPool, QueuePool
 from datetime import datetime, timezone
 from typing import AsyncGenerator
+import os
 
 # 导入配置
 from config.settings import settings
 
-# 创建异步引擎
-engine = create_async_engine(
-    settings.database_url,
-    poolclass=NullPool,  # 使用NullPool避免连接池问题，适合SQLite
-    echo=False,  # 生产环境关闭echo
-)
+# 判断数据库类型
+db_type = os.getenv('DB_TYPE', 'sqlite').lower()
+is_mysql = db_type == 'mysql' or 'mysql' in settings.database_url
+
+# 根据数据库类型选择连接池
+if is_mysql:
+    # MySQL 使用连接池
+    engine = create_async_engine(
+        settings.database_url,
+        pool_size=5,
+        max_overflow=10,
+        pool_pre_ping=True,  # 自动检测断开的连接
+        echo=False,
+    )
+else:
+    # SQLite 使用 NullPool
+    engine = create_async_engine(
+        settings.database_url,
+        poolclass=NullPool,
+        echo=False,
+    )
 
 # 创建异步会话工厂
 async_session_factory = async_sessionmaker(

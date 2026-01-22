@@ -7,11 +7,15 @@ Flora多智能体协作系统 - Agent客户端
 
 import json
 import logging
+import os
 from typing import Dict, Any
 
 import requests
 
 logger = logging.getLogger(__name__)
+
+# 从环境变量获取 tasks 服务地址
+TASKS_SERVICE_URL = os.getenv('TASKS_SERVICE_URL', 'http://localhost:8002')
 
 
 class AgentClient:
@@ -19,14 +23,14 @@ class AgentClient:
     Agent客户端类，用于与Flora API服务器交互
     """
 
-    def __init__(self, base_url: str = "http://localhost:8002"):
+    def __init__(self, base_url: str = None):
         """
         初始化Agent客户端
 
         Args:
-            base_url: API服务器基础URL，默认为http://localhost:8000
+            base_url: API服务器基础URL，默认从环境变量 TASKS_SERVICE_URL 获取
         """
-        self.base_url = base_url.rstrip('/')
+        self.base_url = (base_url or TASKS_SERVICE_URL).rstrip('/')
         self.session = requests.Session()
         self.session.headers.update({
             "Content-Type": "application/json"

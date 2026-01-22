@@ -103,8 +103,8 @@ export const useDagStore = defineStore('dag', {
         this.error = null;
         
         // 首先检查缓存
-        const cachedDag = this.getCachedDag(traceId);
-        // if (cachedDag) {
+        const _cachedDag = this.getCachedDag(traceId);
+        // if (_cachedDag) {
         //   console.log('Using cached DAG data for trace:', traceId);
         //   this.nodes = cachedDag.nodes;
         //   this.edges = cachedDag.edges;

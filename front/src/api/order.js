@@ -1,8 +1,8 @@
 /**
  * API 基础配置
  */
-const INTERACTION_API_BASE_URL = 'http://localhost:8000/v1';
-const EVENTS_API_BASE_URL = 'http://localhost:8004/api/v1';
+const INTERACTION_API_BASE_URL = '/v1';
+const EVENTS_API_BASE_URL = '/api/events/api/v1';
 
 /**
  * 引入 DAG 转换工具函数

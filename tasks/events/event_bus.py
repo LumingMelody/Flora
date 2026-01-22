@@ -6,24 +6,28 @@
  - 队列可未来替换为 Redis（只需改 queue 实现） 
  """
 
-from typing import Dict, Any, Optional, List 
-import logging 
-import httpx 
-import uuid 
-from datetime import datetime 
-import asyncio 
-import threading 
-import queue 
-import time 
-from dataclasses import dataclass 
-from enum import Enum 
+from typing import Dict, Any, Optional, List
+import logging
+import httpx
+import uuid
+import os
+from datetime import datetime
+import asyncio
+import threading
+import queue
+import time
+from dataclasses import dataclass
+from enum import Enum
 from datetime import datetime, date
 from decimal import Decimal
 import numpy as np
 from pydantic import BaseModel
 
-# 导入信号状态枚举 
-from common.signal.signal_status import SignalStatus 
+# 导入信号状态枚举
+from common.signal.signal_status import SignalStatus
+
+# 从环境变量获取 events 服务地址
+EVENTS_SERVICE_URL = os.getenv('EVENTS_SERVICE_URL', 'http://localhost:8000') 
 
 
 class EventType(Enum): 
@@ -485,5 +489,5 @@ class EventPublisher:
         
          # 👇 关键修复：其他类型（str, int, bool, None 等）原样返回
         return obj
-# 单例实例（注意：在多进程环境中慎用） 
-event_bus = EventPublisher()
+# 单例实例（注意：在多进程环境中慎用）
+event_bus = EventPublisher(lifecycle_base_url=EVENTS_SERVICE_URL)

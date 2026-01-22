@@ -439,7 +439,7 @@ export const useTreeStore = defineStore('tree', {
      * 关闭所有WebSocket连接
      */
     closeAllWebSocketConnections() {
-      this.wsConnections.forEach((ws, agentId) => {
+      this.wsConnections.forEach((ws, _agentId) => {
         AgentAPI.closeAgentTreeWebSocket(ws);
       });
       this.wsConnections.clear();
@@ -541,7 +541,7 @@ export const useTreeStore = defineStore('tree', {
           data: {
             agentId,
             id: agentId,
-            label: `Child Node ${this.nodes.filter(n => this.edges.some(e => e.source === parentId)).length + 1}`,
+            label: `Child Node ${this.nodes.filter(_n => this.edges.some(e => e.source === parentId)).length + 1}`,
             type: 'CHILD',
             meta: {
               type: 'Search-Tool',

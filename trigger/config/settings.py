@@ -2,15 +2,32 @@ import os
 import json
 import threading
 from pathlib import Path
+from urllib.parse import quote_plus
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
 
+
+def get_database_url():
+    """根据环境变量构建数据库 URL"""
+    db_type = os.getenv('DB_TYPE', 'sqlite').lower()
+
+    if db_type == 'mysql':
+        host = os.getenv('MYSQL_HOST', 'localhost')
+        port = os.getenv('MYSQL_PORT', '3306')
+        user = os.getenv('MYSQL_USER', 'root')
+        password = quote_plus(os.getenv('MYSQL_PASSWORD', ''))  # URL 编码密码
+        database = os.getenv('MYSQL_DATABASE', 'flora_trigger')
+        return f"mysql+aiomysql://{user}:{password}@{host}:{port}/{database}"
+    else:
+        return "sqlite+aiosqlite:///./trigger.db"
+
+
 class Settings:
     """系统配置类，支持从JSON文件读取和热加载"""
-    
+
     _instance = None
     _lock = threading.Lock()
-    
+
     def __new__(cls):
         """单例模式实现"""
         with cls._lock:
@@ -18,7 +35,7 @@ class Settings:
                 cls._instance = super(Settings, cls).__new__(cls)
                 cls._instance._initialize()
             return cls._instance
-    
+
     def _initialize(self):
         """初始化配置"""
         self.config_path = Path(__file__).parent.parent / "trigger_config.json"
@@ -63,8 +80,8 @@ class Settings:
         # 健康检查间隔（秒）
         self.health_check_interval = int(os.getenv("HEALTH_CHECK_INTERVAL", str(self._config_data.get("health_check_interval", 60))))
         
-        # 数据库配置
-        self.database_url = os.getenv("DATABASE_URL", self._config_data.get("database_url", "sqlite+aiosqlite:///./trigger.db"))
+        # 数据库配置 - 优先使用环境变量构建的 URL
+        self.database_url = os.getenv("DATABASE_URL") or get_database_url() or self._config_data.get("database_url", "sqlite+aiosqlite:///./trigger.db")
         
         # Redis配置
         self.redis_url = os.getenv("REDIS_URL", self._config_data.get("redis_url", "redis://localhost:6379/0"))

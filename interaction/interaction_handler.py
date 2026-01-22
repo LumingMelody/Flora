@@ -132,7 +132,7 @@ class InteractionHandler:
                     
                     # 2. 调用DialogStateManager更新对话状态
                     dialog_state_manager = self.registry.get_capability("dialog_state", IDialogStateManagerCapability)
-                    dialog_state = dialog_state_manager.clear_active_draft(dialog_state)
+                    dialog_state = dialog_state_manager.clear_active_draft(dialog_state_manager)
                     
                     # 3. 构造返回数据
                     result_data = {
@@ -159,8 +159,8 @@ class InteractionHandler:
                 yield "thought", {"message": "用户取消了待确认的操作"}
                 
                 # 调用DialogStateManager清除等待确认状态
-                dialog_state_manager = self.registry.get_capability("dialog_state", IDialogStateManagerCapability)
-                dialog_state = dialog_state_manager.clear_waiting_for_confirmation(dialog_state)
+                dialog_state_manager = self.registry.get_capability("dialog_state_manager", IDialogStateManagerCapability)
+                dialog_state = dialog_state_manager.clear_waiting_for_confirmation(dialog_state_manager)
                 
                 # 如果有活跃草稿，调用TaskDraftManager取消草稿
                 if dialog_state.active_task_draft:

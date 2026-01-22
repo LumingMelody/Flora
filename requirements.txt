@@ -2,6 +2,7 @@ fastapi
 uvicorn
 pydantic
 pydantic-settings
+python-multipart
 sqlalchemy
 aiosqlite
 asyncpg
@@ -23,10 +24,10 @@ minio
 sentence-transformers
 dashscope
 openai
-vanna
+vanna==0.7.9
 chromadb
 volcengine
-mem0ai @ git+https://github.com/mem0ai/mem0
+mem0ai==1.0.1
 thespian
 PyYAML
 python-jose
@@ -38,6 +39,5 @@ pyodbc
 cx_Oracle
 neo4j
 optuna
-pyeda
 scikit-learn
 json5

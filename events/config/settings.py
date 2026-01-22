@@ -2,10 +2,34 @@ import json
 import os
 import time
 from typing import Dict, Any
+from urllib.parse import quote_plus
 from pydantic import PrivateAttr
 from pydantic_settings import BaseSettings
 from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
+
+
+def get_database_url():
+    """根据环境变量构建数据库 URL"""
+    db_type = os.getenv('DB_TYPE', 'postgresql').lower()
+
+    if db_type == 'mysql':
+        host = os.getenv('MYSQL_HOST', 'localhost')
+        port = os.getenv('MYSQL_PORT', '3306')
+        user = os.getenv('MYSQL_USER', 'root')
+        password = quote_plus(os.getenv('MYSQL_PASSWORD', ''))  # URL 编码密码
+        database = os.getenv('MYSQL_DATABASE', 'flora_events')
+        return f"mysql+aiomysql://{user}:{password}@{host}:{port}/{database}"
+    elif db_type == 'sqlite':
+        return "sqlite+aiosqlite:///./events.db"
+    else:
+        # 默认 PostgreSQL
+        host = os.getenv('POSTGRESQL_HOST', 'localhost')
+        port = os.getenv('POSTGRESQL_PORT', '5432')
+        user = os.getenv('POSTGRESQL_USER', 'user')
+        password = quote_plus(os.getenv('POSTGRESQL_PASSWORD', 'pass'))
+        database = os.getenv('POSTGRESQL_DATABASE', 'command_tower')
+        return f"postgresql+asyncpg://{user}:{password}@{host}:{port}/{database}"
 
 
 class SettingsConfigHandler(FileSystemEventHandler):
@@ -76,15 +100,29 @@ class Settings(BaseSettings):
         """从 JSON 文件加载配置"""
         # 使用传入的路径或当前实例的路径
         config_path = full_config_path or self._full_config_path
-        
+
         # 如果配置文件不存在，创建默认配置
         if not os.path.exists(config_path):
             self._create_default_config(config_path)
-        
+
         # 读取配置文件
         with open(config_path, "r", encoding="utf-8") as f:
             self._config_data = json.load(f)
-        
+
+        # 环境变量优先覆盖配置文件中的 db_url
+        env_db_url = os.getenv("DATABASE_URL")
+        if env_db_url:
+            self._config_data["db_url"] = env_db_url
+        elif os.getenv("DB_TYPE"):
+            # 如果设置了 DB_TYPE，使用 get_database_url() 构建
+            self._config_data["db_url"] = get_database_url()
+
+        # 环境变量覆盖其他配置
+        if os.getenv("REDIS_URL"):
+            self._config_data["redis_url"] = os.getenv("REDIS_URL")
+        if os.getenv("RABBITMQ_URL"):
+            self._config_data["rabbitmq_url"] = os.getenv("RABBITMQ_URL")
+
         # 更新实例属性
         for key, value in self._config_data.items():
             if hasattr(self, key):
@@ -92,8 +130,11 @@ class Settings(BaseSettings):
     
     def _create_default_config(self, file_path: str):
         """创建默认配置文件"""
+        # 使用环境变量构建的 URL 或默认值
+        db_url = os.getenv("DATABASE_URL") or get_database_url()
+
         default_config = {
-            "db_url": "postgresql+asyncpg://user:pass@localhost/command_tower",
+            "db_url": db_url,
             "redis_url": "redis://localhost:6379/0",
             "use_redis": False,
             "rabbitmq_url": "amqp://guest:guest@localhost:5672/",

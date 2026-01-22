@@ -478,12 +478,7 @@ class PostgreSQLEventDefinitionRepository(EventDefinitionRepository):
         result = await self.session.execute(stmt)
         rows = result.scalars().all()
         return [self._to_domain(row) for row in rows]
-    
 
-        result = await self.session.execute(stmt)
-        row = result.scalar_one_or_none()
-        return self._to_domain(row) if row else None
-    
     async def update_last_triggered_at(self, def_id: str, timestamp: datetime) -> None:
         stmt = (
             update(EventDefinitionDB)
@@ -582,81 +577,6 @@ class PostgreSQLEventLogRepository(EventLogRepository):
         )
         result = await self.session.execute(stmt)
         return result.scalar_one()
-
-
-class PostgreSQLEventInstanceRepository(EventInstanceRepository):
-    # ... 现有的方法 ...
-    
-    async def find_traces_by_user_id(self, user_id: str, start_time: Optional[datetime] = None, end_time: Optional[datetime] = None, limit: int = 100, offset: int = 0) -> List[dict]:
-        """
-        根据user_id查询所有trace_id及其状态
-        
-        Args:
-            user_id: 用户ID
-            start_time: 开始时间
-            end_time: 结束时间
-            limit: 每页数量
-            offset: 偏移量
-            
-        Returns:
-            List[dict]: trace_id列表及其状态信息
-        """
-        # 使用子查询获取每个trace的最新状态
-        subquery = (
-            select(
-                EventInstanceDB.trace_id,
-                EventInstanceDB.status,
-                func.max(EventInstanceDB.updated_at).label('max_updated_at')
-            )
-            .where(EventInstanceDB.user_id == user_id)
-        )
-        
-        # 添加时间范围过滤
-        if start_time:
-            subquery = subquery.where(EventInstanceDB.created_at >= start_time)
-        if end_time:
-            subquery = subquery.where(EventInstanceDB.created_at <= end_time)
-        
-        # 按trace_id分组，获取每个trace的最新状态
-        subquery = subquery.group_by(EventInstanceDB.trace_id, EventInstanceDB.status)
-        
-        # 再次查询，获取每个trace的唯一记录和状态统计
-        stmt = (
-            select(
-                EventInstanceDB.trace_id,
-                func.max(EventInstanceDB.created_at).label('created_at'),
-                func.min(EventInstanceDB.status).label('first_status'),
-                func.max(EventInstanceDB.status).label('latest_status')
-            )
-            .where(EventInstanceDB.user_id == user_id)
-        )
-        
-        # 添加时间范围过滤
-        if start_time:
-            stmt = stmt.where(EventInstanceDB.created_at >= start_time)
-        if end_time:
-            stmt = stmt.where(EventInstanceDB.created_at <= end_time)
-        
-        # 按trace_id分组
-        stmt = stmt.group_by(EventInstanceDB.trace_id)
-        
-        # 排序并分页
-        stmt = stmt.order_by(func.max(EventInstanceDB.created_at).desc()).limit(limit).offset(offset)
-        
-        # 执行查询
-        result = await self.session.execute(stmt)
-        rows = result.all()
-        
-        # 转换结果格式
-        traces = []
-        for row in rows:
-            traces.append({
-                "trace_id": row.trace_id,
-                "created_at": row.created_at,
-                "status": row.latest_status
-            })
-        
-        return traces
 
 
 class PostgreSQLAgentTaskHistoryRepository(AgentTaskHistoryRepository):

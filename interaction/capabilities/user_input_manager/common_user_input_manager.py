@@ -107,8 +107,9 @@ class CommonUserInput(IUserInputManagerCapability):
             
             # 3. 构造LLM Prompt
             logger.debug("步骤3: 构造LLM Prompt")
+            dialog_history_str = "\n".join([f"{turn['role']}：{turn['utterance']}" for turn in dialog_history])
             prompt = f"""【对话历史】
-{"\n".join([f"{turn['role']}：{turn['utterance']}" for turn in dialog_history])}
+{dialog_history_str}
 
 【长期记忆】
 {memories}

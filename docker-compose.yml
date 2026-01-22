@@ -1,25 +1,282 @@
-version: '3.8'
 services:
+  # ============ 基础设施服务 ============
+  mysql-init:
+    image: mysql:8.0
+    container_name: flora-mysql-init
+    command: >
+      sh -c "
+        echo 'Waiting for MySQL to be ready...' &&
+        sleep 5 &&
+        mysql -h${MYSQL_HOST} -P${MYSQL_PORT} -uroot -p${MYSQL_PASSWORD} -e '
+          CREATE DATABASE IF NOT EXISTS flora_events CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+          CREATE DATABASE IF NOT EXISTS flora_interaction CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+          CREATE DATABASE IF NOT EXISTS flora_tasks CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+          CREATE DATABASE IF NOT EXISTS flora_trigger CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+        ' &&
+        echo 'Databases created successfully!'
+      "
+    environment:
+      - MYSQL_HOST=${MYSQL_HOST}
+      - MYSQL_PORT=${MYSQL_PORT}
+      - MYSQL_PASSWORD=${MYSQL_PASSWORD}
+    networks:
+      - flora-network
+    restart: "no"
+
   rabbitmq:
     image: rabbitmq:3.12-management
-    ports: ["5672:5672", "15672:15672"]
+    container_name: flora-rabbitmq
+    # ports:
+    #   - "5672:5672"    # 仅内部使用，不暴露到宿主机
+    #   - "15672:15672"  # 管理界面，如需访问可取消注释
     environment:
-      RABBITMQ_SERVER_ADDITIONAL_ERL_ARGS: "-rabbitmq_delayed_message_exchange true"
+      RABBITMQ_DEFAULT_USER: admin
+      RABBITMQ_DEFAULT_PASS: admin123
     volumes:
-      - ./rabbitmq-delayed-plugin:/opt/rabbitmq/plugins/rabbitmq_delayed_message_exchange
+      - rabbitmq_data:/var/lib/rabbitmq
+    healthcheck:
+      test: rabbitmq-diagnostics -q ping
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    networks:
+      - flora-network
 
   redis:
     image: redis:7-alpine
-    ports: ["6379:6379"]
+    container_name: flora-redis
+    # ports:
+    #   - "6379:6379"  # 仅内部使用，不暴露到宿主机
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - flora-network
 
-  postgres:
-    image: postgres:15
+  # ============ 后端服务 ============
+  events:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: flora-events
+    working_dir: /app/events
+    command: python -m uvicorn main:app --host 0.0.0.0 --port 8000
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    ports:
+      - "21000:8000"
     environment:
-      POSTGRES_DB: command_tower
-      POSTGRES_USER: user
-      POSTGRES_PASSWORD: pass
-    ports: ["5432:5432"]
-    volumes: ["pgdata:/var/lib/postgresql/data"]
+      - TZ=Asia/Shanghai
+      - PYTHONPATH=/app
+      - DB_TYPE=mysql
+      - MYSQL_HOST=192.168.0.216
+      - MYSQL_PORT=8888
+      - MYSQL_USER=root
+      - MYSQL_PASSWORD=ZKLB.EQiAI@2025!
+      - MYSQL_DATABASE=flora_events
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_URL=redis://redis:6379/0
+      - RABBITMQ_URL=amqp://admin:admin123@rabbitmq:5672/
+      - TASKS_SERVICE_URL=http://tasks:8002
+    depends_on:
+      # mysql-init:
+      #   condition: service_completed_successfully
+      rabbitmq:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - flora-network
+    restart: unless-stopped
 
+  interaction:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: flora-interaction
+    working_dir: /app/interaction
+    command: python -m uvicorn main:app --host 0.0.0.0 --port 8001
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    ports:
+      - "21001:8001"
+    environment:
+      - TZ=Asia/Shanghai
+      - PYTHONPATH=/app
+      - DB_TYPE=mysql
+      - MYSQL_HOST=192.168.0.216
+      - MYSQL_PORT=8888
+      - MYSQL_USER=root
+      - MYSQL_PASSWORD=ZKLB.EQiAI@2025!
+      - MYSQL_DATABASE=flora_interaction
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - RABBITMQ_URL=amqp://admin:admin123@rabbitmq:5672/
+      - DASHSCOPE_API_KEY=${DASHSCOPE_API_KEY}
+      - DIFY_API_KEY=${DIFY_API_KEY}
+      - DIFY_BASE_URL=${DIFY_BASE_URL}
+      - MEM0_API_KEY=${MEM0_API_KEY}
+      - MEM0_BASE_URL=${MEM0_BASE_URL}
+      - NEO4J_URI=${NEO4J_URI}
+      - NEO4J_USER=${NEO4J_USER}
+      - NEO4J_PASSWORD=${NEO4J_PASSWORD}
+      # 服务间通信
+      - TASKS_SERVICE_URL=http://tasks:8002
+      - EVENTS_SERVICE_URL=http://events:8000
+      - TRIGGER_SERVICE_URL=http://trigger:8003
+    volumes:
+      - ./interaction/interaction_config.json:/app/interaction/interaction_config.json:ro
+    depends_on:
+      # mysql-init:
+      #   condition: service_completed_successfully
+      rabbitmq:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - flora-network
+    restart: unless-stopped
+
+  tasks:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: flora-tasks
+    working_dir: /app/tasks
+    command: python main.py
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    ports:
+      - "21002:8002"
+    environment:
+      - TZ=Asia/Shanghai
+      - PYTHONPATH=/app
+      - DB_TYPE=mysql
+      - MYSQL_HOST=192.168.0.216
+      - MYSQL_PORT=8888
+      - MYSQL_USER=root
+      - MYSQL_PASSWORD=ZKLB.EQiAI@2025!
+      - MYSQL_DATABASE=flora_tasks
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - RABBITMQ_URL=amqp://admin:admin123@rabbitmq:5672/
+      - DASHSCOPE_API_KEY=${DASHSCOPE_API_KEY}
+      - NEO4J_URI=${NEO4J_URI}
+      - NEO4J_USER=${NEO4J_USER}
+      - NEO4J_PASSWORD=${NEO4J_PASSWORD}
+      - DIFY_API_KEY=${DIFY_API_KEY}
+      - DIFY_BASE_URL=${DIFY_BASE_URL}
+      # 服务间通信
+      - INTERACTION_SERVICE_URL=http://interaction:8001
+      - EVENTS_SERVICE_URL=http://events:8000
+    volumes:
+      - ./tasks/config.json:/app/tasks/config.json:ro
+      - tasks_data:/app/tasks/data
+    depends_on:
+      # mysql-init:
+      #   condition: service_completed_successfully
+      rabbitmq:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8002/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - flora-network
+    restart: unless-stopped
+
+  trigger:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: flora-trigger
+    working_dir: /app/trigger
+    command: python -m uvicorn main:app --host 0.0.0.0 --port 8003
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    ports:
+      - "21003:8003"
+    environment:
+      - TZ=Asia/Shanghai
+      - PYTHONPATH=/app
+      - DB_TYPE=mysql
+      - MYSQL_HOST=192.168.0.216
+      - MYSQL_PORT=8888
+      - MYSQL_USER=root
+      - MYSQL_PASSWORD=ZKLB.EQiAI@2025!
+      - MYSQL_DATABASE=flora_trigger
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_URL=redis://redis:6379/0
+      - RABBITMQ_URL=amqp://admin:admin123@rabbitmq:5672/
+      # 服务间通信
+      - WORKER_URL=http://tasks:8002
+      - EVENTS_SERVICE_BASE_URL=http://events:8000
+    volumes:
+      - ./trigger/trigger_config.json:/app/trigger/trigger_config.json:ro
+    depends_on:
+      # mysql-init:
+      #   condition: service_completed_successfully
+      rabbitmq:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8003/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - flora-network
+    restart: unless-stopped
+
+  # ============ 前端服务 ============
+  front:
+    build:
+      context: .
+      dockerfile: Dockerfile.front
+    container_name: flora-front
+    ports:
+      - "21080:80"
+    depends_on:
+      - events
+      - interaction
+      - tasks
+      - trigger
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - flora-network
+    restart: unless-stopped
+
+# ============ 网络 ============
+networks:
+  flora-network:
+    driver: bridge
+
+# ============ 数据卷 ============
 volumes:
-  pgdata:
+  rabbitmq_data:
+  redis_data:
+  tasks_data:

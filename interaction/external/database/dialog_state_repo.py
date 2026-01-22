@@ -4,36 +4,69 @@ from typing import Optional, List, Dict, Any
 from datetime import datetime, timezone
 import json
 import logging
-from sqlite3 import Connection
+import os
 from pydantic import BaseModel
 
 from common.response_state import DialogStateDTO
 from common.task_draft import TaskDraftDTO, TaskDraftStatus, SlotValueDTO, ScheduleDTO
 from common.base import SlotSource
-from .sqlite_pool import SQLiteConnectionPool
 
 # 配置日志
 logger = logging.getLogger(__name__)
 
+# 数据库类型
+DB_TYPE = os.getenv('DB_TYPE', 'sqlite').lower()
+
 
 class DialogStateRepository:
-    def __init__(self, pool: Optional[SQLiteConnectionPool] = None):
-        self.pool = pool or SQLiteConnectionPool(db_path="dialogs.db")
-        # print(self.pool.db_path)
+    def __init__(self, pool=None):
+        self.db_type = DB_TYPE
+        self._is_mysql = self.db_type == 'mysql'
+
+        if pool:
+            self.pool = pool
+        elif self._is_mysql:
+            from .mysql_pool import MySQLConnectionPool
+            self.pool = MySQLConnectionPool(database='flora_interaction')
+        else:
+            from .sqlite_pool import SQLiteConnectionPool
+            self.pool = SQLiteConnectionPool(db_path="dialogs.db")
+
         self._create_table()
         self._create_trace_mapping_table()
+
+    def _ph(self, sql: str) -> str:
+        """转换 SQL 占位符：MySQL 用 %s，SQLite 用 ?"""
+        if self._is_mysql:
+            return sql.replace('?', '%s')
+        return sql
+
+    def _get_row_value(self, row, key_or_index):
+        """从行结果中获取值，兼容 dict (MySQL) 和 tuple (SQLite)"""
+        if isinstance(row, dict):
+            return row.get(key_or_index) if isinstance(key_or_index, str) else list(row.values())[key_or_index]
+        return row[key_or_index]
 
     def _create_table(self):
         conn = self.pool.get_connection()
         try:
             cursor = conn.cursor()
-            cursor.execute('''
-                CREATE TABLE IF NOT EXISTS dialog_states (
-                    session_id TEXT PRIMARY KEY,
-                    state_json TEXT NOT NULL,
-                    last_updated REAL NOT NULL
-                )
-            ''')
+            if self._is_mysql:
+                cursor.execute('''
+                    CREATE TABLE IF NOT EXISTS dialog_states (
+                        session_id VARCHAR(255) PRIMARY KEY,
+                        state_json LONGTEXT NOT NULL,
+                        last_updated DOUBLE NOT NULL
+                    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+                ''')
+            else:
+                cursor.execute('''
+                    CREATE TABLE IF NOT EXISTS dialog_states (
+                        session_id TEXT PRIMARY KEY,
+                        state_json TEXT NOT NULL,
+                        last_updated REAL NOT NULL
+                    )
+                ''')
             conn.commit()
         finally:
             self.pool.return_connection(conn)
@@ -43,19 +76,30 @@ class DialogStateRepository:
         conn = self.pool.get_connection()
         try:
             cursor = conn.cursor()
-            cursor.execute('''
-                CREATE TABLE IF NOT EXISTS trace_session_mapping (
-                    trace_id TEXT PRIMARY KEY,
-                    session_id TEXT NOT NULL,
-                    user_id TEXT,
-                    created_at REAL NOT NULL
-                )
-            ''')
-            # 创建索引以加速按 session_id 查询
-            cursor.execute('''
-                CREATE INDEX IF NOT EXISTS idx_trace_session_mapping_session_id
-                ON trace_session_mapping(session_id)
-            ''')
+            if self._is_mysql:
+                cursor.execute('''
+                    CREATE TABLE IF NOT EXISTS trace_session_mapping (
+                        trace_id VARCHAR(255) PRIMARY KEY,
+                        session_id VARCHAR(255) NOT NULL,
+                        user_id VARCHAR(255),
+                        created_at DOUBLE NOT NULL,
+                        INDEX idx_trace_session_mapping_session_id (session_id)
+                    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+                ''')
+            else:
+                cursor.execute('''
+                    CREATE TABLE IF NOT EXISTS trace_session_mapping (
+                        trace_id TEXT PRIMARY KEY,
+                        session_id TEXT NOT NULL,
+                        user_id TEXT,
+                        created_at REAL NOT NULL
+                    )
+                ''')
+                # 创建索引以加速按 session_id 查询
+                cursor.execute('''
+                    CREATE INDEX IF NOT EXISTS idx_trace_session_mapping_session_id
+                    ON trace_session_mapping(session_id)
+                ''')
             conn.commit()
         finally:
             self.pool.return_connection(conn)
@@ -154,10 +198,16 @@ class DialogStateRepository:
             cursor = conn.cursor()
             state_json = self._serialize_state(state)
             timestamp = state.last_updated.timestamp()
-            cursor.execute('''
-                INSERT OR REPLACE INTO dialog_states (session_id, state_json, last_updated)
-                VALUES (?, ?, ?)
-            ''', (state.session_id, state_json, timestamp))
+            if self._is_mysql:
+                cursor.execute('''
+                    REPLACE INTO dialog_states (session_id, state_json, last_updated)
+                    VALUES (%s, %s, %s)
+                ''', (state.session_id, state_json, timestamp))
+            else:
+                cursor.execute('''
+                    INSERT OR REPLACE INTO dialog_states (session_id, state_json, last_updated)
+                    VALUES (?, ?, ?)
+                ''', (state.session_id, state_json, timestamp))
             conn.commit()
             return True
         except Exception as e:
@@ -170,12 +220,13 @@ class DialogStateRepository:
         conn = self.pool.get_connection()
         try:
             cursor = conn.cursor()
-            cursor.execute('''
+            cursor.execute(self._ph('''
                 SELECT state_json FROM dialog_states WHERE session_id = ?
-            ''', (session_id,))
+            '''), (session_id,))
             row = cursor.fetchone()
             if row:
-                return self._deserialize_state(row[0])
+                value = self._get_row_value(row, 'state_json') if self._is_mysql else row[0]
+                return self._deserialize_state(value)
             return None
         except Exception as e:
             logger.error(f"Failed to get dialog state for session {session_id}: {e}")
@@ -191,7 +242,7 @@ class DialogStateRepository:
         conn = self.pool.get_connection()
         try:
             cursor = conn.cursor()
-            cursor.execute('DELETE FROM dialog_states WHERE session_id = ?', (session_id,))
+            cursor.execute(self._ph('DELETE FROM dialog_states WHERE session_id = ?'), (session_id,))
             conn.commit()
             return cursor.rowcount > 0
         except Exception as e:
@@ -208,12 +259,12 @@ class DialogStateRepository:
         conn = self.pool.get_connection()
         try:
             cursor = conn.cursor()
-            cursor.execute('''
+            cursor.execute(self._ph('''
                 SELECT session_id FROM dialog_states
                 WHERE last_updated < ?
-            ''', (cutoff_ts,))
+            '''), (cutoff_ts,))
             rows = cursor.fetchall()
-            return [row[0] for row in rows]
+            return [self._get_row_value(row, 'session_id') if self._is_mysql else row[0] for row in rows]
         except Exception as e:
             logger.error(f"Failed to find expired sessions: {e}")
             return []
@@ -225,7 +276,7 @@ class DialogStateRepository:
         try:
             cursor = conn.cursor()
             cursor.execute('SELECT session_id FROM dialog_states')
-            return [row[0] for row in cursor.fetchall()]
+            return [self._get_row_value(row, 'session_id') if self._is_mysql else row[0] for row in cursor.fetchall()]
         except Exception as e:
             logger.error(f"Failed to get all session ids: {e}")
             return []
@@ -242,13 +293,14 @@ class DialogStateRepository:
                 ORDER BY last_updated DESC
             ''')
             rows = cursor.fetchall()
-            
+
             sessions: List[DialogStateDTO] = []
             for row in rows:
-                state = self._deserialize_state(row[0])
+                value = self._get_row_value(row, 'state_json') if self._is_mysql else row[0]
+                state = self._deserialize_state(value)
                 if state.user_id == user_id:
                     sessions.append(state)
-            
+
             return sessions
         except Exception as e:
             logger.error(f"Failed to get sessions by user id {user_id}: {e}")
@@ -274,10 +326,16 @@ class DialogStateRepository:
         try:
             cursor = conn.cursor()
             timestamp = datetime.now(timezone.utc).timestamp()
-            cursor.execute('''
-                INSERT OR REPLACE INTO trace_session_mapping (trace_id, session_id, user_id, created_at)
-                VALUES (?, ?, ?, ?)
-            ''', (trace_id, session_id, user_id, timestamp))
+            if self._is_mysql:
+                cursor.execute('''
+                    REPLACE INTO trace_session_mapping (trace_id, session_id, user_id, created_at)
+                    VALUES (%s, %s, %s, %s)
+                ''', (trace_id, session_id, user_id, timestamp))
+            else:
+                cursor.execute('''
+                    INSERT OR REPLACE INTO trace_session_mapping (trace_id, session_id, user_id, created_at)
+                    VALUES (?, ?, ?, ?)
+                ''', (trace_id, session_id, user_id, timestamp))
             conn.commit()
             return True
         except Exception:
@@ -298,11 +356,13 @@ class DialogStateRepository:
         conn = self.pool.get_connection()
         try:
             cursor = conn.cursor()
-            cursor.execute('''
+            cursor.execute(self._ph('''
                 SELECT session_id FROM trace_session_mapping WHERE trace_id = ?
-            ''', (trace_id,))
+            '''), (trace_id,))
             row = cursor.fetchone()
-            return row[0] if row else None
+            if row:
+                return self._get_row_value(row, 'session_id') if self._is_mysql else row[0]
+            return None
         finally:
             self.pool.return_connection(conn)
 
@@ -319,18 +379,26 @@ class DialogStateRepository:
         conn = self.pool.get_connection()
         try:
             cursor = conn.cursor()
-            cursor.execute('''
+            cursor.execute(self._ph('''
                 SELECT trace_id, session_id, user_id, created_at
                 FROM trace_session_mapping WHERE trace_id = ?
-            ''', (trace_id,))
+            '''), (trace_id,))
             row = cursor.fetchone()
             if row:
-                return {
-                    "trace_id": row[0],
-                    "session_id": row[1],
-                    "user_id": row[2],
-                    "created_at": datetime.fromtimestamp(row[3], timezone.utc)
-                }
+                if self._is_mysql:
+                    return {
+                        "trace_id": row['trace_id'],
+                        "session_id": row['session_id'],
+                        "user_id": row['user_id'],
+                        "created_at": datetime.fromtimestamp(row['created_at'], timezone.utc)
+                    }
+                else:
+                    return {
+                        "trace_id": row[0],
+                        "session_id": row[1],
+                        "user_id": row[2],
+                        "created_at": datetime.fromtimestamp(row[3], timezone.utc)
+                    }
             return None
         finally:
             self.pool.return_connection(conn)
@@ -348,12 +416,13 @@ class DialogStateRepository:
         conn = self.pool.get_connection()
         try:
             cursor = conn.cursor()
-            cursor.execute('''
+            cursor.execute(self._ph('''
                 SELECT trace_id FROM trace_session_mapping
                 WHERE session_id = ?
                 ORDER BY created_at DESC
-            ''', (session_id,))
-            return [row[0] for row in cursor.fetchall()]
+            '''), (session_id,))
+            rows = cursor.fetchall()
+            return [self._get_row_value(row, 'trace_id') if self._is_mysql else row[0] for row in rows]
         finally:
             self.pool.return_connection(conn)
 
@@ -370,7 +439,7 @@ class DialogStateRepository:
         conn = self.pool.get_connection()
         try:
             cursor = conn.cursor()
-            cursor.execute('DELETE FROM trace_session_mapping WHERE trace_id = ?', (trace_id,))
+            cursor.execute(self._ph('DELETE FROM trace_session_mapping WHERE trace_id = ?'), (trace_id,))
             conn.commit()
             return cursor.rowcount > 0
         finally:

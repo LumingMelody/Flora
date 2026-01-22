@@ -515,7 +515,7 @@ async def create_conversation(x_user_id: str = Depends(get_current_user)):
         from capabilities.registry import capability_registry
         from capabilities.dialog_state_manager.interface import IDialogStateManagerCapability
         dialog_state_manager = capability_registry.get_capability("dialog_state", IDialogStateManagerCapability)
-        
+
         # 创建对话状态
         dialog_state = dialog_state_manager.get_or_create_dialog_state(session_id, x_user_id)
         

@@ -1,5 +1,5 @@
 // API 基础 URL
-const INTERACTION_API_BASE_URL = 'http://localhost:8000/v1';
+const INTERACTION_API_BASE_URL = '/v1';
 
 /**
  * RAG API 服务

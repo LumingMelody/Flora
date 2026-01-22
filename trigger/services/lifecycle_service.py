@@ -106,15 +106,16 @@ class LifecycleService:
                 session=session, definition_id=def_id, input_params=input_params,
                 delay_seconds=schedule_config.get("delay_seconds", 0), trace_id=trace_id
             )
-        print(request_id,type(request_id))
         # 2. 统一发送 Trace 开始事件 (之前 Ad-hoc 任务可能漏了这个)
+        # 如果 user_id 为空，尝试从 input_params 中提取 _user_id 作为 fallback
+        actual_user_id = user_id or input_params.get("_user_id")
+
         await event_publisher.publish_start_trace(
             root_def_id=def_id,
             trace_id=trace_id,
             input_params=input_params,
-            user_id=user_id,  # [新增] 透传 user_id
-            request_id=final_request_id  # [新增] 这里使用了 request_id 作为唯一标识
-
+            user_id=actual_user_id,
+            request_id=final_request_id
         )
 
         return trace_id

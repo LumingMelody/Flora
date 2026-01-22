@@ -1,5 +1,5 @@
-// API 基础 URL
-const API_BASE_URL = 'http://localhost:8004';
+// API 基础 URL（使用相对路径，通过 Nginx 代理）
+const API_BASE_URL = '/api/events';
 
 // 导入数据转换工具
 import { processAgentTree } from '../utils/agentDataUtils';

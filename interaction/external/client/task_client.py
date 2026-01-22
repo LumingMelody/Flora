@@ -1,15 +1,20 @@
 from typing import Dict, Any, Optional
+import os
 import uuid
 import requests
 from common.task_execution import TaskExecutionContextDTO
 from common.base import ExecutionStatus
 
+# 从环境变量获取服务地址
+TRIGGER_SERVICE_URL = os.getenv('TRIGGER_SERVICE_URL', 'http://localhost:8003')
+EVENTS_SERVICE_URL = os.getenv('EVENTS_SERVICE_URL', 'http://localhost:8000')
+
 class TaskClient:
     """任务执行客户端，用于与外部任务执行系统交互"""
-    
-    def __init__(self, base_url: str = "http://localhost:8001/api/v1", events_base_url: str = "http://localhost:8004/api/v1"):
-        self.base_url = base_url.rstrip('/')
-        self.events_base_url = events_base_url.rstrip('/')
+
+    def __init__(self, base_url: str = None, events_base_url: str = None):
+        self.base_url = (base_url or f"{TRIGGER_SERVICE_URL}/api/v1").rstrip('/')
+        self.events_base_url = (events_base_url or f"{EVENTS_SERVICE_URL}/api/v1").rstrip('/')
          # 实际项目中，这里应该包含认证信息、超时设置等
         # 实际项目中，这里建议初始化 requests.Session() 以复用 TCP 连接
         self.session = requests.Session()

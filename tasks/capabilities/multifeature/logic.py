@@ -1,7 +1,14 @@
 # logic.py
 from dataclasses import dataclass
 from typing import Set, List, Tuple
-from pyeda.boolalg.expr import exprvar, And, Or, Not, Implies
+
+# pyeda 是可选依赖，在某些平台上可能无法编译
+try:
+    from pyeda.boolalg.expr import exprvar, And, Or, Not, Implies
+    PYEDA_AVAILABLE = True
+except ImportError:
+    PYEDA_AVAILABLE = False
+    exprvar = And = Or = Not = Implies = None
 
 @dataclass(frozen=True)
 class Atom:

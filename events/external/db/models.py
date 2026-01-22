@@ -10,10 +10,10 @@ Base = declarative_base()
 
 class EventTraceDB(Base):
     __tablename__ = "event_traces"
-    
+
     trace_id = Column(String(64), primary_key=True)
     request_id = Column(String(64), index=True)
-    status = Column(String, nullable=False)  # RUNNING / FAILED / SUCCEEDED / CANCELED
+    status = Column(String(32), nullable=False)  # RUNNING / FAILED / SUCCEEDED / CANCELED
     user_id = Column(String(64), nullable=False)
     input_params = Column(JSON, nullable=True)
     created_at = Column(DateTime, nullable=False, default=func.now())
@@ -24,15 +24,15 @@ class EventTraceDB(Base):
 class EventDefinitionDB(Base):
     __tablename__ = "event_definitions"
 
-    id = Column(String, primary_key=True)
-    name = Column(String, nullable=False)
-    user_id = Column(String, nullable=False,server_default=text("''"))
-    
+    id = Column(String(64), primary_key=True)
+    name = Column(String(128), nullable=False)
+    user_id = Column(String(64), nullable=False,server_default=text("''"))
+
     # 核心字段：决定了前端怎么渲染，以及后端怎么处理超时/重试
     node_type = Column(Enum(NodeType), nullable=False)
-    
+
     actor_type = Column(Enum(ActorType), nullable=False)
-    role = Column(String, nullable=True)
+    role = Column(String(64), nullable=True)
     
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime, default=func.now())
@@ -51,19 +51,19 @@ class EventInstanceDB(Base):
     
     trace_id = Column(String(64), nullable=False, index=True)  # 变为必填
     request_id = Column(String(64), index=True, nullable=True)  # 关联请求ID，用于支持 request_id -> trace_id 的一对多关系
-    parent_id = Column(String, index=True)
-    def_id = Column(String, nullable=True)  # 变为可选
-    user_id = Column(String, nullable=False,server_default=text("''"))
-    worker_id = Column(String, nullable=True)  # 新增：标识当前处理该实例的worker
-    name = Column(String, nullable=True)  # 新增：事件实例名称
+    parent_id = Column(String(64), index=True)
+    def_id = Column(String(64), nullable=True)  # 变为可选
+    user_id = Column(String(64), nullable=False,server_default=text("''"))
+    worker_id = Column(String(64), nullable=True)  # 新增：标识当前处理该实例的worker
+    name = Column(String(128), nullable=True)  # 新增：事件实例名称
 
     # 【关键优化】物化路径，格式如 "/root_id/parent_id/"
     # 添加索引以支持高效的子树查询
-    node_path = Column(String, index=True)
+    node_path = Column(String(512), index=True)
     depth = Column(Integer, default=0)
 
     actor_type = Column(Enum(ActorType))
-    role = Column(String, nullable=True)
+    role = Column(String(64), nullable=True)
     layer = Column(Integer, default=0)
     is_leaf_agent = Column(Boolean, default=False)
 
@@ -74,7 +74,7 @@ class EventInstanceDB(Base):
     
     # 【控制信号】
     # 指令塔写入 "PAUSE", Agent 读取并执行
-    control_signal = Column(String, nullable=True)
+    control_signal = Column(String(32), nullable=True)
     
     depends_on = Column(JSON, nullable=True)
     split_count = Column(Integer, default=0)
@@ -83,8 +83,8 @@ class EventInstanceDB(Base):
     input_params = Column(JSON, default=dict)
     
     # 上下文数据引用 (不直接存大字段，存 OSS/S3 key 或 redis key)
-    input_ref = Column(String, nullable=True)
-    output_ref = Column(String, nullable=True)
+    input_ref = Column(String(256), nullable=True)
+    output_ref = Column(String(256), nullable=True)
     
     error_detail = Column(JSON, nullable=True)  # 错误详情，支持存储更丰富的错误信息
     
@@ -92,10 +92,10 @@ class EventInstanceDB(Base):
     runtime_state_snapshot = Column(JSON, nullable=True)
     
     # 结果摘要，用于存储简短的返回值
-    result_summary = Column(String, nullable=True)
-    
+    result_summary = Column(String(512), nullable=True)
+
     # 交互信号，Agent -> 指令塔，比如 "NEED_HUMAN_CONFIRM"
-    interactive_signal = Column(String, nullable=True)
+    interactive_signal = Column(String(64), nullable=True)
 
     started_at = Column(DateTime, nullable=True)
     finished_at = Column(DateTime, nullable=True)
@@ -111,15 +111,15 @@ class EventInstanceDB(Base):
 class EventLogDB(Base):
     __tablename__ = "event_logs"
 
-    id = Column(String, primary_key=True)
-    instance_id = Column(String, index=True, nullable=False)
-    trace_id = Column(String, index=True, nullable=False)
-    event_type = Column(String, index=True, nullable=False)
-    level = Column(String, default="INFO")
+    id = Column(String(64), primary_key=True)
+    instance_id = Column(String(64), index=True, nullable=False)
+    trace_id = Column(String(64), index=True, nullable=False)
+    event_type = Column(String(64), index=True, nullable=False)
+    level = Column(String(16), default="INFO")
     content = Column(Text, nullable=True)
     payload_snapshot = Column(JSON, nullable=True)
-    execution_node = Column(String, nullable=True)
-    agent_id = Column(String, nullable=True)
+    execution_node = Column(String(128), nullable=True)
+    agent_id = Column(String(64), nullable=True)
     error_detail = Column(JSON, nullable=True)
     created_at = Column(DateTime, default=func.now())
 

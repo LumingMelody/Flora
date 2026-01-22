@@ -125,7 +125,7 @@ import GlowButton from '@/components/ui/GlowButton.vue';
 
 const searchQuery = ref('');
 
-const activeNavItem = ref('tasks');
+const _activeNavItem = ref('tasks'); // 保留供后续使用
 
 
 
