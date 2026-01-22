@@ -1,7 +1,7 @@
 ~$market_code.xlsx
-# 敏感配置文件（包含密码等）
+# 敏感配置文件（包含密码等）- 根目录的 config.py
 config.py
-tasks/config.py
+!tasks/config.py
 # 保留 JSON 配置文件，但忽略特定的
 # config.json - 已移除，允许提交
 # interaction_config.json - 已移除，允许提交
