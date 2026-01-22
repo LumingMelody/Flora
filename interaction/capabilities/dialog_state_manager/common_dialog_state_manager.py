@@ -534,14 +534,29 @@ class CommonDialogState(IDialogStateManagerCapability):
         try:
             result = self.llm.generate(prompt).strip()
             import json
+            import re
+            # 尝试从 markdown 代码块中提取 JSON
+            json_match = re.search(r'```(?:json)?\s*([\s\S]*?)\s*```', result)
+            if json_match:
+                result = json_match.group(1).strip()
+            # 尝试提取 JSON 对象
+            json_obj_match = re.search(r'\{[\s\S]*\}', result)
+            if json_obj_match:
+                result = json_obj_match.group(0)
             result_json = json.loads(result)
-            self.logger.info(f"成功生成会话名称，session_id={session_id}, name={result_json['name']}")
-            return result_json
+            name = result_json.get('name', '').strip()
+            description = result_json.get('description', '').strip()
+            # 确保 name 不为空
+            if not name:
+                name = user_input[:10] + "..." if len(user_input) > 10 else user_input
+            self.logger.info(f"成功生成会话名称，session_id={session_id}, name={name}")
+            return {"name": name, "description": description}
         except Exception as e:
             self.logger.exception(f"生成会话名称失败")
-            # 失败时返回默认值
+            # 失败时使用用户输入作为名称
+            name = user_input[:10] + "..." if len(user_input) > 10 else user_input
             return {
-                "name": "会话",
+                "name": name,
                 "description": f"基于用户输入: {user_input[:20]}..."
             }
     
