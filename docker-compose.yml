@@ -81,13 +81,13 @@ services:
       - REDIS_HOST=redis
       - REDIS_PORT=6379
       - REDIS_URL=redis://redis:6379/0
-      - RABBITMQ_URL=amqp://admin:admin123@rabbitmq:5672/
+      - RABBITMQ_URL=amqp://admin:Lanba%40123@121.36.203.36:10005/prod
       - TASKS_SERVICE_URL=http://tasks:8002
     depends_on:
       # mysql-init:
       #   condition: service_completed_successfully
-      rabbitmq:
-        condition: service_healthy
+      # rabbitmq:
+      #   condition: service_healthy
       redis:
         condition: service_healthy
     healthcheck:
@@ -121,7 +121,7 @@ services:
       - MYSQL_DATABASE=flora_interaction
       - REDIS_HOST=redis
       - REDIS_PORT=6379
-      - RABBITMQ_URL=amqp://admin:admin123@rabbitmq:5672/
+      - RABBITMQ_URL=amqp://admin:Lanba%40123@121.36.203.36:10005/prod
       - DASHSCOPE_API_KEY=${DASHSCOPE_API_KEY}
       - DIFY_API_KEY=${DIFY_API_KEY}
       - DIFY_BASE_URL=${DIFY_BASE_URL}
@@ -139,8 +139,8 @@ services:
     depends_on:
       # mysql-init:
       #   condition: service_completed_successfully
-      rabbitmq:
-        condition: service_healthy
+      # rabbitmq:
+      #   condition: service_healthy
       redis:
         condition: service_healthy
     healthcheck:
@@ -174,7 +174,7 @@ services:
       - MYSQL_DATABASE=flora_tasks
       - REDIS_HOST=redis
       - REDIS_PORT=6379
-      - RABBITMQ_URL=amqp://admin:admin123@rabbitmq:5672/
+      - RABBITMQ_URL=amqp://admin:Lanba%40123@121.36.203.36:10005/prod
       - DASHSCOPE_API_KEY=${DASHSCOPE_API_KEY}
       - NEO4J_URI=${NEO4J_URI}
       - NEO4J_USER=${NEO4J_USER}
@@ -190,8 +190,8 @@ services:
     depends_on:
       # mysql-init:
       #   condition: service_completed_successfully
-      rabbitmq:
-        condition: service_healthy
+      # rabbitmq:
+      #   condition: service_healthy
       redis:
         condition: service_healthy
     healthcheck:
@@ -226,7 +226,7 @@ services:
       - REDIS_HOST=redis
       - REDIS_PORT=6379
       - REDIS_URL=redis://redis:6379/0
-      - RABBITMQ_URL=amqp://admin:admin123@rabbitmq:5672/
+      - RABBITMQ_URL=amqp://admin:Lanba%40123@121.36.203.36:10005/prod
       # 服务间通信
       - WORKER_URL=http://tasks:8002
       - EVENTS_SERVICE_BASE_URL=http://events:8000
@@ -235,8 +235,8 @@ services:
     depends_on:
       # mysql-init:
       #   condition: service_completed_successfully
-      rabbitmq:
-        condition: service_healthy
+      # rabbitmq:
+      #   condition: service_healthy
       redis:
         condition: service_healthy
     healthcheck:

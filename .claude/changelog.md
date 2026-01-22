@@ -1,6 +1,23 @@
 # Changelog
 
 ---
+## [2026-01-22 14:12] - 修复 tasks 服务 RabbitMQ 配置问题
+
+### 任务描述
+修复 tasks 服务无法从 RabbitMQ 接收消息的问题。所有服务统一使用外部 RabbitMQ。
+
+### 修改文件
+- [x] tasks/config.py - `RABBITMQ_URL` 改为从环境变量读取
+- [x] docker-compose.yml - 所有服务的 `RABBITMQ_URL` 改为外部地址 `amqp://admin:Lanba%40123@121.36.203.36:10005/prod`
+
+### 关键决策
+1. 统一使用外部 RabbitMQ `121.36.203.36:10005/prod`
+2. 移除对 Docker 内部 rabbitmq 服务的依赖
+
+### 状态
+✅ 完成 (2026-01-22 14:19)
+
+---
 ## [2026-01-22 13:50] - 修复 tasks 服务无法连接 events 服务
 
 ### 任务描述
