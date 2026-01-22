@@ -72,7 +72,7 @@ def init_orchestrator():
     """初始化对话编排器"""
     global _orchestrator
     # 1. 初始化能力管理器
-    config_path = os.path.join(os.path.dirname(__file__), '.', '..', 'interaction_config.json')
+    config_path = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'interaction_config.json'))
     capability_manager = CapabilityManager(config_path)
     
     # 2. 自动发现和注册所有能力

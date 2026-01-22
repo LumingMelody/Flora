@@ -1,4 +1,6 @@
 # 基础类和接口
+import os
+
 from .base import (
     BaseManager,
     TaskStorage,
@@ -36,7 +38,8 @@ from .system_response_manager.common_system_response_manager import CommonSystem
 
 # 创建全局能力管理器实例
 _global_manager = None
-CONFIG_PATH = "interaction_config.json"
+# 使用绝对路径，确保在任何工作目录下都能找到配置文件
+CONFIG_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'interaction_config.json'))
 
 # 导出常用接口
 __all__ = [
