@@ -44,11 +44,11 @@ async def lifespan(app: FastAPI):
     logger.info("Interaction 服务启动中...")
 
     # 获取 RabbitMQ 配置
-    # 从配置文件中读取 rabbitmq 配置
+    # 优先从环境变量读取，否则从配置文件读取
     config_path = os.path.join(INTERACTION_DIR, 'interaction_config.json')
     with open(config_path, 'r', encoding='utf-8') as f:
         config = json.load(f)
-    rabbitmq_url = config.get('global_config', {}).get('rabbitmq', 'amqp://guest:guest@localhost:5672/')
+    rabbitmq_url = os.getenv('RABBITMQ_URL') or config.get('global_config', {}).get('rabbitmq', 'amqp://guest:guest@localhost:5672/')
     task_result_queue = os.getenv('TASK_RESULT_QUEUE', 'work.result')
 
     # 初始化对话状态仓库

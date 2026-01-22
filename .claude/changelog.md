@@ -1,6 +1,27 @@
 # Changelog
 
 ---
+## [2026-01-22 14:24] - 统一各服务配置读取方式
+
+### 任务描述
+检查并修复各服务的配置读取方式，确保本地开发和 Docker 环境使用一致的 RabbitMQ 地址。
+
+### 修改文件
+- [x] interaction/main.py - 优先从环境变量 `RABBITMQ_URL` 读取，否则从配置文件读取
+- [x] interaction/interaction_config.json - 默认 RabbitMQ 地址改为外部地址
+
+### 检查结果
+| 服务 | 状态 | 说明 |
+|------|------|------|
+| events | ✅ | 正确使用 `os.getenv("RABBITMQ_URL")` |
+| trigger | ✅ | 正确使用 `os.getenv("RABBITMQ_URL")` |
+| tasks | ✅ | 已修复，使用 `os.getenv("RABBITMQ_URL")` |
+| interaction | ✅ | 已修复，优先使用环境变量 |
+
+### 状态
+✅ 完成 (2026-01-22 14:24)
+
+---
 ## [2026-01-22 14:12] - 修复 tasks 服务 RabbitMQ 配置问题
 
 ### 任务描述
