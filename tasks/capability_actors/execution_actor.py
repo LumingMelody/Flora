@@ -34,7 +34,7 @@ class ExecutionActor(Actor):
     def __init__(self):
         self.logger = logging.getLogger(__name__)
         self._pending_requests = {}  # task_id -> request_info
-        self._excution:BaseExecution = get_capability("execution", BaseExecution)  # 添加连接器管理器实例
+        self._excution:BaseExecution = get_capability("excution", BaseExecution)  # 添加连接器管理器实例
         self.logger.info("ExecutionActor initialized")
         self.task_id=None
         self.trace_id=None
