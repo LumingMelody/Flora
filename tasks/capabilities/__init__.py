@@ -8,7 +8,7 @@ from . import context_resolver
 from . import decision
 from . import dimension
 from . import draw_charts
-from . import excution
+from . import execution
 from . import llm
 from . import llm_memory
 from . import multifeature
@@ -28,7 +28,7 @@ __all__ = [
     "decision",
     "dimension",
     "draw_charts",
-    "excution",
+    "execution",
     "llm",
     "llm_memory",
     "multifeature",
