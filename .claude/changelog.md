@@ -1,6 +1,39 @@
 # Changelog
 
 ---
+## [2026-01-23 14:40] - 统一 Redis 和 RabbitMQ 配置，修复 Events 服务使用 MockBus 问题
+
+### 任务描述
+修复多个配置问题：
+1. Events 服务始终使用 MockBus 而非 RedisEventBus
+2. Interaction 服务使用 Docker 内部 RabbitMQ，无法与 Tasks 服务通信
+3. 各服务 Redis 配置不统一，部分使用硬编码值
+
+### 问题根源
+1. **MockBus 问题**：`events/event_config.json` 中 `use_redis: false`
+2. **RabbitMQ 不通**：Interaction 使用 `rabbitmq:5672`（Docker 内部），Tasks 使用 `121.36.203.36:10005`（外部）
+3. **Redis 配置混乱**：docker-compose.yml 中部分服务硬编码 Redis 地址
+
+### 修改文件
+- [x] events/event_config.json - `use_redis` 改为 `true`，更新 `redis_url` 和 `rabbitmq_url`
+- [x] .env - 添加完整的 Redis 配置（REDIS_URL, REDIS_HOST, REDIS_PORT, REDIS_PASSWORD）
+- [x] .env.local - 同步 Redis 和 RabbitMQ 配置
+- [x] docker-compose.yml - 所有服务的 Redis 配置改为环境变量：
+  - events 服务：REDIS_HOST, REDIS_PORT, REDIS_PASSWORD, REDIS_URL
+  - interaction 服务：REDIS_HOST, REDIS_PORT, REDIS_PASSWORD
+  - tasks 服务：REDIS_HOST, REDIS_PORT, REDIS_DATABASE, REDIS_PASSWORD
+  - trigger 服务：REDIS_HOST, REDIS_PORT, REDIS_URL
+
+### 配置统一后
+```
+Redis: redis://:lanba888@121.36.203.36:10002/0
+RabbitMQ: amqp://admin:Lanba%40123@121.36.203.36:10005/prod
+```
+
+### 状态
+✅ 完成 (2026-01-23 14:40)
+
+---
 ## [2026-01-23 14:20] - 修复任务进度显示和状态卡住问题
 
 ### 任务描述
