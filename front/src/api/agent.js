@@ -1,8 +1,16 @@
-// API 基础 URL（使用相对路径，通过 Nginx 代理）
-const API_BASE_URL = '/api/events';
-
 // 导入数据转换工具
 import { processAgentTree } from '../utils/agentDataUtils';
+
+/**
+ * 构建 WebSocket URL
+ * @param {string} path - WebSocket 路径
+ * @returns {string} 完整的 WebSocket URL
+ */
+function buildWebSocketUrl(path) {
+  const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+  const host = window.location.host;
+  return `${protocol}//${host}${path}`;
+}
 
 /**
  * Agent API 服务，用于处理与Agent相关的WebSocket连接
@@ -20,9 +28,9 @@ class AgentAPI {
    */
   static createAgentTreeWebSocket(agentId, callbacks = {}) {
     const { onOpen, onMessage, onError, onClose } = callbacks;
-    
-    // 构建WebSocket URL
-    const wsUrl = API_BASE_URL.replace('http', 'ws') + `/api/v1/traces/ws/agent/${agentId}`;
+
+    // 构建WebSocket URL: /api/events/ 会被 nginx 代理到 events:8000/
+    const wsUrl = buildWebSocketUrl(`/api/events/api/v1/traces/ws/agent/${agentId}`);
     
     // 创建WebSocket连接
     const ws = new WebSocket(wsUrl);

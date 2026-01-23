@@ -1,6 +1,52 @@
 # Changelog
 
 ---
+## [2026-01-23 11:53] - 修复三个核心问题：WebSocket推送、数据库切换、RabbitMQ连接
+
+### 任务描述
+修复三个影响系统正常运行的问题：
+1. Events 服务的 WebSocket 消息推送问题
+2. 数据库地址线上/本地切换支持
+3. RabbitMQ 连接被重置（Connection reset by peer）
+
+### 修改文件
+
+**问题1: WebSocket 推送**
+- [x] front/src/api/agent.js - 修复 WebSocket URL 构建，使用完整的 `ws://host/api/events/...`
+- [x] front/src/utils/socket.js - 修复 trace WebSocket URL 路径
+- [x] front/src/composables/useApi.js - 添加缺失的 `onMounted` 导入
+- [x] front/src/features/Copilot/index.vue - 集成 WebSocket 监听任务状态更新
+- [x] interaction/interaction_handler.py - 在 `meta` 事件中添加 `trace_id` 字段
+
+**问题2: 数据库地址切换**
+- [x] docker-compose.yml - 将硬编码的数据库配置改为从环境变量读取
+- [x] .env - 更新为本地开发配置（公网 IP）
+- [x] .env.local - 新建，本地开发配置
+- [x] .env.prod - 新建，线上生产配置（内网 IP）
+- [x] .env.docker - 删除（已被 .env.local/.env.prod 替代）
+
+**问题3: RabbitMQ 连接**
+- [x] tasks/external/message_queue/task_result_publisher.py - 添加心跳参数，改进重连机制
+- [x] interaction/external/message_queue/task_result_listener.py - 增强错误处理和重连逻辑
+
+### 关键决策
+1. WebSocket URL 需要完整路径 `/api/events/api/v1/traces/ws/{traceId}`
+2. 环境配置分离：`.env.local`（本地开发，公网IP）和 `.env.prod`（线上生产，内网IP）
+3. RabbitMQ 连接统一使用 `heartbeat=600` 秒，防止心跳超时
+
+### 使用方法
+```bash
+# 本地开发
+cp .env.local .env && docker-compose up -d
+
+# 线上部署
+cp .env.prod .env && docker-compose up -d
+```
+
+### 状态
+✅ 完成 (2026-01-23 11:53)
+
+---
 ## [2026-01-22 14:24] - 统一各服务配置读取方式
 
 ### 任务描述

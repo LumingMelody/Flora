@@ -134,10 +134,13 @@ class TaskResultListener:
 
         retry_delay = 5  # 初始重试延迟（秒）
         max_retry_delay = 60  # 最大重试延迟（秒）
+        consecutive_failures = 0
 
         while self.running:
             try:
                 connection_params = self._parse_rabbitmq_url()
+                logger.info(f"Connecting to RabbitMQ: {connection_params.host}:{connection_params.port}, vhost: {connection_params.virtual_host}")
+
                 self.connection = pika.BlockingConnection(connection_params)
                 self.channel = self.connection.channel()
 
@@ -157,7 +160,11 @@ class TaskResultListener:
                 # 设置 QoS
                 self.channel.basic_qos(prefetch_count=10)
 
-                logger.info(f"Task result listener started, queue: {self.queue_name}")
+                logger.info(f"Task result listener connected and started, queue: {self.queue_name}")
+
+                # 连接成功，重置重试延迟和失败计数
+                retry_delay = 5
+                consecutive_failures = 0
 
                 self.channel.basic_consume(
                     queue=self.queue_name,
@@ -165,26 +172,45 @@ class TaskResultListener:
                 )
                 self.channel.start_consuming()
 
-            except pika.exceptions.ConnectionClosedByBroker:
+            except pika.exceptions.ConnectionClosedByBroker as e:
                 # 连接被 broker 关闭，重试
-                logger.warning("Connection closed by broker, reconnecting...")
+                consecutive_failures += 1
+                logger.warning(f"Connection closed by broker: {e}, reconnecting in {retry_delay}s... (attempt {consecutive_failures})")
                 time.sleep(retry_delay)
                 retry_delay = min(retry_delay * 2, max_retry_delay)
             except pika.exceptions.AMQPChannelError as e:
                 # 通道错误，重试
-                logger.warning(f"Channel error: {e}, reconnecting...")
+                consecutive_failures += 1
+                logger.warning(f"Channel error: {e}, reconnecting in {retry_delay}s... (attempt {consecutive_failures})")
                 time.sleep(retry_delay)
                 retry_delay = min(retry_delay * 2, max_retry_delay)
-            except pika.exceptions.AMQPConnectionError:
-                # 连接错误，重试
-                logger.warning("Connection error, reconnecting...")
+            except pika.exceptions.AMQPConnectionError as e:
+                # 连接错误（包括 Connection reset by peer），重试
+                consecutive_failures += 1
+                logger.warning(f"Connection error: {e}, reconnecting in {retry_delay}s... (attempt {consecutive_failures})")
+                time.sleep(retry_delay)
+                retry_delay = min(retry_delay * 2, max_retry_delay)
+            except (ConnectionResetError, BrokenPipeError, OSError) as e:
+                # 网络层错误（Connection reset by peer 等），重试
+                consecutive_failures += 1
+                logger.warning(f"Network error: {e}, reconnecting in {retry_delay}s... (attempt {consecutive_failures})")
                 time.sleep(retry_delay)
                 retry_delay = min(retry_delay * 2, max_retry_delay)
             except Exception as e:
-                # 其他未预期的异常，记录并退出
-                logger.error(f"Unexpected error in task result listener: {e}", exc_info=True)
-                self.running = False
-                break
+                # 其他未预期的异常
+                consecutive_failures += 1
+                error_msg = str(e).lower()
+
+                # 检查是否是可恢复的网络错误
+                if 'connection' in error_msg or 'reset' in error_msg or 'broken pipe' in error_msg:
+                    logger.warning(f"Recoverable error: {e}, reconnecting in {retry_delay}s... (attempt {consecutive_failures})")
+                    time.sleep(retry_delay)
+                    retry_delay = min(retry_delay * 2, max_retry_delay)
+                else:
+                    # 真正的未预期异常，记录并退出
+                    logger.error(f"Unexpected error in task result listener: {e}", exc_info=True)
+                    self.running = False
+                    break
 
         # 重置状态
         self.channel = None

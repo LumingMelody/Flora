@@ -208,6 +208,7 @@ import InputHud from '@/components/ui/InputHud.vue';
 import StatusDot from '@/components/ui/StatusDot.vue';
 import { sendUserMessage } from '../../api/order';
 import { useConversationSSE } from '../../composables/useApi';
+import { createWebSocketClient, getTraceWebSocketUrl } from '../../utils/socket';
 import MarkdownIt from 'markdown-it';
 import DOMPurify from 'dompurify';
 import ConversationAPI from '../../api/conversation';
@@ -248,6 +249,122 @@ const thinkingStateTimer = ref(null);
 const messages = ref([]);
 const aiStatus = ref('idle'); // idle, thinking, processing
 const aiThinkingText = ref(''); // 新增：用于显示具体的思考步骤
+
+// WebSocket 相关状态（用于实时任务状态更新）
+const traceWsClient = ref(null);
+const currentTraceId = ref(null);
+const taskStatus = ref(null); // 当前任务执行状态
+
+// 连接 Trace WebSocket
+const connectTraceWebSocket = (traceId) => {
+  if (!traceId) return;
+
+  // 如果已经连接到同一个 trace，不重复连接
+  if (currentTraceId.value === traceId && traceWsClient.value?.isConnected()) {
+    return;
+  }
+
+  // 断开旧连接
+  disconnectTraceWebSocket();
+
+  currentTraceId.value = traceId;
+  const url = getTraceWebSocketUrl(traceId);
+
+  traceWsClient.value = createWebSocketClient(url, {
+    maxReconnectAttempts: 3,
+    reconnectDelay: 2000,
+  });
+
+  traceWsClient.value.on('open', () => {
+    console.log(`Trace WebSocket connected: ${traceId}`);
+  });
+
+  traceWsClient.value.on('message', (data) => {
+    handleTraceEvent(data);
+  });
+
+  traceWsClient.value.on('close', () => {
+    console.log(`Trace WebSocket disconnected: ${traceId}`);
+  });
+
+  traceWsClient.value.on('error', (error) => {
+    console.error(`Trace WebSocket error: ${error}`);
+  });
+
+  traceWsClient.value.connect().catch((error) => {
+    console.error('Failed to connect trace WebSocket:', error);
+  });
+};
+
+// 断开 Trace WebSocket
+const disconnectTraceWebSocket = () => {
+  if (traceWsClient.value) {
+    traceWsClient.value.close();
+    traceWsClient.value = null;
+  }
+  currentTraceId.value = null;
+  taskStatus.value = null;
+};
+
+// 处理 Trace 事件
+const handleTraceEvent = (data) => {
+  console.log('Trace event received:', data);
+
+  const event = data.event;
+  const eventData = data.data;
+
+  switch (event) {
+    case 'node_updated':
+      // 任务节点状态更新
+      taskStatus.value = {
+        nodeId: eventData.node_id,
+        status: eventData.status,
+        progress: eventData.progress,
+        error: eventData.error,
+      };
+
+      // 如果任务完成或失败，添加状态消息
+      if (eventData.status === 'SUCCESS' || eventData.status === 'FAILED') {
+        const statusMessage = {
+          id: Date.now(),
+          role: 'ai',
+          content: eventData.status === 'SUCCESS'
+            ? `✅ 任务执行完成${eventData.output_summary ? `: ${eventData.output_summary}` : ''}`
+            : `❌ 任务执行失败: ${eventData.error || '未知错误'}`,
+          timestamp: new Date(),
+          status: 'completed',
+          type: 'task_status'
+        };
+        messages.value.push(statusMessage);
+        scrollToBottom();
+
+        // 任务结束后断开 WebSocket
+        disconnectTraceWebSocket();
+      }
+      break;
+
+    case 'graph_updated':
+      // 拓扑结构更新（新增子任务）
+      console.log('Graph updated:', eventData);
+      break;
+
+    case 'agent_activity':
+      // Agent 活动心跳
+      taskStatus.value = {
+        ...taskStatus.value,
+        agentId: eventData.agent_id,
+        step: eventData.step,
+      };
+      break;
+
+    case 'trace_created':
+      console.log('Trace created:', eventData);
+      break;
+
+    default:
+      console.log('Unknown trace event:', event, eventData);
+  }
+};
 
 // 计算属性：当前显示的状态文字
 const thinkingStatusText = computed(() => {
@@ -380,7 +497,13 @@ const {
     startThinkingTimer();
     upsertThinkingMessage(aiThinkingText.value);
   },
-  onMeta: () => {},
+  onMeta: (data) => {
+    // 处理 meta 事件，如果包含 trace_id 则连接 WebSocket 监听任务状态
+    if (data && data.trace_id) {
+      console.log('Received trace_id from meta event:', data.trace_id);
+      connectTraceWebSocket(data.trace_id);
+    }
+  },
 
   onMessage: (data, event) => {
     // 处理 SSE 消息
@@ -475,8 +598,9 @@ const {
 
 // !!! 关键修复 1：组件卸载时强制断开连接 !!!
 onUnmounted(() => {
-  console.log('Component unmounting: Disconnecting SSE to prevent ghost connections.');
+  console.log('Component unmounting: Disconnecting SSE and WebSocket to prevent ghost connections.');
   disconnect();
+  disconnectTraceWebSocket();
   stopThinkingTimer();
   // 移除 ESC 键监听
   window.removeEventListener('keydown', handleKeyDown);
@@ -486,6 +610,7 @@ onUnmounted(() => {
 watch(sessionId, async (newSessionId) => {
   // 先断开旧连接
   disconnect();
+  disconnectTraceWebSocket();
   // 重置当前 AI 消息状态，防止旧数据污染
   currentAIMessage.value = null;
   aiStatus.value = 'idle';

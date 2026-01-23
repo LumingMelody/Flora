@@ -72,16 +72,16 @@ services:
     environment:
       - TZ=Asia/Shanghai
       - PYTHONPATH=/app
-      - DB_TYPE=mysql
-      - MYSQL_HOST=192.168.0.216
-      - MYSQL_PORT=8888
-      - MYSQL_USER=root
-      - MYSQL_PASSWORD=ZKLB.EQiAI@2025!
+      - DB_TYPE=${DB_TYPE:-mysql}
+      - MYSQL_HOST=${MYSQL_HOST}
+      - MYSQL_PORT=${MYSQL_PORT}
+      - MYSQL_USER=${MYSQL_USER:-root}
+      - MYSQL_PASSWORD=${MYSQL_PASSWORD}
       - MYSQL_DATABASE=flora_events
       - REDIS_HOST=redis
       - REDIS_PORT=6379
       - REDIS_URL=redis://redis:6379/0
-      - RABBITMQ_URL=amqp://admin:Lanba%40123@121.36.203.36:10005/prod
+      - RABBITMQ_URL=${RABBITMQ_URL}
       - TASKS_SERVICE_URL=http://tasks:8002
     depends_on:
       # mysql-init:
@@ -113,15 +113,15 @@ services:
     environment:
       - TZ=Asia/Shanghai
       - PYTHONPATH=/app
-      - DB_TYPE=mysql
-      - MYSQL_HOST=192.168.0.216
-      - MYSQL_PORT=8888
-      - MYSQL_USER=root
-      - MYSQL_PASSWORD=ZKLB.EQiAI@2025!
+      - DB_TYPE=${DB_TYPE:-mysql}
+      - MYSQL_HOST=${MYSQL_HOST}
+      - MYSQL_PORT=${MYSQL_PORT}
+      - MYSQL_USER=${MYSQL_USER:-root}
+      - MYSQL_PASSWORD=${MYSQL_PASSWORD}
       - MYSQL_DATABASE=flora_interaction
       - REDIS_HOST=redis
       - REDIS_PORT=6379
-      - RABBITMQ_URL=amqp://admin:Lanba%40123@121.36.203.36:10005/prod
+      - RABBITMQ_URL=${RABBITMQ_URL}
       - DASHSCOPE_API_KEY=${DASHSCOPE_API_KEY}
       - DIFY_API_KEY=${DIFY_API_KEY}
       - DIFY_BASE_URL=${DIFY_BASE_URL}
@@ -166,17 +166,17 @@ services:
     environment:
       - TZ=Asia/Shanghai
       - PYTHONPATH=/app
-      - DB_TYPE=mysql
-      - MYSQL_HOST=192.168.0.216
-      - MYSQL_PORT=8888
-      - MYSQL_USER=root
-      - MYSQL_PASSWORD=ZKLB.EQiAI@2025!
+      - DB_TYPE=${DB_TYPE:-mysql}
+      - MYSQL_HOST=${MYSQL_HOST}
+      - MYSQL_PORT=${MYSQL_PORT}
+      - MYSQL_USER=${MYSQL_USER:-root}
+      - MYSQL_PASSWORD=${MYSQL_PASSWORD}
       - MYSQL_DATABASE=flora_tasks
       - REDIS_HOST=redis
       - REDIS_PORT=6379
       - REDIS_DATABASE=0
       - REDIS_PASSWORD=
-      - RABBITMQ_URL=amqp://admin:Lanba%40123@121.36.203.36:10005/prod
+      - RABBITMQ_URL=${RABBITMQ_URL}
       - DASHSCOPE_API_KEY=${DASHSCOPE_API_KEY}
       - NEO4J_URI=${NEO4J_URI}
       - NEO4J_USER=${NEO4J_USER}
@@ -220,16 +220,16 @@ services:
     environment:
       - TZ=Asia/Shanghai
       - PYTHONPATH=/app
-      - DB_TYPE=mysql
-      - MYSQL_HOST=192.168.0.216
-      - MYSQL_PORT=8888
-      - MYSQL_USER=root
-      - MYSQL_PASSWORD=ZKLB.EQiAI@2025!
+      - DB_TYPE=${DB_TYPE:-mysql}
+      - MYSQL_HOST=${MYSQL_HOST}
+      - MYSQL_PORT=${MYSQL_PORT}
+      - MYSQL_USER=${MYSQL_USER:-root}
+      - MYSQL_PASSWORD=${MYSQL_PASSWORD}
       - MYSQL_DATABASE=flora_trigger
       - REDIS_HOST=redis
       - REDIS_PORT=6379
       - REDIS_URL=redis://redis:6379/0
-      - RABBITMQ_URL=amqp://admin:Lanba%40123@121.36.203.36:10005/prod
+      - RABBITMQ_URL=${RABBITMQ_URL}
       # 服务间通信
       - WORKER_URL=http://tasks:8002
       - EVENTS_SERVICE_BASE_URL=http://events:8000

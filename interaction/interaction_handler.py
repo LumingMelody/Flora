@@ -1097,7 +1097,8 @@ class InteractionHandler:
                 "user_id": input.user_id,
                 "requires_input": response.requires_input,
                 "awaiting_slot": response.awaiting_slot,
-                "display_data": response.display_data
+                "display_data": response.display_data,
+                "trace_id": result_data.get("execution_context").external_job_id if result_data.get("execution_context") else None
             }
 
         except ValueError as e:

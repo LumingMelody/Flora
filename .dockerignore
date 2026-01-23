@@ -61,7 +61,7 @@ logs/
 
 # Environment files (use .env.docker as template)
 .env
-.env.local
+.env.prod
 .env.*.local
 
 # Node modules (front will be built separately)

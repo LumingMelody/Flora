@@ -9,9 +9,11 @@ import os
 import time
 from typing import Dict, Any, Optional
 from datetime import datetime, timezone
+from urllib.parse import urlparse, unquote
 
 try:
     import pika
+    import pika.exceptions
     RABBITMQ_AVAILABLE = True
 except ImportError:
     RABBITMQ_AVAILABLE = False
@@ -32,7 +34,9 @@ class TaskResultPublisher:
     def __init__(
         self,
         rabbitmq_url: Optional[str] = None,
-        queue_name: str = DEFAULT_QUEUE_NAME
+        queue_name: str = DEFAULT_QUEUE_NAME,
+        heartbeat: int = 600,
+        blocked_connection_timeout: int = 300
     ):
         """
         初始化任务结果发布器
@@ -40,13 +44,37 @@ class TaskResultPublisher:
         Args:
             rabbitmq_url: RabbitMQ 连接 URL
             queue_name: 队列名称
+            heartbeat: 心跳间隔（秒），默认 600
+            blocked_connection_timeout: 阻塞连接超时（秒），默认 300
         """
         import config
         self.rabbitmq_url = rabbitmq_url or config.RABBITMQ_URL
         self.queue_name = queue_name
+        self.heartbeat = heartbeat
+        self.blocked_connection_timeout = blocked_connection_timeout
         self._connection: Optional[pika.BlockingConnection] = None
         self._channel = None
         self._is_connected = False
+
+    def _parse_rabbitmq_url(self) -> pika.ConnectionParameters:
+        """解析 RabbitMQ URL 为 pika 连接参数（带心跳配置）"""
+        parsed = urlparse(self.rabbitmq_url)
+
+        password = unquote(parsed.password) if parsed.password else 'guest'
+
+        credentials = pika.PlainCredentials(
+            username=parsed.username or 'guest',
+            password=password
+        )
+
+        return pika.ConnectionParameters(
+            host=parsed.hostname or 'localhost',
+            port=parsed.port or 5672,
+            virtual_host=parsed.path.lstrip('/') or '/',
+            credentials=credentials,
+            heartbeat=self.heartbeat,
+            blocked_connection_timeout=self.blocked_connection_timeout
+        )
 
     def connect(self) -> bool:
         """
@@ -60,9 +88,9 @@ class TaskResultPublisher:
             return False
 
         try:
-            self._connection = pika.BlockingConnection(
-                pika.URLParameters(self.rabbitmq_url)
-            )
+            # 使用解析后的连接参数（包含心跳配置）
+            connection_params = self._parse_rabbitmq_url()
+            self._connection = pika.BlockingConnection(connection_params)
             self._channel = self._connection.channel()
 
             # 声明交换机和队列
@@ -79,7 +107,7 @@ class TaskResultPublisher:
             )
 
             self._is_connected = True
-            logger.info(f"TaskResultPublisher connected to RabbitMQ, queue: {self.queue_name}")
+            logger.info(f"TaskResultPublisher connected to RabbitMQ, queue: {self.queue_name}, heartbeat: {self.heartbeat}s")
             return True
 
         except Exception as e:
@@ -88,9 +116,23 @@ class TaskResultPublisher:
             return False
 
     def _ensure_connected(self) -> bool:
-        """确保已连接"""
-        if self._is_connected and self._connection and self._connection.is_open:
-            return True
+        """确保已连接，处理连接断开的情况"""
+        try:
+            if self._is_connected and self._connection and self._connection.is_open:
+                # 额外检查 channel 是否可用
+                if self._channel and self._channel.is_open:
+                    return True
+                else:
+                    logger.warning("RabbitMQ channel closed, reconnecting...")
+                    self._is_connected = False
+        except (pika.exceptions.AMQPConnectionError, pika.exceptions.AMQPChannelError) as e:
+            logger.warning(f"RabbitMQ connection check failed: {e}")
+            self._is_connected = False
+        except Exception as e:
+            logger.warning(f"Unexpected error checking RabbitMQ connection: {e}")
+            self._is_connected = False
+
+        # 尝试重新连接
         return self.connect()
 
     def publish_result(

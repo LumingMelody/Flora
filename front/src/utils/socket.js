@@ -131,7 +131,8 @@ export function createWebSocketClient(url, options = {}) {
 export function getTraceWebSocketUrl(traceId) {
   const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
   const host = window.location.host;
-  return `${protocol}//${host}/traces/ws/${traceId}`;
+  // /api/events/ 会被 nginx 代理到 events:8000/
+  return `${protocol}//${host}/api/events/api/v1/traces/ws/${traceId}`;
 }
 
 /**
@@ -140,5 +141,5 @@ export function getTraceWebSocketUrl(traceId) {
  * @returns {string} 相对 WebSocket URL
  */
 export function getTraceWebSocketRelativeUrl(traceId) {
-  return `/traces/ws/${traceId}`;
+  return `/api/events/api/v1/traces/ws/${traceId}`;
 }
