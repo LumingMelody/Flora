@@ -122,6 +122,10 @@ class Settings(BaseSettings):
             self._config_data["redis_url"] = os.getenv("REDIS_URL")
         if os.getenv("RABBITMQ_URL"):
             self._config_data["rabbitmq_url"] = os.getenv("RABBITMQ_URL")
+        # 支持通过环境变量启用 Redis EventBus
+        use_redis_env = os.getenv("USE_REDIS_EVENT_BUS")
+        if use_redis_env is not None:
+            self._config_data["use_redis"] = use_redis_env.lower() in ("true", "1", "yes")
 
         # 更新实例属性
         for key, value in self._config_data.items():
