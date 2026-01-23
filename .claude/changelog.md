@@ -1,6 +1,45 @@
 # Changelog
 
 ---
+## [2026-01-23 16:14] - 修复 task_id 在链路传递中不一致导致有名节点状态不更新
+
+### 任务描述
+修复图节点显示问题：有名字的节点状态不更新（进度始终为 0%），而无名节点状态正常更新。
+
+### 问题根源
+`agent_actor.py` 中 `_build_task_group_request` 方法的调用顺序问题：
+1. `_build_task_group_request` 为每个 plan 生成新的 `task_id`，但只存入 `task_clean` 字典
+2. 原始的 `plan` 字典中**没有** task_id
+3. 后续 `publish_task_event` 发送 `TASK_DISPATCHED` 事件时，`plans` 中没有 task_id
+4. `event_bus._adapt_plan_to_meta` 使用 `plan.get("task_id", str(uuid.uuid4()))` 生成**另一个新的 UUID**
+5. 导致 split 创建的节点（有名字）和后续事件使用的 task_id **不一致**
+
+### 修改文件
+- [x] tasks/agents/agent_actor.py - `_build_task_group_request` 中：
+  - 在生成 task_id 后，写回原始的 `plan` 字典
+  - 确保后续 `publish_task_event` 发送的 plans 中包含正确的 task_id
+
+### 关键修复
+```python
+# 修复前：task_id 只存入 task_clean，plan 中没有
+task_clean = {
+    ...
+    "task_id": str(uuid.uuid4()),  # 新生成的 UUID
+}
+
+# 修复后：先写入 plan，再使用
+if "task_id" not in plan:
+    plan["task_id"] = str(uuid.uuid4())  # 写回 plan
+task_clean = {
+    ...
+    "task_id": plan["task_id"],  # 使用 plan 中的 task_id
+}
+```
+
+### 状态
+✅ 完成 (2026-01-23 16:14)
+
+---
 ## [2026-01-23 15:09] - 修复图节点显示问题：无名节点和状态不更新
 
 ### 任务描述

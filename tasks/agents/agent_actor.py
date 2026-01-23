@@ -462,6 +462,11 @@ class AgentActor(Actor):
         """
         task_specs = []
         for plan in plans:
+            # 【关键修复】如果 plan 中没有 task_id，生成一个并写回 plan
+            # 这样后续 publish_task_event 发送的 plans 中也包含正确的 task_id
+            if "task_id" not in plan:
+                plan["task_id"] = str(uuid.uuid4())
+
             # 防御性处理：确保必要字段存在
             task_clean = {
                 "step": int(plan.get("step", 0)),
@@ -474,7 +479,7 @@ class AgentActor(Actor):
                 "is_dependency_expanded": bool(plan.get("is_dependency_expanded", False)),
                 "original_parent": plan.get("original_parent"),
                 "user_id": getattr(self, 'current_user_id', task.user_id),  # 优先用 self.current_user_id
-                "task_id": str(uuid.uuid4()),
+                "task_id": plan["task_id"],  # 使用 plan 中的 task_id
             }
 
             # 允许 plan 中包含额外字段（因 TaskSpec.Config.extra='allow'）
