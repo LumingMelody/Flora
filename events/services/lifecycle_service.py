@@ -423,10 +423,14 @@ class LifecycleService:
         # 根据事件类型，计算 Instance 应该变成什么样
         # =========================================
         update_fields = {"updated_at": datetime.now(timezone.utc)}
-        
+
         # 提取常用字段
         if "worker_id" in execution_args:
             update_fields["worker_id"] = execution_args["worker_id"]
+
+        # 【关键修复】提取 name 字段，确保节点有名称
+        if "name" in execution_args and execution_args["name"]:
+            update_fields["name"] = execution_args["name"]
             
         if event_type == "STARTED":
             update_fields["status"] = EventInstanceStatus.RUNNING.value

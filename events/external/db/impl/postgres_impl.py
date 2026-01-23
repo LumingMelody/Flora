@@ -163,22 +163,23 @@ class PostgreSQLEventInstanceRepository(EventInstanceRepository):
             id=new_id,
             task_id=task_id,
             trace_id=trace_id,
-            parent_id=root_node.id,
-            node_path=f"{root_node.node_path}{root_node.id}/",
+            parent_id=root_node.task_id,
+            node_path=f"{root_node.node_path}{root_node.task_id}/",
             depth=root_node.depth + 1,
-            
+
             # 从fields中获取值，或者使用默认值
             actor_type=fields.get("actor_type", "AGENT"),
             def_id=fields.get("def_id", "dynamic_task"),
+            name=fields.get("name"),  # 【关键修复】从 fields 中获取 name
             status=fields.get("status", EventInstanceStatus.PENDING.value),
             user_id=root_node.user_id,
-            
+
             # 设置时间字段
             created_at=datetime.now(timezone.utc),
             updated_at=datetime.now(timezone.utc),
             started_at=fields.get("started_at"),
             finished_at=fields.get("finished_at"),
-            
+
             # 其他可选字段
             worker_id=fields.get("worker_id"),
             input_params=fields.get("input_params"),
