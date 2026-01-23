@@ -1,6 +1,35 @@
 # Changelog
 
 ---
+## [2026-01-23 13:50] - 修复任务状态一直为 PENDING 的问题
+
+### 任务描述
+修复数据库中任务状态一直显示为 PENDING，没有正确转换为 RUNNING/SUCCESS/FAILED 的问题。
+
+### 问题根源
+- `AgentActor` 和 `LeafActor` 只发布了 `TASK_CREATED` 事件，没有发布 `TASK_RUNNING` 事件
+- 只有 `TASK_RUNNING` 事件才会被转换为 `STARTED`，进而更新状态为 `RUNNING`
+- 状态转换链断裂：`PENDING` → (缺失 RUNNING) → 直接跳到 `SUCCESS/FAILED`
+
+### 修改文件
+- [x] tasks/agents/agent_actor.py - 在任务分发后添加 `TASK_RUNNING` 事件发布
+- [x] tasks/agents/leaf_actor.py - 在发送给 ExecutionActor 前添加 `TASK_RUNNING` 事件发布
+
+### 状态转换流程（修复后）
+```
+PENDING (初始状态)
+    ↓ TASK_CREATED
+PENDING
+    ↓ TASK_RUNNING → 转换为 STARTED
+RUNNING ← 状态正确更新
+    ↓ TASK_COMPLETED → 转换为 COMPLETED
+SUCCESS
+```
+
+### 状态
+✅ 完成 (2026-01-23 13:50)
+
+---
 ## [2026-01-23 11:53] - 修复三个核心问题：WebSocket推送、数据库切换、RabbitMQ连接
 
 ### 任务描述

@@ -235,6 +235,22 @@ class AgentActor(Actor):
                 user_id=self.current_user_id
             )
 
+            # 发布任务开始执行事件（状态变为 RUNNING）
+            event_bus.publish_task_event(
+                task_id=task_id,
+                event_type=EventType.TASK_RUNNING.value,
+                trace_id=task.trace_id,
+                task_path=self._task_path or "",
+                source="AgentActor",
+                agent_id=self.agent_id,
+                name=self.meta.get("name",""),
+                data={
+                    "message": "任务开始执行",
+                    "status": "RUNNING"
+                },
+                user_id=self.current_user_id
+            )
+
 
     def _handle_resume_task(self, message: ResumeTaskMessage, sender: ActorAddress):
         """

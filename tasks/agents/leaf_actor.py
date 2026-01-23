@@ -194,8 +194,8 @@ class LeafActor(Actor):
             reply_to=self.myAddress
         )
 
-        
-        # 发布任务开始事件
+
+        # 发布任务创建事件
         event_bus.publish_task_event(
             task_id=task.task_id,
             event_type=EventType.TASK_CREATED.value,
@@ -207,7 +207,20 @@ class LeafActor(Actor):
             user_id=self.current_user_id,
             data={"node_id": self.agent_id, "type": "leaf_execution", "capability": capability}
         )
-        
+
+        # 发布任务开始执行事件（状态变为 RUNNING）
+        event_bus.publish_task_event(
+            task_id=task.task_id,
+            event_type=EventType.TASK_RUNNING.value,
+            trace_id=task.trace_id,
+            task_path=task.task_path,
+            source="LeafActor",
+            agent_id=self.agent_id,
+            name=self.meta.get("name",""),
+            user_id=self.current_user_id,
+            data={"node_id": self.agent_id, "type": "leaf_execution", "capability": capability, "status": "RUNNING"}
+        )
+
         self.send(exec_actor, exec_request)
 
 
