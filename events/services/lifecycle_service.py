@@ -431,6 +431,12 @@ class LifecycleService:
         if event_type == "STARTED":
             update_fields["status"] = EventInstanceStatus.RUNNING.value
             update_fields["started_at"] = datetime.now(timezone.utc)
+            # 从 data 中提取 progress，默认 50%
+            data = execution_args.get("data", {})
+            if isinstance(data, dict) and "progress" in data:
+                update_fields["progress"] = data["progress"]
+            else:
+                update_fields["progress"] = 50  # 任务开始执行，默认进度 50%
             
         elif event_type == "COMPLETED":
             update_fields["status"] = EventInstanceStatus.SUCCESS.value

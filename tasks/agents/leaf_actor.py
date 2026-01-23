@@ -218,7 +218,13 @@ class LeafActor(Actor):
             agent_id=self.agent_id,
             name=self.meta.get("name",""),
             user_id=self.current_user_id,
-            data={"node_id": self.agent_id, "type": "leaf_execution", "capability": capability, "status": "RUNNING"}
+            data={
+                "node_id": self.agent_id,
+                "type": "leaf_execution",
+                "capability": capability,
+                "status": "RUNNING",
+                "progress": 50  # 任务开始执行，进度 50%
+            }
         )
 
         self.send(exec_actor, exec_request)

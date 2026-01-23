@@ -1,6 +1,31 @@
 # Changelog
 
 ---
+## [2026-01-23 14:20] - 修复任务进度显示和状态卡住问题
+
+### 任务描述
+修复两个问题：
+1. 任务状态为 RUNNING 时，进度显示 0% 而不是 50%
+2. 任务一直卡在 RUNNING 状态，没有变成 SUCCESS/FAILED
+
+### 问题根源
+1. **进度问题**：`TASK_RUNNING` 事件发布时没有设置 `progress` 字段，`lifecycle_service` 处理 `STARTED` 事件时也没有设置 `progress`
+2. **状态卡住问题**：API 端点没有调用 `session.commit()`，导致数据库更新没有持久化
+
+### 修改文件
+- [x] tasks/agents/leaf_actor.py - TASK_RUNNING 事件添加 `progress: 50`
+- [x] tasks/agents/agent_actor.py - TASK_RUNNING 事件添加 `progress: 50`
+- [x] events/services/lifecycle_service.py - STARTED 事件处理时设置 `progress` (从 data 提取或默认 50%)
+- [x] events/entry/api/v1/commands.py - 所有写操作端点添加 `session.commit()` 和 `session.rollback()`
+
+### 关键修复
+1. 进度更新：RUNNING 状态默认 50%，COMPLETED 状态 100%
+2. 事务提交：所有写操作端点（start_trace, report_execution_event, control_whole_trace, split_task, control_specific_node）都添加了显式的 commit/rollback
+
+### 状态
+✅ 完成 (2026-01-23 14:20)
+
+---
 ## [2026-01-23 13:50] - 修复任务状态一直为 PENDING 的问题
 
 ### 任务描述

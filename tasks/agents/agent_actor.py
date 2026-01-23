@@ -246,7 +246,8 @@ class AgentActor(Actor):
                 name=self.meta.get("name",""),
                 data={
                     "message": "任务开始执行",
-                    "status": "RUNNING"
+                    "status": "RUNNING",
+                    "progress": 50  # 任务开始执行，进度 50%
                 },
                 user_id=self.current_user_id
             )
