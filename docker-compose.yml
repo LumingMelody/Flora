@@ -78,9 +78,10 @@ services:
       - MYSQL_USER=${MYSQL_USER:-root}
       - MYSQL_PASSWORD=${MYSQL_PASSWORD}
       - MYSQL_DATABASE=flora_events
-      - REDIS_HOST=redis
-      - REDIS_PORT=6379
-      - REDIS_URL=redis://redis:6379/0
+      - REDIS_HOST=${REDIS_HOST:-redis}
+      - REDIS_PORT=${REDIS_PORT:-6379}
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-}
+      - REDIS_URL=${REDIS_URL:-redis://redis:6379/0}
       - RABBITMQ_URL=${RABBITMQ_URL}
       - TASKS_SERVICE_URL=http://tasks:8002
     depends_on:
@@ -119,8 +120,9 @@ services:
       - MYSQL_USER=${MYSQL_USER:-root}
       - MYSQL_PASSWORD=${MYSQL_PASSWORD}
       - MYSQL_DATABASE=flora_interaction
-      - REDIS_HOST=redis
-      - REDIS_PORT=6379
+      - REDIS_HOST=${REDIS_HOST:-redis}
+      - REDIS_PORT=${REDIS_PORT:-6379}
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-}
       - RABBITMQ_URL=${RABBITMQ_URL}
       - DASHSCOPE_API_KEY=${DASHSCOPE_API_KEY}
       - DIFY_API_KEY=${DIFY_API_KEY}
@@ -172,10 +174,10 @@ services:
       - MYSQL_USER=${MYSQL_USER:-root}
       - MYSQL_PASSWORD=${MYSQL_PASSWORD}
       - MYSQL_DATABASE=flora_tasks
-      - REDIS_HOST=redis
-      - REDIS_PORT=6379
-      - REDIS_DATABASE=0
-      - REDIS_PASSWORD=
+      - REDIS_HOST=${REDIS_HOST:-redis}
+      - REDIS_PORT=${REDIS_PORT:-6379}
+      - REDIS_DATABASE=${REDIS_DATABASE:-0}
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-}
       - RABBITMQ_URL=${RABBITMQ_URL}
       - DASHSCOPE_API_KEY=${DASHSCOPE_API_KEY}
       - NEO4J_URI=${NEO4J_URI}
@@ -226,9 +228,9 @@ services:
       - MYSQL_USER=${MYSQL_USER:-root}
       - MYSQL_PASSWORD=${MYSQL_PASSWORD}
       - MYSQL_DATABASE=flora_trigger
-      - REDIS_HOST=redis
-      - REDIS_PORT=6379
-      - REDIS_URL=redis://redis:6379/0
+      - REDIS_HOST=${REDIS_HOST:-redis}
+      - REDIS_PORT=${REDIS_PORT:-6379}
+      - REDIS_URL=${REDIS_URL:-redis://redis:6379/0}
       - RABBITMQ_URL=${RABBITMQ_URL}
       # 服务间通信
       - WORKER_URL=http://tasks:8002
