@@ -228,9 +228,10 @@ class PostgreSQLEventInstanceRepository(EventInstanceRepository):
             updated_at=db.updated_at
         )
 
-    async def create(self, instance: EventInstance) -> None: 
+    async def create(self, instance: EventInstance) -> None:
         db_instance = EventInstanceDB(
             id=instance.id,
+            task_id=instance.task_id,
             trace_id=instance.trace_id,
             request_id=instance.request_id,
             parent_id=instance.parent_id,
@@ -277,6 +278,7 @@ class PostgreSQLEventInstanceRepository(EventInstanceRepository):
         for instance in instances:
             db_instance = EventInstanceDB(
                 id=instance.id,
+                task_id=instance.task_id,
                 trace_id=instance.trace_id,
                 request_id=instance.request_id,
                 parent_id=instance.parent_id,
