@@ -337,8 +337,10 @@ class DialogStateRepository:
                     VALUES (?, ?, ?, ?)
                 ''', (trace_id, session_id, user_id, timestamp))
             conn.commit()
+            logger.info(f"Saved trace mapping: trace_id={trace_id}, session_id={session_id}")
             return True
-        except Exception:
+        except Exception as e:
+            logger.error(f"Failed to save trace mapping: trace_id={trace_id}, session_id={session_id}, error={e}")
             return False
         finally:
             self.pool.return_connection(conn)
@@ -361,7 +363,13 @@ class DialogStateRepository:
             '''), (trace_id,))
             row = cursor.fetchone()
             if row:
-                return self._get_row_value(row, 'session_id') if self._is_mysql else row[0]
+                session_id = self._get_row_value(row, 'session_id') if self._is_mysql else row[0]
+                logger.debug(f"Found trace mapping: trace_id={trace_id} -> session_id={session_id}")
+                return session_id
+            logger.warning(f"No trace mapping found for trace_id={trace_id}")
+            return None
+        except Exception as e:
+            logger.error(f"Error getting session by trace: trace_id={trace_id}, error={e}")
             return None
         finally:
             self.pool.return_connection(conn)

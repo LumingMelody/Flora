@@ -1,6 +1,33 @@
 # Changelog
 
 ---
+## [2026-01-23 17:05] - 修复 trace_id -> session_id 映射查找失败问题
+
+### 任务描述
+修复 interaction 服务收到 RabbitMQ 任务结果消息后，无法找到对应的 session_id，导致无法推送到前端的问题。
+
+### 问题根源
+`interaction_handler.py` 中保存 trace 映射时，每次都创建新的 `DialogStateRepository()` 实例，而不是使用 `dialog_state_manager` 中已有的实例。虽然使用 MySQL 时理论上应该连接到同一个数据库，但这种做法不规范且可能导致连接池问题。
+
+### 修改文件
+- [x] interaction/interaction_handler.py - 使用 `dialog_state_manager.dialog_repo` 保存 trace 映射，而不是创建新实例
+- [x] interaction/external/database/dialog_state_repo.py - 为 `save_trace_mapping` 和 `get_session_by_trace` 添加详细日志，便于调试
+
+### 关键修复
+```python
+# 修复前：每次创建新实例
+from external.database.dialog_state_repo import DialogStateRepository
+dialog_repo = DialogStateRepository()
+dialog_repo.save_trace_mapping(...)
+
+# 修复后：使用 dialog_state_manager 的实例
+dialog_state_manager.dialog_repo.save_trace_mapping(...)
+```
+
+### 状态
+✅ 完成 (2026-01-23 17:05)
+
+---
 ## [2026-01-23 16:14] - 修复 task_id 在链路传递中不一致导致有名节点状态不更新
 
 ### 任务描述
