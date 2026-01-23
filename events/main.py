@@ -97,26 +97,27 @@ async def lifespan(app: FastAPI):
     cache = get_cache()
     broker = get_broker()
     connection_manager = connection_manager_instance
-    
+
     lifecycle_svc = get_lifecycle_service(broker, cache)
     observer_svc = get_observer_service(broker, connection_manager, cache)
-    
+
     # 直接获取AgentMonitorService实例
     from entry.api.deps import get_agent_monitor_service
     from services.agent_monitor_service import AgentMonitorService
     from fastapi import Depends
-    
-    # 创建会话
+
+    # 创建会话 - 注意：这个 session 需要在整个应用生命周期内保持打开
     session_gen = get_db_session()
-    session = await anext(session_gen)
+    agent_monitor_session = await anext(session_gen)
+
     try:
         # 手动创建仓库实例
         from external.db.impl import create_agent_task_history_repo, create_agent_daily_metric_repo
         from external.db.session import dialect
-        
-        task_history_repo = create_agent_task_history_repo(session, dialect)
-        daily_metric_repo = create_agent_daily_metric_repo(session, dialect)
-        
+
+        task_history_repo = create_agent_task_history_repo(agent_monitor_session, dialect)
+        daily_metric_repo = create_agent_daily_metric_repo(agent_monitor_session, dialect)
+
         # 创建AgentMonitorService实例
         agent_monitor_svc = AgentMonitorService(
             cache=cache,
@@ -125,12 +126,12 @@ async def lifespan(app: FastAPI):
             daily_metric_repo=daily_metric_repo
         )
     except Exception as e:
-        await session.rollback()
+        await agent_monitor_session.rollback()
+        await agent_monitor_session.close()
         print(f"⚠️ 初始化AgentMonitorService失败: {e}")
         raise
-    finally:
-        await session.close()
-    
+    # 注意：不在这里关闭 session，保持打开状态供 agent_monitor_svc 使用
+
     # 启动后台任务
     tasks = []
     
@@ -145,13 +146,17 @@ async def lifespan(app: FastAPI):
         agent_monitor_svc.start_listening()
     )
     tasks.append(agent_monitor_task)
-    
+
     yield
-    
+
     # 关闭后台任务
     for task in tasks:
         task.cancel()
     await asyncio.gather(*tasks, return_exceptions=True)
+
+    # 关闭 AgentMonitorService 使用的 session
+    await agent_monitor_session.close()
+    print("✅ AgentMonitorService session closed")
 
 
 # 创建 FastAPI 应用

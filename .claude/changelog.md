@@ -1,6 +1,50 @@
 # Changelog
 
 ---
+## [2026-01-23 17:56] - 修复 AgentMonitorService session 过早关闭导致无法写入数据库
+
+### 任务描述
+修复 events 服务的 agent_task_history 表没有数据的问题。
+
+### 问题根源
+在 `events/main.py` 中，创建 `AgentMonitorService` 时使用的 session 在 `finally` 块中被关闭，但 `task_history_repo` 和 `daily_metric_repo` 仍然持有这个已关闭的 session 引用，导致后续写入数据库失败。
+
+### 修改文件
+- [x] events/main.py
+  - 移除 `finally` 块中的 `session.close()`
+  - 在应用关闭时（yield 之后）关闭 session
+  - 重命名变量为 `agent_monitor_session` 以区分
+
+### 关键修复
+```python
+# 修复前：session 在 finally 中被关闭
+try:
+    task_history_repo = create_agent_task_history_repo(session, dialect)
+    agent_monitor_svc = AgentMonitorService(...)
+except Exception as e:
+    ...
+finally:
+    await session.close()  # ❌ 这里关闭了 session，但 repo 还在使用
+
+# 修复后：session 在应用关闭时才关闭
+try:
+    task_history_repo = create_agent_task_history_repo(agent_monitor_session, dialect)
+    agent_monitor_svc = AgentMonitorService(...)
+except Exception as e:
+    await agent_monitor_session.close()
+    raise
+# 不在这里关闭 session
+
+yield  # 应用运行中...
+
+# 应用关闭时才关闭 session
+await agent_monitor_session.close()
+```
+
+### 状态
+✅ 完成 (2026-01-23 17:56)
+
+---
 ## [2026-01-23 17:24] - 重构 trace_session_mapping 表结构，使用 request_id 作为主键
 
 ### 任务描述
