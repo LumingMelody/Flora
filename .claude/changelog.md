@@ -1,6 +1,44 @@
 # Changelog
 
 ---
+## [2026-01-23 15:09] - 修复图节点显示问题：无名节点和状态不更新
+
+### 任务描述
+修复任务执行图的两个显示问题：
+1. 出现大量无名节点（name 字段为 NULL）
+2. 带有名字的节点状态不更新（进度始终为 0%）
+
+### 问题根源
+1. **无名节点**：`sync_execution_state` 调用 `upsert_by_task_id` 时没有传递 `name` 字段，新创建的节点没有名称
+2. **parent_id 引用错误**：`upsert_by_task_id` 创建新节点时使用 `root_node.id`（内部 UUID）而非 `root_node.task_id`（业务 ID），导致父子关系建立错误
+
+### 修改文件
+- [x] events/services/lifecycle_service.py - `sync_execution_state` 中提取 `name` 字段加入 `update_fields`
+- [x] events/external/db/impl/postgres_impl.py - `upsert_by_task_id` 创建新节点时：
+  - 添加 `name=fields.get("name")` 设置节点名称
+  - 修正 `parent_id` 使用 `root_node.task_id` 而非 `root_node.id`
+  - 修正 `node_path` 使用 `root_node.task_id` 而非 `root_node.id`
+
+### 关键修复
+```python
+# lifecycle_service.py - 提取 name 字段
+if "name" in execution_args and execution_args["name"]:
+    update_fields["name"] = execution_args["name"]
+
+# postgres_impl.py - 创建节点时设置 name 和正确的 parent_id
+new_instance = EventInstanceDB(
+    ...
+    parent_id=root_node.task_id,  # 使用 task_id 而非 id
+    node_path=f"{root_node.node_path}{root_node.task_id}/",
+    name=fields.get("name"),  # 从 fields 中获取 name
+    ...
+)
+```
+
+### 状态
+✅ 完成 (2026-01-23 15:09)
+
+---
 ## [2026-01-23 14:40] - 统一 Redis 和 RabbitMQ 配置，修复 Events 服务使用 MockBus 问题
 
 ### 任务描述
