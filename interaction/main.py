@@ -51,6 +51,9 @@ async def lifespan(app: FastAPI):
     rabbitmq_url = os.getenv('RABBITMQ_URL') or config.get('global_config', {}).get('rabbitmq', 'amqp://guest:guest@localhost:5672/')
     task_result_queue = os.getenv('TASK_RESULT_QUEUE', 'work.result')
 
+    logger.info(f"RabbitMQ URL: {rabbitmq_url.split('@')[-1] if '@' in rabbitmq_url else rabbitmq_url}")  # 隐藏密码
+    logger.info(f"Task result queue: {task_result_queue}")
+
     # 初始化对话状态仓库
     dialog_repo = DialogStateRepository()
 
