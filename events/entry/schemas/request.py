@@ -56,18 +56,19 @@ class ExecutionEventRequest(BaseModel):
     task_id: str = Field(..., description="当前执行的任务/实例ID")
     trace_id: str = Field(..., description="所属链路ID (用于校验)")
     event_type: str = Field(..., description="事件类型: STARTED, RUNNING, COMPLETED, FAILED, PROGRESS")
-    
+
     # 执行数据
     data: Optional[Any] = Field(None, description="输出数据 或 进度数据")
     error: Optional[str] = Field(None, description="错误信息")
-    
+
     # 上下文快照 (这是 Agent 系统的核心，用于状态恢复)
     enriched_context_snapshot: Optional[Dict[str, Any]] = Field(None, description="执行时的上下文快照")
-    
+
     # 元数据
     agent_id: Optional[str] = Field(None, description="执行该任务的 Agent ID")
     worker_id: Optional[str] = Field(None, description="物理执行单元 ID (Pod ID / Thread ID)")
-    
+    name: Optional[str] = Field(None, description="任务/节点名称")
+
     # 额外信息
     realtime_info: Optional[Dict[str, Any]] = Field(None, description="实时信息，如当前的 step")
 

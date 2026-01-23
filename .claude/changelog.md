@@ -1,6 +1,34 @@
 # Changelog
 
 ---
+## [2026-01-23 17:14] - 修复 agent 表数据为空问题
+
+### 任务描述
+修复 events 服务的 agent_task_history 表没有数据的问题，导致无法正确推送任务历史。
+
+### 问题根源
+`ExecutionEventRequest` schema 中缺少 `name` 字段，导致 tasks 服务发送的任务名称无法被 events 服务接收和存储。
+
+### 修改文件
+- [x] events/entry/schemas/request.py - `ExecutionEventRequest` 添加 `name` 字段
+
+### 关键修复
+```python
+# 添加 name 字段到 ExecutionEventRequest
+name: Optional[str] = Field(None, description="任务/节点名称")
+```
+
+### 数据流说明
+1. tasks 服务 `publish_task_event` 发送事件，包含 `agent_id` 和 `name`
+2. events 服务 `lifecycle_service.sync_execution_state` 接收事件
+3. `lifecycle_service` 发布事件到 `job_event_stream` topic
+4. `agent_monitor_service` 监听事件，调用 `handle_task_completed_event`
+5. `task_history_repo.create(payload)` 写入数据库
+
+### 状态
+✅ 完成 (2026-01-23 17:14)
+
+---
 ## [2026-01-23 17:05] - 修复 trace_id -> session_id 映射查找失败问题
 
 ### 任务描述
