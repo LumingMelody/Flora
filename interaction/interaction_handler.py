@@ -1022,18 +1022,18 @@ class InteractionHandler:
                 )
                 dialog_state.active_task_execution = exec_context.request_id
                 result_data["execution_context"] = exec_context
-                 # 保存 trace_id -> session_id 映射（用于任务结果回调）
-                if exec_context.external_job_id:
-                    try:
-                        # 【修复】使用 dialog_state_manager 的 dialog_repo，确保与 TaskResultHandler 使用同一数据源
-                        dialog_state_manager.dialog_repo.save_trace_mapping(
-                            trace_id=exec_context.external_job_id,
-                            session_id=input.session_id,
-                            user_id=input.user_id
-                        )
-                        logger.info(f"Saved trace mapping: {exec_context.external_job_id} -> {input.session_id}")
-                    except Exception as e:
-                        logger.warning(f"Failed to save trace mapping: {e}")
+                # 保存 request_id -> session_id 映射，并更新 trace_id
+                try:
+                    # 先保存 request_id -> session_id 映射（带上 trace_id）
+                    dialog_state_manager.dialog_repo.save_trace_mapping(
+                        request_id=request_id,
+                        session_id=input.session_id,
+                        user_id=input.user_id,
+                        trace_id=exec_context.external_job_id  # trace_id 在任务提交后获得
+                    )
+                    logger.info(f"Saved trace mapping: request_id={request_id}, trace_id={exec_context.external_job_id} -> session_id={input.session_id}")
+                except Exception as e:
+                    logger.warning(f"Failed to save trace mapping: {e}")
                 yield "thought", {"message": "任务提交执行", "request_id": exec_context.request_id}
             except ValueError as e:
                 # 任务执行能力未启用，跳过并返回兜底响应

@@ -1,6 +1,47 @@
 # Changelog
 
 ---
+## [2026-01-23 17:24] - 重构 trace_session_mapping 表结构，使用 request_id 作为主键
+
+### 任务描述
+修复 trace_id -> session_id 映射问题：
+1. 数据库里没有值，映射没有保存
+2. 设计问题：应该使用 request_id 作为主键，trace_id 作为关联字段
+
+### 问题根源
+原设计使用 `trace_id` 作为主键，但 `trace_id` 是任务提交后才获得的，而 `request_id` 是 interaction 服务自己生成的，更可控。
+
+### 修改文件
+- [x] interaction/external/database/dialog_state_repo.py
+  - 修改表结构：`request_id` 作为主键，`trace_id` 作为可选字段
+  - 修改 `save_trace_mapping`：接收 `request_id` 和可选的 `trace_id`
+  - 新增 `update_trace_id`：更新映射中的 trace_id
+  - 新增 `get_session_by_request`：根据 request_id 查询 session_id
+  - 修改 `get_trace_mapping`：适应新的表结构
+- [x] interaction/interaction_handler.py
+  - 任务提交后同时保存 request_id 和 trace_id 到映射表
+
+### 新表结构
+```sql
+CREATE TABLE trace_session_mapping (
+    request_id VARCHAR(255) PRIMARY KEY,
+    session_id VARCHAR(255) NOT NULL,
+    user_id VARCHAR(255),
+    trace_id VARCHAR(255),
+    created_at DOUBLE NOT NULL,
+    INDEX idx_trace_session_mapping_session_id (session_id),
+    INDEX idx_trace_session_mapping_trace_id (trace_id)
+)
+```
+
+### 注意事项
+- 需要手动删除旧表或执行迁移脚本
+- 新部署后，旧的映射数据将丢失
+
+### 状态
+✅ 完成 (2026-01-23 17:24)
+
+---
 ## [2026-01-23 17:14] - 修复 agent 表数据为空问题
 
 ### 任务描述

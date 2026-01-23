@@ -72,33 +72,40 @@ class DialogStateRepository:
             self.pool.return_connection(conn)
 
     def _create_trace_mapping_table(self):
-        """创建 trace_id -> session_id 映射表"""
+        """创建 request_id -> session_id 映射表（支持 trace_id 关联）"""
         conn = self.pool.get_connection()
         try:
             cursor = conn.cursor()
             if self._is_mysql:
                 cursor.execute('''
                     CREATE TABLE IF NOT EXISTS trace_session_mapping (
-                        trace_id VARCHAR(255) PRIMARY KEY,
+                        request_id VARCHAR(255) PRIMARY KEY,
                         session_id VARCHAR(255) NOT NULL,
                         user_id VARCHAR(255),
+                        trace_id VARCHAR(255),
                         created_at DOUBLE NOT NULL,
-                        INDEX idx_trace_session_mapping_session_id (session_id)
+                        INDEX idx_trace_session_mapping_session_id (session_id),
+                        INDEX idx_trace_session_mapping_trace_id (trace_id)
                     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
                 ''')
             else:
                 cursor.execute('''
                     CREATE TABLE IF NOT EXISTS trace_session_mapping (
-                        trace_id TEXT PRIMARY KEY,
+                        request_id TEXT PRIMARY KEY,
                         session_id TEXT NOT NULL,
                         user_id TEXT,
+                        trace_id TEXT,
                         created_at REAL NOT NULL
                     )
                 ''')
-                # 创建索引以加速按 session_id 查询
+                # 创建索引以加速查询
                 cursor.execute('''
                     CREATE INDEX IF NOT EXISTS idx_trace_session_mapping_session_id
                     ON trace_session_mapping(session_id)
+                ''')
+                cursor.execute('''
+                    CREATE INDEX IF NOT EXISTS idx_trace_session_mapping_trace_id
+                    ON trace_session_mapping(trace_id)
                 ''')
             conn.commit()
         finally:
@@ -310,14 +317,15 @@ class DialogStateRepository:
 
         # ============== trace_session_mapping 方法 ==============
 
-    def save_trace_mapping(self, trace_id: str, session_id: str, user_id: Optional[str] = None) -> bool:
+    def save_trace_mapping(self, request_id: str, session_id: str, user_id: Optional[str] = None, trace_id: Optional[str] = None) -> bool:
         """
-        保存 trace_id -> session_id 映射
+        保存 request_id -> session_id 映射
 
         Args:
-            trace_id: 任务追踪ID
+            request_id: 请求ID（主键）
             session_id: 会话ID
             user_id: 用户ID（可选）
+            trace_id: 跟踪ID（可选，任务提交后更新）
 
         Returns:
             是否保存成功
@@ -328,19 +336,49 @@ class DialogStateRepository:
             timestamp = datetime.now(timezone.utc).timestamp()
             if self._is_mysql:
                 cursor.execute('''
-                    REPLACE INTO trace_session_mapping (trace_id, session_id, user_id, created_at)
-                    VALUES (%s, %s, %s, %s)
-                ''', (trace_id, session_id, user_id, timestamp))
+                    REPLACE INTO trace_session_mapping (request_id, session_id, user_id, trace_id, created_at)
+                    VALUES (%s, %s, %s, %s, %s)
+                ''', (request_id, session_id, user_id, trace_id, timestamp))
             else:
                 cursor.execute('''
-                    INSERT OR REPLACE INTO trace_session_mapping (trace_id, session_id, user_id, created_at)
-                    VALUES (?, ?, ?, ?)
-                ''', (trace_id, session_id, user_id, timestamp))
+                    INSERT OR REPLACE INTO trace_session_mapping (request_id, session_id, user_id, trace_id, created_at)
+                    VALUES (?, ?, ?, ?, ?)
+                ''', (request_id, session_id, user_id, trace_id, timestamp))
             conn.commit()
-            logger.info(f"Saved trace mapping: trace_id={trace_id}, session_id={session_id}")
+            logger.info(f"Saved trace mapping: request_id={request_id}, session_id={session_id}, trace_id={trace_id}")
             return True
         except Exception as e:
-            logger.error(f"Failed to save trace mapping: trace_id={trace_id}, session_id={session_id}, error={e}")
+            logger.error(f"Failed to save trace mapping: request_id={request_id}, session_id={session_id}, error={e}")
+            return False
+        finally:
+            self.pool.return_connection(conn)
+
+    def update_trace_id(self, request_id: str, trace_id: str) -> bool:
+        """
+        更新映射中的 trace_id
+
+        Args:
+            request_id: 请求ID
+            trace_id: 跟踪ID
+
+        Returns:
+            是否更新成功
+        """
+        conn = self.pool.get_connection()
+        try:
+            cursor = conn.cursor()
+            cursor.execute(self._ph('''
+                UPDATE trace_session_mapping SET trace_id = ? WHERE request_id = ?
+            '''), (trace_id, request_id))
+            conn.commit()
+            updated = cursor.rowcount > 0
+            if updated:
+                logger.info(f"Updated trace_id for request_id={request_id}: trace_id={trace_id}")
+            else:
+                logger.warning(f"No mapping found to update for request_id={request_id}")
+            return updated
+        except Exception as e:
+            logger.error(f"Failed to update trace_id: request_id={request_id}, trace_id={trace_id}, error={e}")
             return False
         finally:
             self.pool.return_connection(conn)
@@ -374,6 +412,35 @@ class DialogStateRepository:
         finally:
             self.pool.return_connection(conn)
 
+    def get_session_by_request(self, request_id: str) -> Optional[str]:
+        """
+        根据 request_id 获取对应的 session_id
+
+        Args:
+            request_id: 请求ID
+
+        Returns:
+            session_id，如果不存在则返回 None
+        """
+        conn = self.pool.get_connection()
+        try:
+            cursor = conn.cursor()
+            cursor.execute(self._ph('''
+                SELECT session_id FROM trace_session_mapping WHERE request_id = ?
+            '''), (request_id,))
+            row = cursor.fetchone()
+            if row:
+                session_id = self._get_row_value(row, 'session_id') if self._is_mysql else row[0]
+                logger.debug(f"Found request mapping: request_id={request_id} -> session_id={session_id}")
+                return session_id
+            logger.warning(f"No request mapping found for request_id={request_id}")
+            return None
+        except Exception as e:
+            logger.error(f"Error getting session by request: request_id={request_id}, error={e}")
+            return None
+        finally:
+            self.pool.return_connection(conn)
+
     def get_trace_mapping(self, trace_id: str) -> Optional[Dict[str, Any]]:
         """
         获取完整的 trace 映射信息
@@ -382,30 +449,32 @@ class DialogStateRepository:
             trace_id: 任务追踪ID
 
         Returns:
-            包含 trace_id, session_id, user_id, created_at 的字典
+            包含 request_id, trace_id, session_id, user_id, created_at 的字典
         """
         conn = self.pool.get_connection()
         try:
             cursor = conn.cursor()
             cursor.execute(self._ph('''
-                SELECT trace_id, session_id, user_id, created_at
+                SELECT request_id, session_id, user_id, trace_id, created_at
                 FROM trace_session_mapping WHERE trace_id = ?
             '''), (trace_id,))
             row = cursor.fetchone()
             if row:
                 if self._is_mysql:
                     return {
-                        "trace_id": row['trace_id'],
+                        "request_id": row['request_id'],
                         "session_id": row['session_id'],
                         "user_id": row['user_id'],
+                        "trace_id": row['trace_id'],
                         "created_at": datetime.fromtimestamp(row['created_at'], timezone.utc)
                     }
                 else:
                     return {
-                        "trace_id": row[0],
+                        "request_id": row[0],
                         "session_id": row[1],
                         "user_id": row[2],
-                        "created_at": datetime.fromtimestamp(row[3], timezone.utc)
+                        "trace_id": row[3],
+                        "created_at": datetime.fromtimestamp(row[4], timezone.utc)
                     }
             return None
         finally:
