@@ -166,6 +166,23 @@ const childrenCount = computed(() => {
 .status-running {
   border-color: rgba(45, 212, 191, 0.5);
   box-shadow: 0 0 10px rgba(45, 212, 191, 0.2);
+  animation: pulse-running 2s ease-in-out infinite;
+}
+
+@keyframes pulse-running {
+  0%, 100% {
+    box-shadow:
+      0 0 10px rgba(45, 212, 191, 0.2),
+      0 0 20px rgba(45, 212, 191, 0.1);
+    border-color: rgba(45, 212, 191, 0.5);
+  }
+  50% {
+    box-shadow:
+      0 0 20px rgba(45, 212, 191, 0.4),
+      0 0 40px rgba(45, 212, 191, 0.2),
+      0 0 60px rgba(45, 212, 191, 0.1);
+    border-color: rgba(45, 212, 191, 0.8);
+  }
 }
 
 .status-success {

@@ -191,6 +191,7 @@ services:
       - EVENTS_SERVICE_URL=http://events:8000
     volumes:
       - ./tasks/config.json:/app/tasks/config.json:ro
+      - ./all-MiniLM-L6-v2(1):/app/all-MiniLM-L6-v2(1):ro
       - tasks_data:/app/tasks/data
     depends_on:
       # mysql-init:

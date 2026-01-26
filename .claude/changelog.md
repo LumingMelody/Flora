@@ -1,6 +1,49 @@
 # Changelog
 
 ---
+## [2026-01-26 10:24] - 前端执行节点动态特效 + vanna 模型挂载修复
+
+### 任务描述
+1. 前端：为当前执行节点添加动态脉冲特效
+2. vanna：修复 tokenizer 文件找不到的问题
+
+### 修改文件
+- [x] front/src/features/DagEditor/nodes/GlassNode.vue - 为 running 状态添加脉冲动画
+- [x] docker-compose.yml - 添加 embedding 模型文件挂载
+
+### 关键修复
+
+**1. 前端动态特效**
+```css
+.status-running {
+  animation: pulse-running 2s ease-in-out infinite;
+}
+
+@keyframes pulse-running {
+  0%, 100% {
+    box-shadow: 0 0 10px rgba(45, 212, 191, 0.2), 0 0 20px rgba(45, 212, 191, 0.1);
+  }
+  50% {
+    box-shadow: 0 0 20px rgba(45, 212, 191, 0.4), 0 0 40px rgba(45, 212, 191, 0.2), 0 0 60px rgba(45, 212, 191, 0.1);
+  }
+}
+```
+
+**2. vanna 模型挂载**
+```yaml
+# docker-compose.yml tasks 服务
+volumes:
+  - ./all-MiniLM-L6-v2(1):/app/all-MiniLM-L6-v2(1):ro
+```
+
+### 待处理问题
+- [ ] trace_session_mapping 表结构：需要手动删除旧表 `DROP TABLE trace_session_mapping;`，让服务重新创建
+- [ ] agent 表数据为空：需要排查 Redis 连接、消息队列推送、AgentMonitorService 处理链路
+
+### 状态
+✅ 完成 (2026-01-26 10:24)
+
+---
 ## [2026-01-23 17:56] - 修复 AgentMonitorService session 过早关闭导致无法写入数据库
 
 ### 任务描述
