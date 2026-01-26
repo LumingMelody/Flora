@@ -51,88 +51,84 @@ DEFAULT_CONFIG_FILE_PATH = "../event_config.json"
 
 class Settings(BaseSettings):
     # 数据库配置
-    db_url: str
-    
+    db_url: str = ""
+
     # Redis 配置
-    redis_url: str
+    redis_url: str = ""
     use_redis: bool = False
-    
+
     # RabbitMQ 配置
-    rabbitmq_url: str
-    
+    rabbitmq_url: str = ""
+
     # 服务配置
-    worker_callback_url: str
-    
+    worker_callback_url: str = ""
+
     # FastAPI 配置
-    host: str
-    port: int
-    
+    host: str = "0.0.0.0"
+    port: int = 8000
+
     # 健康检查配置
-    health_check_interval: int
-    task_timeout_sec: int
-    pending_timeout_sec: int
-    
-    # 私有属性
-    _observer: Observer = None
-    _full_config_path: str = None
-    _config_data: Dict[str, Any] = None
-    
+    health_check_interval: int = 60
+    task_timeout_sec: int = 300
+    pending_timeout_sec: int = 3600
+
+    # 私有属性 - 使用 PrivateAttr
+    _observer: Observer = PrivateAttr(default=None)
+    _full_config_path: str = PrivateAttr(default=None)
+    _config_data: Dict[str, Any] = PrivateAttr(default=None)
+
     def __init__(self, **kwargs):
         # 确定配置文件的绝对路径
         base_dir = os.path.dirname(os.path.abspath(__file__))
         full_config_path = os.path.join(base_dir, DEFAULT_CONFIG_FILE_PATH)
-        
+
         # 读取配置文件
-        self._config_data = None
-        self.load_config(full_config_path)
-        
+        config_data = self._load_config_file(full_config_path)
+
         # 调用父类初始化
-        super().__init__(**self._config_data)
-        
-        # 设置实例属性
+        super().__init__(**config_data)
+
+        # 设置私有属性
         self._full_config_path = full_config_path
+        self._config_data = config_data
         self._observer = None
-        
+
         # 启动配置文件监控
         self._start_watcher()
-    
-    def load_config(self, full_config_path=None):
-        """从 JSON 文件加载配置"""
-        # 使用传入的路径或当前实例的路径
-        config_path = full_config_path or self._full_config_path
 
+    @staticmethod
+    def _load_config_file(config_path: str) -> Dict[str, Any]:
+        """从 JSON 文件加载配置（静态方法，用于初始化前调用）"""
         # 如果配置文件不存在，创建默认配置
         if not os.path.exists(config_path):
-            self._create_default_config(config_path)
+            Settings._create_default_config_file(config_path)
 
         # 读取配置文件
         with open(config_path, "r", encoding="utf-8") as f:
-            self._config_data = json.load(f)
+            config_data = json.load(f)
 
         # 环境变量优先覆盖配置文件中的 db_url
         env_db_url = os.getenv("DATABASE_URL")
         if env_db_url:
-            self._config_data["db_url"] = env_db_url
+            config_data["db_url"] = env_db_url
         elif os.getenv("DB_TYPE"):
             # 如果设置了 DB_TYPE，使用 get_database_url() 构建
-            self._config_data["db_url"] = get_database_url()
+            config_data["db_url"] = get_database_url()
 
         # 环境变量覆盖其他配置
         if os.getenv("REDIS_URL"):
-            self._config_data["redis_url"] = os.getenv("REDIS_URL")
+            config_data["redis_url"] = os.getenv("REDIS_URL")
         if os.getenv("RABBITMQ_URL"):
-            self._config_data["rabbitmq_url"] = os.getenv("RABBITMQ_URL")
+            config_data["rabbitmq_url"] = os.getenv("RABBITMQ_URL")
         # 支持通过环境变量启用 Redis EventBus
         use_redis_env = os.getenv("USE_REDIS_EVENT_BUS")
         if use_redis_env is not None:
-            self._config_data["use_redis"] = use_redis_env.lower() in ("true", "1", "yes")
+            config_data["use_redis"] = use_redis_env.lower() in ("true", "1", "yes")
 
-        # 更新实例属性
-        for key, value in self._config_data.items():
-            if hasattr(self, key):
-                setattr(self, key, value)
-    
-    def _create_default_config(self, file_path: str):
+        return config_data
+
+    @staticmethod
+    def _create_default_config_file(file_path: str):
         """创建默认配置文件"""
         # 使用环境变量构建的 URL 或默认值
         db_url = os.getenv("DATABASE_URL") or get_database_url()
@@ -149,15 +145,28 @@ class Settings(BaseSettings):
             "task_timeout_sec": 300,
             "pending_timeout_sec": 3600
         }
-        
+
         # 确保目录存在
         os.makedirs(os.path.dirname(file_path), exist_ok=True)
-        
+
         # 写入默认配置
         with open(file_path, "w", encoding="utf-8") as f:
             json.dump(default_config, f, indent=2, ensure_ascii=False)
-        
+
         print(f"已创建默认配置文件: {file_path}")
+
+    def load_config(self, full_config_path=None):
+        """从 JSON 文件重新加载配置"""
+        # 使用传入的路径或当前实例的路径
+        config_path = full_config_path or self._full_config_path
+
+        # 加载配置
+        self._config_data = self._load_config_file(config_path)
+
+        # 更新实例属性
+        for key, value in self._config_data.items():
+            if hasattr(self, key):
+                setattr(self, key, value)
     
     def _start_watcher(self):
         """启动配置文件监控"""
