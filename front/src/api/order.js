@@ -157,13 +157,27 @@ export async function getLatestTraceByRequest(requestId) {
 }
 
 /**
+ * 控制特定节点（暂停/停止/继续）
+ * @param {string} traceId - Trace ID
+ * @param {string} instanceId - 节点实例 ID (task_id)
+ * @param {string} signal - 控制信号: 'CANCEL' | 'PAUSE' | 'RESUME'
+ * @returns {Promise<Object>} 操作结果
+ */
+export async function controlSpecificNode(traceId, instanceId, signal) {
+  return request(`/traces/${traceId}/control/nodes/${instanceId}`, {
+    method: 'POST',
+    body: JSON.stringify({ signal }),
+  }, EVENTS_API_BASE_URL);
+}
+
+/**
  * API 客户端对象，封装所有 API 方法
  */
 export const apiClient = {
   // 对话相关
   sendUserMessage,
   resumeTask,
-  
+
   // Trace 相关
   listTasksInTrace,
   getTraceTopology,
@@ -171,9 +185,10 @@ export const apiClient = {
   getTaskDetail,
   getTraceDetail,
   getReadyTasks,
-  
+
   // Commands 相关
   getLatestTraceByRequest,
+  controlSpecificNode,
 };
 
 export default apiClient;

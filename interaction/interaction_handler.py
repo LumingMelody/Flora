@@ -204,7 +204,11 @@ class InteractionHandler:
                 entities=[],
                 raw_nlu_output={"original_utterance": input.utterance}
             )
-        
+
+        # 【关键修复】将 enhanced_utterance 注入到 intent_result.raw_nlu_output
+        # 这样 task_draft_manager.update_draft_from_intent 才能获取到用户纠正后的理解
+        intent_result.raw_nlu_output["enhanced_utterance"] = session_state.get("enhanced_utterance", input.utterance)
+
         # 3. 补全 user_id（如果为空）
         if not input.user_id:
             # 生成临时 user_id
@@ -527,6 +531,10 @@ class InteractionHandler:
             dialog_state.current_intent = IntentType.IDLE_CHAT
             special_intent = ""
             yield "thought", {"message": "意图识别失败，使用默认意图"}
+
+        # 【关键修复】将 enhanced_utterance 注入到 intent_result.raw_nlu_output
+        # 这样 task_draft_manager.update_draft_from_intent 才能获取到用户纠正后的理解
+        intent_result.raw_nlu_output["enhanced_utterance"] = session_state.get("enhanced_utterance", input.utterance)
 
         # === 4. 【状态拦截器】处理特殊意图（CONFIRM / CANCEL / MODIFY）===
         bypass_routing = False
@@ -961,6 +969,19 @@ class InteractionHandler:
                         )
                         dialog_state.active_task_execution = exec_context.request_id
                         dialog_state_manager.update_dialog_state(dialog_state)
+
+                        # 【关键修复】保存 trace mapping，确保回传消息能找到对应的 session
+                        try:
+                            dialog_state_manager.dialog_repo.save_trace_mapping(
+                                request_id=request_id,
+                                session_id=input.session_id,
+                                user_id=input.user_id,
+                                trace_id=exec_context.external_job_id
+                            )
+                            logger.info(f"[ack_immediately] Saved trace mapping: request_id={request_id}, trace_id={exec_context.external_job_id} -> session_id={input.session_id}")
+                        except Exception as e:
+                            logger.warning(f"[ack_immediately] Failed to save trace mapping: {e}")
+
                     except Exception as e:
                         logger.error(f"Failed to execute task: {e}")
                         logger.debug(f"Error traceback: {traceback.format_exc()}")

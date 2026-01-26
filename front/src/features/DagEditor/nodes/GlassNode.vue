@@ -1,15 +1,18 @@
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, ref } from 'vue';
 import { Handle, Position } from '@vue-flow/core';
+import { controlSpecificNode } from '@/api/order';
 
 interface NodeData {
   id: string;
   label: string;
   type: string;
-  status: 'idle' | 'running' | 'success' | 'error' | 'killed';
+  status: 'idle' | 'running' | 'success' | 'error' | 'killed' | 'paused';
   progress: number;
   time: number;
   childrenCount?: number;
+  traceId?: string;  // 用于控制节点
+  taskId?: string;   // 节点的 task_id
 }
 
 const props = defineProps<{
@@ -23,6 +26,7 @@ const isRunning = computed(() => props.data.status === 'running');
 const isFailed = computed(() => props.data.status === 'error');
 const isKilled = computed(() => props.data.status === 'killed');
 const isSuccess = computed(() => props.data.status === 'success');
+const isPaused = computed(() => props.data.status === 'paused');
 
 // 进度条样式
 const progressStyle = computed(() => ({
@@ -33,18 +37,73 @@ const progressStyle = computed(() => ({
 const childrenCount = computed(() => {
   return props.data.childrenCount || 0;
 });
+
+// 右键菜单状态
+const showContextMenu = ref(false);
+const contextMenuPosition = ref({ x: 0, y: 0 });
+const isControlling = ref(false);
+
+// 右键菜单处理
+const handleContextMenu = (event: MouseEvent) => {
+  event.preventDefault();
+  event.stopPropagation();
+
+  // 显示菜单（任何状态都可以显示，但按钮会根据状态显示/隐藏）
+  contextMenuPosition.value = {
+    x: event.offsetX,
+    y: event.offsetY
+  };
+  showContextMenu.value = true;
+};
+
+// 关闭菜单
+const closeContextMenu = () => {
+  showContextMenu.value = false;
+};
+
+// 控制节点
+const handleControl = async (signal: string) => {
+  const taskId = props.data.taskId || props.data.id;
+  const traceId = props.data.traceId;
+
+  if (!taskId || !traceId) {
+    console.error('Missing taskId or traceId for node control');
+    closeContextMenu();
+    return;
+  }
+
+  isControlling.value = true;
+  try {
+    console.log('Controlling node:', { taskId, traceId, signal });
+    const result = await controlSpecificNode(traceId, taskId, signal);
+    console.log('Control result:', result);
+  } catch (error) {
+    console.error('Failed to control node:', error);
+  } finally {
+    isControlling.value = false;
+    closeContextMenu();
+  }
+};
+
+// 点击其他地方关闭菜单
+const handleClickOutside = () => {
+  closeContextMenu();
+};
 </script>
 
 <template>
-  <div 
+  <div
     class="glass-card w-[280px] p-5 relative group overflow-hidden"
-    :class="{ 
-      'selected': selected, 
+    :class="{
+      'selected': selected,
       'card-killed': isKilled,
       'status-running': isRunning,
       'status-success': isSuccess,
-      'status-failed': isFailed 
+      'status-failed': isFailed,
+      'status-paused': isPaused
     }"
+    @contextmenu="handleContextMenu"
+    @click="handleClickOutside"
   >
     <Handle type="target" :position="Position.Top" class="!opacity-0 !w-full !h-4 !top-0" />
 
@@ -58,19 +117,25 @@ const childrenCount = computed(() => {
               <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
             </svg>
           </div>
-          
+
+          <div v-else-if="isPaused" class="w-5 h-5 flex items-center justify-center text-yellow-500">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+              <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zM7 8a1 1 0 012 0v4a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v4a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd" />
+            </svg>
+          </div>
+
           <div v-else-if="isFailed" class="w-5 h-5 flex items-center justify-center text-rose-500">
              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
                <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clip-rule="evenodd" />
              </svg>
           </div>
-          
+
           <div v-else-if="isSuccess" class="w-5 h-5 flex items-center justify-center text-emerald-500">
             <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
               <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
             </svg>
           </div>
-          
+
           <div v-else class="w-5 h-5 flex items-center justify-center text-amber-500">
             <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
               <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" />
@@ -121,9 +186,66 @@ const childrenCount = computed(() => {
     </div>
 
     <Handle type="source" :position="Position.Bottom" class="!opacity-0 !w-full !h-4 !bottom-0" />
-    
+
+    <!-- 终止状态覆盖层 -->
     <div v-if="isKilled" class="absolute inset-0 bg-black/60 backdrop-blur-[1px] z-10 flex items-center justify-center">
         <span class="text-rose-500 font-bold tracking-widest border border-rose-500/30 px-3 py-1 rounded bg-rose-500/10">TERMINATED</span>
+    </div>
+
+    <!-- 暂停状态覆盖层 -->
+    <div v-if="isPaused" class="absolute inset-0 bg-black/40 backdrop-blur-[1px] z-10 flex items-center justify-center">
+        <span class="text-yellow-500 font-bold tracking-widest border border-yellow-500/30 px-3 py-1 rounded bg-yellow-500/10">PAUSED</span>
+    </div>
+
+    <!-- 右键菜单 -->
+    <div
+      v-if="showContextMenu"
+      class="context-menu absolute z-50"
+      :style="{ left: contextMenuPosition.x + 'px', top: contextMenuPosition.y + 'px' }"
+      @click.stop
+    >
+      <div class="bg-[#1e1e23] border border-white/10 rounded-lg shadow-xl overflow-hidden min-w-[140px]">
+        <!-- 暂停按钮（运行中时显示） -->
+        <button
+          v-if="isRunning"
+          class="context-menu-item"
+          @click="handleControl('PAUSE')"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+            <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zM7 8a1 1 0 012 0v4a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v4a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd" />
+          </svg>
+          <span>暂停</span>
+        </button>
+
+        <!-- 继续按钮（暂停时显示） -->
+        <button
+          v-if="isPaused"
+          class="context-menu-item"
+          @click="handleControl('RESUME')"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clip-rule="evenodd" />
+          </svg>
+          <span>继续</span>
+        </button>
+
+        <!-- 停止按钮（运行中或暂停时显示） -->
+        <button
+          v-if="isRunning || isPaused"
+          class="context-menu-item text-rose-400 hover:bg-rose-500/10"
+          @click="handleControl('CANCEL')"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8 7a1 1 0 00-1 1v4a1 1 0 001 1h4a1 1 0 001-1V8a1 1 0 00-1-1H8z" clip-rule="evenodd" />
+          </svg>
+          <span>停止</span>
+        </button>
+
+        <!-- 无可用操作 -->
+        <div v-if="!isRunning && !isPaused" class="px-3 py-2 text-xs text-gray-500">
+          无可用操作
+        </div>
+      </div>
     </div>
   </div>
 </template>
@@ -195,10 +317,66 @@ const childrenCount = computed(() => {
   box-shadow: 0 0 10px rgba(244, 63, 94, 0.2);
 }
 
+/* 暂停状态 */
+.status-paused {
+  border-color: rgba(234, 179, 8, 0.5);
+  box-shadow: 0 0 10px rgba(234, 179, 8, 0.2);
+  animation: pulse-paused 3s ease-in-out infinite;
+}
+
+@keyframes pulse-paused {
+  0%, 100% {
+    box-shadow: 0 0 10px rgba(234, 179, 8, 0.2);
+    border-color: rgba(234, 179, 8, 0.5);
+  }
+  50% {
+    box-shadow: 0 0 15px rgba(234, 179, 8, 0.3);
+    border-color: rgba(234, 179, 8, 0.7);
+  }
+}
+
 /* 死亡状态 */
 .card-killed {
   filter: grayscale(1) brightness(0.5);
   border-color: rgba(255, 50, 50, 0.3);
   transform: scale(0.95);
+}
+
+/* 右键菜单样式 */
+.context-menu {
+  animation: menu-appear 0.15s ease-out;
+}
+
+@keyframes menu-appear {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.context-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 12px;
+  font-size: 12px;
+  color: #e5e5e5;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.context-menu-item:hover {
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.context-menu-item:active {
+  background: rgba(255, 255, 255, 0.15);
 }
 </style>

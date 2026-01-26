@@ -1,6 +1,136 @@
 # Changelog
 
 ---
+## [2026-01-26 16:00] - DagEditor 节点控制功能 + WebSocket 动态更新
+
+### 任务描述
+1. 在 DagEditor 的每个节点上添加右键菜单，允许用户控制节点（暂停/停止/继续）
+2. 修复 DagEditor 不通过 WebSocket 动态更新的问题
+
+### 修改文件
+- [x] front/src/features/DagEditor/nodes/GlassNode.vue - 添加右键菜单、暂停状态图标和控制功能
+- [x] front/src/api/order.js - 添加 controlSpecificNode API 函数
+- [x] front/src/features/DagEditor/index.vue - 集成 WebSocket 动态更新节点状态
+
+### 关键修改
+
+**1. GlassNode.vue - 右键菜单控制**
+- 添加 `paused` 状态支持
+- 右键菜单显示：暂停（运行中）、继续（暂停时）、停止（运行中/暂停时）
+- 直接调用 `controlSpecificNode` API
+- 添加暂停状态覆盖层和脉冲动画
+
+**2. order.js - 新增 API**
+```javascript
+export async function controlSpecificNode(traceId, instanceId, signal) {
+  return request(`/traces/${traceId}/control/nodes/${instanceId}`, {
+    method: 'POST',
+    body: JSON.stringify({ signal }),
+  }, EVENTS_API_BASE_URL);
+}
+```
+
+**3. DagEditor/index.vue - WebSocket 集成**
+- 建立 WebSocket 连接监听 trace 事件
+- 处理事件类型：TASK_STARTED, TASK_COMPLETED, TASK_FAILED, TASK_PAUSED, TASK_CANCELLED, TASK_PROGRESS, TOPOLOGY_EXPANDED
+- 实时更新节点状态和进度
+- 组件卸载时自动清理 WebSocket 连接
+
+### 状态
+✅ 完成 (2026-01-26 16:30)
+
+---
+## [2026-01-26 15:30] - 修复 trace_session_mapping 表为空问题
+
+### 任务描述
+`trace_session_mapping` 表一直为空，导致 interaction 服务无法正确处理回传的消息。
+
+### 问题根源
+当用户确认任务执行时（`ack_immediately: True`），任务通过 `asyncio.create_task(_run_execute())` 异步执行，但 `_run_execute` 函数内部**没有保存 trace mapping**。
+
+### 修改文件
+- [x] interaction/interaction_handler.py - 在 `_run_execute` 异步函数中添加 trace mapping 保存逻辑（第 973-983 行）
+
+### 关键修复
+```python
+# 在 _run_execute 异步函数中添加 trace mapping 保存
+try:
+    dialog_state_manager.dialog_repo.save_trace_mapping(
+        request_id=request_id,
+        session_id=input.session_id,
+        user_id=input.user_id,
+        trace_id=exec_context.external_job_id
+    )
+    logger.info(f"[ack_immediately] Saved trace mapping: ...")
+except Exception as e:
+    logger.warning(f"[ack_immediately] Failed to save trace mapping: {e}")
+```
+
+### 状态
+✅ 完成 (2026-01-26 15:35)
+
+---
+## [2026-01-26 15:00] - 修复 Plan 生成不存在节点导致任务失败和上下文丢失
+
+### 任务描述
+Plan 中出现了不存在的节点 `mechanism_designer`，导致 LeafActor 初始化失败，进而导致上下文丢失。
+
+### 问题根源
+1. **Plan 生成无验证**：LLM 生成 plan 时，`executor` 字段由 LLM 直接生成，没有验证该节点是否真实存在
+2. **LeafActor 空指针**：`self.meta` 为 `None` 时仍调用 `self.meta.get("name","")`，导致 `AttributeError`
+3. **异常未捕获**：异常导致 `event_bus.publish_task_event()` 失败，任务状态未保存到 Redis
+4. **上下文丢失**：后续任务无法从 Redis 加载状态
+
+### 修改文件
+- [x] tasks/capabilities/task_planning/common_task_planner.py - 在 plan 生成后验证 executor 存在性，添加模糊匹配和自动修复
+- [x] tasks/agents/leaf_actor.py - 修复 NoneType 错误，`self.meta` 为 None 时使用 agent_id 作为备用名称
+
+### 关键修复
+
+**1. LeafActor 空指针修复** (leaf_actor.py:135-138)
+```python
+# 修复前：self.meta 为 None 时会抛出 AttributeError
+name=self.meta.get("name",""),
+
+# 修复后：使用 agent_id 作为备用名称
+name=f"Unknown({self.agent_id})",
+data={"error": f"Agent meta not found for '{self.agent_id}'", "status": "ERROR"}
+```
+
+**2. Plan 生成后验证 executor** (common_task_planner.py)
+- 新增 `_validate_and_fix_executors()` 方法：验证 executor 是否存在于候选列表
+- 新增 `_fuzzy_match_executor()` 方法：模糊匹配 executor 名称
+- 如果 executor 不存在且无法匹配，跳过该步骤并记录错误日志
+
+### 状态
+✅ 完成 (2026-01-26 15:15)
+
+---
+## [2026-01-26 14:30] - 修复任务纠正不生效问题
+
+### 任务描述
+用户在创建裂变任务时，系统误解"5个人"为"团队5人"，用户多次纠正后系统仍然重复错误理解。
+
+### 问题根源
+1. `user_input_manager` 处理用户输入后生成 `enhanced_utterance`（LLM 理解后的增强版本）
+2. `intent_recognition_manager` 的 `_build_result` 方法构建 `raw_nlu_output` 时，只包含 LLM 解析结果，**没有包含 `enhanced_utterance`**
+3. `task_draft_manager` 的 `update_draft_from_intent` 尝试从 `intent_result.raw_nlu_output` 获取 `enhanced_utterance`，但该字段不存在
+4. 导致系统使用 `original_utterance` 而非用户纠正后的理解
+
+### 修改文件
+- [x] interaction/interaction_handler.py - 在意图识别后，将 `session_state` 中的 `enhanced_utterance` 注入到 `intent_result.raw_nlu_output`（两处：`handle_user_input` 和 `stream_handle_user_input`）
+- [x] interaction/capabilities/task_draft_manager/common_task_draft_manager1.py - 使用 `enhanced_utterance` 替代 `original_utterance` 进行草稿评估（之前已修复）
+
+### 关键修复
+```python
+# interaction_handler.py - 在意图识别后注入 enhanced_utterance
+intent_result.raw_nlu_output["enhanced_utterance"] = session_state.get("enhanced_utterance", input.utterance)
+```
+
+### 状态
+✅ 完成 (2026-01-26 14:35)
+
+---
 ## [2026-01-26 12:20] - 排查 agent_task_history 表为空问题
 
 ### 任务描述

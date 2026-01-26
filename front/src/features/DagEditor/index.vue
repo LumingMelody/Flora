@@ -62,7 +62,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, nextTick } from 'vue';
+import { ref, watch, nextTick, onUnmounted } from 'vue';
 import { VueFlow, addEdge, useVueFlow } from '@vue-flow/core';
 import { Background } from '@vue-flow/background';
 import '@vue-flow/core/dist/style.css';
@@ -71,6 +71,7 @@ import GlassNode from './nodes/GlassNode.vue';
 import { useDagStore } from '@/stores/useDagStore';
 import { getLatestTraceByRequest } from '@/api/order';
 import ConversationAPI from '@/api/conversation';
+import { createWebSocketClient, getTraceWebSocketUrl } from '@/utils/socket';
 
 // 接收 selectedTaskId 属性（这里实际上是 sessionId）
 const props = defineProps<{
@@ -81,6 +82,126 @@ const dagStore = useDagStore();
 
 // 获取 VueFlow 实例，用于控制视图
 const { fitView, updateNodeInternals } = useVueFlow();
+
+// WebSocket 客户端
+let wsClient: any = null;
+const currentTraceId = ref<string | null>(null);
+
+// 清理 WebSocket 连接
+const cleanupWebSocket = () => {
+  if (wsClient) {
+    wsClient.close();
+    wsClient = null;
+  }
+};
+
+// 建立 WebSocket 连接
+const setupWebSocket = (traceId: string) => {
+  // 先清理旧连接
+  cleanupWebSocket();
+
+  currentTraceId.value = traceId;
+  const wsUrl = getTraceWebSocketUrl(traceId);
+  console.log('Connecting to WebSocket:', wsUrl);
+
+  wsClient = createWebSocketClient(wsUrl, {
+    maxReconnectAttempts: 5,
+    reconnectDelay: 2000
+  });
+
+  wsClient.on('open', () => {
+    console.log('WebSocket connected for trace:', traceId);
+  });
+
+  wsClient.on('message', (data: any) => {
+    console.log('WebSocket message received:', data);
+    handleWebSocketMessage(data);
+  });
+
+  wsClient.on('error', (error: any) => {
+    console.error('WebSocket error:', error);
+  });
+
+  wsClient.on('close', (event: any) => {
+    console.log('WebSocket closed:', event);
+  });
+
+  wsClient.connect().catch((error: any) => {
+    console.error('Failed to connect WebSocket:', error);
+  });
+};
+
+// 处理 WebSocket 消息
+const handleWebSocketMessage = (data: any) => {
+  if (!data) return;
+
+  const eventType = data.event_type || data.type;
+  const payload = data.payload || data;
+
+  console.log('Processing WebSocket event:', eventType, payload);
+
+  switch (eventType) {
+    case 'TASK_STARTED':
+    case 'TASK_RUNNING':
+      updateNodeStatus(payload.task_id, 'running', payload.progress || 50);
+      break;
+
+    case 'TASK_COMPLETED':
+      updateNodeStatus(payload.task_id, 'success', 100);
+      break;
+
+    case 'TASK_FAILED':
+      updateNodeStatus(payload.task_id, 'error', payload.progress || 0);
+      break;
+
+    case 'TASK_PAUSED':
+      updateNodeStatus(payload.task_id, 'paused', payload.progress || 50);
+      break;
+
+    case 'TASK_CANCELLED':
+      updateNodeStatus(payload.task_id, 'killed', payload.progress || 0);
+      break;
+
+    case 'TASK_PROGRESS':
+      updateNodeProgress(payload.task_id, payload.progress || payload.percent || 0);
+      break;
+
+    case 'TOPOLOGY_EXPANDED':
+      // 拓扑扩展，重新加载 DAG
+      if (currentTraceId.value) {
+        dagStore.loadDagByTraceId(currentTraceId.value);
+      }
+      break;
+
+    default:
+      console.log('Unhandled WebSocket event:', eventType);
+  }
+};
+
+// 节点状态类型
+type NodeStatus = 'idle' | 'running' | 'success' | 'error' | 'killed' | 'paused';
+
+// 更新节点状态
+const updateNodeStatus = (taskId: string, status: NodeStatus, progress: number) => {
+  const node = dagStore.nodes.find(n => n.id === taskId || n.data?.taskId === taskId);
+  if (node && node.data) {
+    node.data.status = status;
+    node.data.progress = progress;
+  }
+};
+
+// 更新节点进度
+const updateNodeProgress = (taskId: string, progress: number) => {
+  const node = dagStore.nodes.find(n => n.id === taskId || n.data?.taskId === taskId);
+  if (node && node.data) {
+    node.data.progress = progress;
+  }
+};
+
+// 组件卸载时清理
+onUnmounted(() => {
+  cleanupWebSocket();
+});
 
 // 从 session info 获取 request_id，然后获取 trace_id，最后加载 DAG 数据
 const loadDagForSession = async (sessionId: string) => {
@@ -185,13 +306,27 @@ const loadDagForSession = async (sessionId: string) => {
     }
     
     console.log('Got trace_id:', traceId);
-    
+
     // 3. 使用 trace_id 加载 DAG 数据
     await dagStore.loadDagByTraceId(traceId);
-    
+
+    // 4. 为节点添加 traceId，用于控制操作
+    dagStore.nodes.forEach(node => {
+      if (node.data) {
+        node.data = {
+          ...node.data,
+          traceId: traceId,
+          taskId: node.id
+        };
+      }
+    });
+
+    // 5. 建立 WebSocket 连接，实时更新节点状态
+    setupWebSocket(traceId);
+
     // 等待 Vue 完成 DOM 更新
     await nextTick();
-    
+
     // 强制 Vue Flow 重新测量所有节点的句柄位置
     if (dagStore.nodes.length > 0) {
       updateNodeInternals(dagStore.nodes.map(node => node.id));

@@ -480,10 +480,15 @@ class CommonTaskDraft(ITaskDraftManagerCapability):
         4. 生成回复：根据状态生成合适的回复文本
         """
 
-        # 0. 获取用户原始输入并保存到草稿历史中
+        # 0. 获取用户原始输入和增强后的理解
         original_utterance = intent_result.raw_nlu_output.get("original_utterance", "")
-        if original_utterance:
-            self.add_utterance_to_draft(draft, original_utterance)
+        # 【关键修复】获取 enhanced_utterance，这是 LLM 理解后的增强版本
+        enhanced_utterance = intent_result.raw_nlu_output.get("enhanced_utterance", original_utterance)
+
+        # 将增强后的理解保存到草稿历史中（而不是原始输入）
+        # 这样后续评估时 LLM 能看到正确理解后的内容
+        if enhanced_utterance:
+            self.add_utterance_to_draft(draft, enhanced_utterance)
 
         # 1. 把识别到的实体（Entities）全部填入槽位（Slots）
         # 既然槽位是虚的，我们就直接把 entity.name 当作 slot_name 存进去
@@ -502,49 +507,51 @@ class CommonTaskDraft(ITaskDraftManagerCapability):
 
         # 3. [关键] 调用 LLM 动态评估当前草稿的完整性
         ##TODO：这里填槽前查询已知信息（放在event里）
-        evaluation_result = self._evaluate_draft_completeness(draft, original_utterance)
-        
+        # 【关键修复】使用 enhanced_utterance 进行评估，确保 LLM 看到正确理解后的内容
+        evaluation_result = self._evaluate_draft_completeness(draft, enhanced_utterance)
+
         # 4. 根据评估结果更新Draft状态
         is_ready = evaluation_result["is_ready"]
-        
+
         # 如果还需要补充信息，进入循环尝试从memory中获取
         if not is_ready:
             try:
                 # 获取memory能力
                 memory_cap = capability_registry.get_capability("memory", IMemoryCapability)
-                
+
                 # 循环获取memory信息，直到无法获取新信息或完全就绪
                 while not is_ready:
                     # 记录当前缺失的槽位数量
                     current_missing_slots = evaluation_result.get("missing_slot", "unknown")
-                    
+
                     # 从evaluation_result中获取缺失的信息描述
                     missing_info = evaluation_result["analysis"]
-                    
+
                     # 查询memory
                     # 注意：这里需要user_id，暂时从draft中获取，如果没有则使用默认值
                     user_id = getattr(draft, "user_id", "default_user")
                     memory_result = memory_cap.search_memories(user_id, missing_info, limit=3)
-                    
+
                     # 如果memory中没有相关信息，跳出循环
                     if not memory_result:
                         break
-                    
+
                     # 将memory结果添加到draft的原始 utterances 中，以便后续评估使用
                     draft = self.add_utterance_to_draft(draft, f"[系统补充信息] {memory_result}")
-                    
+
                     # 重新评估草稿完整性
-                    evaluation_result = self._evaluate_draft_completeness(draft, original_utterance)
+                    # 【关键修复】使用 enhanced_utterance 进行评估
+                    evaluation_result = self._evaluate_draft_completeness(draft, enhanced_utterance)
                     new_is_ready = evaluation_result["is_ready"]
                     new_missing_slots = evaluation_result.get("missing_slot", "unknown")
-                    
+
                     # 更新is_ready状态
                     is_ready = new_is_ready
-                    
+
                     # 如果已经完全就绪，跳出循环
                     if is_ready:
                         break
-                    
+
                     # 如果没有新填好的空（缺失的槽位没有变化），跳出循环
                     if current_missing_slots == new_missing_slots:
                         break

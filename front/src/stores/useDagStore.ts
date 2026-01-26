@@ -6,10 +6,12 @@ interface NodeData {
   id: string;
   label: string;
   type: string;
-  status: 'idle' | 'running' | 'success' | 'error' | 'killed';
+  status: 'idle' | 'running' | 'success' | 'error' | 'killed' | 'paused';
   progress: number;
   time: number;
   childrenCount?: number;
+  taskId?: string;   // 节点的 task_id，用于控制操作
+  traceId?: string;  // 所属的 trace_id，用于控制操作
 }
 
 interface DagState {
@@ -49,7 +51,7 @@ export const useDagStore = defineStore('dag', {
       this.nodes = this.nodes.filter(node => node.id !== nodeId);
       this.edges = this.edges.filter(edge => edge.source !== nodeId && edge.target !== nodeId);
     },
-    updateNodeStatus(nodeId: string, status: 'idle' | 'running' | 'success' | 'error' | 'killed') {
+    updateNodeStatus(nodeId: string, status: 'idle' | 'running' | 'success' | 'error' | 'killed' | 'paused') {
       const node = this.nodes.find(n => n.id === nodeId);
       if (node && node.data) {
         node.data.status = status;

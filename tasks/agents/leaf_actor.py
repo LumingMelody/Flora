@@ -123,8 +123,9 @@ class LeafActor(Actor):
                 agent_id=self.agent_id
             )
             self.send(reply_to, error_msg)
-            
+
             # 发布任务错误事件
+            # 【修复】self.meta 为 None 时不能调用 self.meta.get()
             event_bus.publish_task_event(
                 task_id=parent_task_id,
                 event_type=EventType.TASK_FAILED.value,
@@ -132,11 +133,11 @@ class LeafActor(Actor):
                 task_path=task.task_path,
                 source="LeafActor",
                 agent_id=self.agent_id,
-                name=self.meta.get("name",""),
+                name=f"Unknown({self.agent_id})",  # 使用 agent_id 作为备用名称
                 user_id=self.current_user_id,
-                data={"error": "Agent meta not found", "status": "ERROR"}
+                data={"error": f"Agent meta not found for '{self.agent_id}'", "status": "ERROR"}
             )
-            
+
             # 清理任务映射（避免残留）
             self.task_id_to_sender.pop(parent_task_id, None)
             return

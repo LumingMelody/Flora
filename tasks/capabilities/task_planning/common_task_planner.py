@@ -98,14 +98,108 @@ class CommonTaskPlanning(ITaskPlanningCapability):
 
     def _semantic_decomposition(self, agent_id: str, user_input: str, memory_context: str) -> List[Dict]:
         candidates = self._get_candidate_agents_info(agent_id)
-        
+
         # 构建增强版 Prompt
         prompt = self._build_enhanced_planning_prompt(user_input, memory_context, candidates)
-        
+
         response = self._call_llm(prompt)
         plans = self._parse_llm_json(response)
         self.logger.info(f"[CommonTaskPlanner] LLM response:\n{plans}")
+
+        # 【关键修复】验证 plan 中的 executor 是否存在于候选列表中
+        plans = self._validate_and_fix_executors(plans, candidates, agent_id)
+
         return plans
+
+    def _validate_and_fix_executors(self, plans: List[Dict], candidates: List[Dict], parent_agent_id: str) -> List[Dict]:
+        """
+        验证 plan 中的 executor 是否存在于候选列表中。
+        如果不存在，尝试修复或移除该步骤。
+
+        Args:
+            plans: LLM 生成的计划列表
+            candidates: 可用的候选节点列表
+            parent_agent_id: 父节点 ID
+
+        Returns:
+            验证/修复后的计划列表
+        """
+        if not plans:
+            return plans
+
+        # 构建候选节点 ID 集合
+        valid_executor_ids = {c["id"] for c in candidates}
+
+        validated_plans = []
+        for plan in plans:
+            executor = plan.get("executor", "")
+            plan_type = plan.get("type", "AGENT")
+
+            # MCP 类型不需要验证（外部工具）
+            if plan_type == "MCP":
+                validated_plans.append(plan)
+                continue
+
+            # AGENT 类型需要验证 executor 是否存在
+            if executor in valid_executor_ids:
+                validated_plans.append(plan)
+            else:
+                # executor 不存在，尝试模糊匹配
+                matched_executor = self._fuzzy_match_executor(executor, candidates)
+
+                if matched_executor:
+                    self.logger.warning(
+                        f"[CommonTaskPlanner] Executor '{executor}' not found, "
+                        f"fuzzy matched to '{matched_executor}'"
+                    )
+                    plan["executor"] = matched_executor
+                    validated_plans.append(plan)
+                else:
+                    # 无法匹配，记录警告并跳过该步骤
+                    self.logger.error(
+                        f"[CommonTaskPlanner] Executor '{executor}' not found in candidates "
+                        f"for parent '{parent_agent_id}'. Available: {list(valid_executor_ids)}. "
+                        f"Skipping step {plan.get('step', '?')}: {plan.get('description', '')}"
+                    )
+                    # 不添加到 validated_plans，相当于移除该步骤
+
+        # 重新编号步骤
+        for i, plan in enumerate(validated_plans, start=1):
+            plan["step"] = i
+
+        return validated_plans
+
+    def _fuzzy_match_executor(self, executor: str, candidates: List[Dict]) -> Optional[str]:
+        """
+        尝试模糊匹配 executor 到候选列表中的节点。
+
+        Args:
+            executor: LLM 生成的 executor 名称
+            candidates: 可用的候选节点列表
+
+        Returns:
+            匹配到的 executor ID，如果没有匹配则返回 None
+        """
+        executor_lower = executor.lower().replace("_", "").replace("-", "")
+
+        for candidate in candidates:
+            cid = candidate["id"]
+            cid_lower = cid.lower().replace("_", "").replace("-", "")
+
+            # 完全匹配（忽略大小写和分隔符）
+            if executor_lower == cid_lower:
+                return cid
+
+            # 包含匹配
+            if executor_lower in cid_lower or cid_lower in executor_lower:
+                return cid
+
+            # 名称匹配
+            name = candidate.get("name", "").lower().replace("_", "").replace("-", "")
+            if executor_lower == name or executor_lower in name or name in executor_lower:
+                return cid
+
+        return None
 
 
     def _build_enhanced_planning_prompt(self, user_input, memory, agents):
