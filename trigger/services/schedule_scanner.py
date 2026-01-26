@@ -54,16 +54,16 @@ class ScheduleScanner:
         """扫描待处理任务"""
         async with async_session_factory() as session:
             repo = create_scheduled_task_repo(session, dialect)
-            
+
             # 查找需要执行的任务
             now = datetime.now(timezone.utc)
+            logger.debug(f"Scanning for pending tasks before {now}")
             pending_tasks = await repo.get_pending_tasks(
                 before_time=now,
                 limit=100
             )
-            
-            if pending_tasks:
-                logger.info(f"Found {len(pending_tasks)} pending tasks to process")
+
+            logger.info(f"Found {len(pending_tasks)} pending tasks to process")
             
             for task in pending_tasks:
                 try:

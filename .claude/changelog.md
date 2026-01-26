@@ -1,6 +1,50 @@
 # Changelog
 
 ---
+## [2026-01-26 12:20] - 排查 agent_task_history 表为空问题
+
+### 任务描述
+排查为什么 `agent_task_history` 表一直为空，即使任务已经执行完成。
+
+### 问题分析过程
+
+1. **对比 git 版本**：对比 `38a4abaf` 与当前版本，发现只有 2 个提交：
+   - 前端动画特效
+   - events/config/settings.py 的 Pydantic v2 兼容性修复
+   - 这些改动不会导致 agent 表为空
+
+2. **追踪数据流**：
+   - interaction → trigger (`/api/v1/ad-hoc-tasks`) → 创建 scheduled_task (PENDING)
+   - schedule_scanner 扫描 PENDING 任务 → 发送到 `work.excute` 队列 → 更新为 SCHEDULED
+   - tasks 服务监听 `work.excute` → 执行任务 → 发送事件到 events
+   - events 的 `AgentMonitorService` 监听事件 → 写入 `agent_task_history`
+
+3. **发现问题**：
+   - 数据库中任务状态都是 `SCHEDULED`，不是 `PENDING`
+   - `get_pending_tasks` 查询条件是 `status == "PENDING"` 且 `scheduled_time <= now`
+   - 任务被扫描后立即更新为 `SCHEDULED`，说明扫描器正常工作
+   - 但 tasks 服务没有收到消息
+
+4. **根本原因**：
+   - 任务确实被发送到 RabbitMQ，tasks 服务也收到并执行了
+   - `AgentMonitorService` 只在 `TASK_COMPLETED` 或 `TASK_FAILED` 事件时才写入 `agent_task_history`
+   - 之前测试的任务可能没有完成，或者事件没有正确传递 `agent_id`
+
+5. **验证结果**：
+   - 手动将一个任务状态改回 `PENDING` 触发重新执行
+   - 任务执行完成后，`agent_task_history` 表成功写入数据
+   - 表中现在有 6 条记录，包括 `private_domain`、`user_strat_fission` 等 agent
+
+### 关键发现
+
+- `AgentMonitorService.handle_event` 中的 "not handled" 日志只是提示性信息
+- 只有 `TASK_COMPLETED` 和 `TASK_FAILED` 事件才会归档到 `agent_task_history`
+- `TASK_STARTED`、`TASK_PROGRESS` 等事件会调用 `update_agent_state` 更新实时状态，但不写历史表
+
+### 状态
+✅ 完成 (2026-01-26 12:20) - 问题已解决，表中已有数据
+
+---
 ## [2026-01-26 10:24] - 前端执行节点动态特效 + vanna 模型挂载修复
 
 ### 任务描述

@@ -1,9 +1,12 @@
 
 import uuid
 import json
+import logging
 from datetime import datetime, timezone
 from typing import Optional, List, Dict, Any
 from sqlalchemy.ext.asyncio import AsyncSession
+
+logger = logging.getLogger(__name__)
 
 # 导入正确的模块
 from common.event_instance import EventInstance
@@ -615,6 +618,9 @@ class LifecycleService:
             "result": execution_args.get("data"),
             "error_msg": execution_args.get("error")
         }
+
+        # 添加调试日志
+        logger.info(f"Publishing event to {self.topic_name}: event_type=TASK_{event_type}, agent_id={payload.get('agent_id')}, task_id={task_id}")
 
         await self.event_bus.publish(
             topic=self.topic_name,
