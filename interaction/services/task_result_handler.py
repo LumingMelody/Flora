@@ -156,7 +156,7 @@ class TaskResultHandler:
         session_id: str,
         user_id: str,
         status: str,
-        result: str,
+        result: Any,
         error: Optional[str]
     ) -> None:
         """
@@ -171,9 +171,17 @@ class TaskResultHandler:
 
             context_manager = capability_registry.get_capability("context_manager", IContextManagerCapability)
 
-            # 构建结果消息
+            # 构建结果消息（确保是字符串）
             if status == "SUCCESS":
-                content = result or "任务执行完成"
+                if result is None:
+                    content = "任务执行完成"
+                elif isinstance(result, str):
+                    content = result
+                elif isinstance(result, dict):
+                    # 如果是字典，尝试提取有意义的内容或转为 JSON 字符串
+                    content = json.dumps(result, ensure_ascii=False, indent=2)
+                else:
+                    content = str(result)
             else:
                 content = f"任务执行失败: {error or '未知错误'}"
 
