@@ -1,6 +1,49 @@
 # Changelog
 
 ---
+## [2026-01-27 11:15] - 修复 MCP Actor 中 ContextEntry 无法 JSON 序列化的问题
+
+### 任务描述
+MCP Actor 执行任务时报错：`TypeError: Object of type ContextEntry is not JSON serializable`
+
+### 问题根源
+`mcp_actor.py` 的 `_extract_params_with_llm` 方法中，直接使用 `json.dumps(context)` 序列化 context，但 context 可能包含 Pydantic `BaseModel` 对象（如 `ContextEntry`），这些对象无法直接被 JSON 序列化。
+
+### 修改文件
+- [x] tasks/capability_actors/mcp_actor.py - 添加 `_serialize_context` 方法处理复杂对象的序列化
+
+### 关键修改
+
+**mcp_actor.py - 添加递归序列化方法**
+```python
+def _serialize_context(self, context: Any) -> str:
+    """将 context 转换为可 JSON 序列化的字符串"""
+    from pydantic import BaseModel
+
+    def make_serializable(obj: Any) -> Any:
+        if obj is None:
+            return None
+        if isinstance(obj, (str, int, float, bool)):
+            return obj
+        if isinstance(obj, BaseModel):
+            return obj.model_dump()  # Pydantic 模型转字典
+        if isinstance(obj, dict):
+            return {k: make_serializable(v) for k, v in obj.items()}
+        if isinstance(obj, (list, tuple)):
+            return [make_serializable(item) for item in obj]
+        return str(obj)
+
+    try:
+        serializable = make_serializable(context)
+        return json.dumps(serializable, ensure_ascii=False)
+    except Exception as e:
+        return str(context)
+```
+
+### 状态
+✅ 完成 (2026-01-27 11:15)
+
+---
 ## [2026-01-27 10:45] - 修复任务结果无法推送到前端的问题
 
 ### 任务描述

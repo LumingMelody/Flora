@@ -82,12 +82,9 @@ class MCPCapabilityActor(Actor):
         使用 LLM 从任务描述和上下文中提取结构化参数。
         返回一个字典，若失败则返回空字典。
         """
-        # 如果 context 是 dict，可以先转为字符串供 LLM 处理
-        if isinstance(context, dict):
-            context_str = json.dumps(context, ensure_ascii=False)
-        else:
-            context_str = str(context)
-        
+        # 将 context 转换为可 JSON 序列化的格式
+        context_str = self._serialize_context(context)
+
         llm = get_capability("llm", expected_type=ILLMCapability)
         prompt = f"""你是一个智能参数提取器。请根据以下任务描述和上下文，提取出完成该任务所需的结构化参数。
 以严格的 JSON 格式输出，不要包含任何解释或额外文本。
@@ -361,3 +358,36 @@ class MCPCapabilityActor(Actor):
         if root_agent_id:
             return f"{user_id}:{root_agent_id}"
         return user_id
+
+    def _serialize_context(self, context: Any) -> str:
+        """
+        将 context 转换为可 JSON 序列化的字符串。
+        处理 Pydantic BaseModel、ContextEntry 等特殊类型。
+        """
+        from pydantic import BaseModel
+
+        def make_serializable(obj: Any) -> Any:
+            """递归地将对象转换为可序列化的格式"""
+            if obj is None:
+                return None
+            if isinstance(obj, (str, int, float, bool)):
+                return obj
+            if isinstance(obj, BaseModel):
+                # Pydantic 模型使用 model_dump()
+                return obj.model_dump()
+            if isinstance(obj, dict):
+                return {k: make_serializable(v) for k, v in obj.items()}
+            if isinstance(obj, (list, tuple)):
+                return [make_serializable(item) for item in obj]
+            # 其他类型尝试转为字符串
+            try:
+                return str(obj)
+            except Exception:
+                return repr(obj)
+
+        try:
+            serializable = make_serializable(context)
+            return json.dumps(serializable, ensure_ascii=False)
+        except Exception as e:
+            self.logger.warning(f"Failed to serialize context: {e}")
+            return str(context)
