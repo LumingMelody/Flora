@@ -1,6 +1,70 @@
 # Changelog
 
 ---
+## [2026-01-27 10:45] - 修复任务结果无法推送到前端的问题
+
+### 任务描述
+interaction 的 listener 接收到消息后，消息处理似乎没有起效，前端页面没有显示任务执行结果。
+
+### 问题根源
+1. **后端 SSE 推送逻辑缺陷**：`task_result_handler.py` 中检查 `if session_id in self.session_queues`，但 `SESSION_QUEUES` 是 `defaultdict(asyncio.Queue)`。当前端 SSE 连接不存在时，消息会被丢弃而不是缓存。
+2. **前端未监听 task_result 事件**：前端只监听了 `thought` 和 `meta` 事件，但后端发送的任务结果事件类型是 `task_result`。
+
+### 修改文件
+- [x] interaction/services/task_result_handler.py - 移除 `if session_id in self.session_queues` 检查，始终将消息放入队列
+- [x] front/src/features/Copilot/index.vue - 添加 `task_result` 事件监听和处理逻辑
+
+### 关键修改
+
+**1. task_result_handler.py - 修复 SSE 推送逻辑**
+```python
+# 之前：检查 session_id 是否在队列中，不存在则丢弃消息
+if session_id in self.session_queues:
+    ...
+else:
+    logger.debug(f"No active SSE connection for session: {session_id}")
+
+# 之后：始终将消息放入队列（利用 defaultdict 特性自动创建队列）
+try:
+    if self.event_loop and self.event_loop.is_running():
+        asyncio.run_coroutine_threadsafe(
+            self._push_to_queue(session_id, sse_event),
+            self.event_loop
+        )
+    else:
+        self.session_queues[session_id].put_nowait(sse_event)
+    logger.info(f"Pushed task result to SSE queue for session: {session_id}")
+except Exception as e:
+    logger.error(f"Failed to push SSE event: {e}")
+```
+
+**2. Copilot/index.vue - 添加 task_result 事件监听**
+```javascript
+events: ['thought', 'meta', 'task_result'],  // 添加 task_result
+
+onEvent: (eventType, data) => {
+  // 处理 task_result 事件（任务执行结果回传）
+  if (eventType === 'task_result' && data) {
+    console.log('Received task_result event:', data);
+    const resultMessage = {
+      id: Date.now(),
+      role: 'ai',
+      content: data.status === 'SUCCESS'
+        ? (data.result || '任务执行完成')
+        : `任务执行失败: ${data.error || '未知错误'}`,
+      timestamp: new Date(),
+      status: data.status === 'SUCCESS' ? 'completed' : 'error'
+    };
+    messages.value.push(resultMessage);
+    scrollToBottom();
+  }
+},
+```
+
+### 状态
+✅ 完成 (2026-01-27 10:45)
+
+---
 ## [2026-01-26 16:00] - DagEditor 节点控制功能 + WebSocket 动态更新
 
 ### 任务描述

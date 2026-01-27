@@ -484,7 +484,7 @@ const {
   disconnect
 } = useConversationSSE(sessionId, {
   // 确保这里监听了所有后端发出的事件名
-  events: ['thought', 'meta'],
+  events: ['thought', 'meta', 'task_result'],
 
   onOpen: () => {
     console.log('SSE connected');
@@ -502,6 +502,30 @@ const {
     if (data && data.trace_id) {
       console.log('Received trace_id from meta event:', data.trace_id);
       connectTraceWebSocket(data.trace_id);
+    }
+  },
+  onEvent: (eventType, data) => {
+    // 处理 task_result 事件（任务执行结果回传）
+    if (eventType === 'task_result' && data) {
+      console.log('Received task_result event:', data);
+
+      // 创建任务结果消息
+      const resultMessage = {
+        id: Date.now(),
+        role: 'ai',
+        content: '',
+        timestamp: new Date(),
+        status: data.status === 'SUCCESS' ? 'completed' : 'error'
+      };
+
+      if (data.status === 'SUCCESS') {
+        resultMessage.content = data.result || '任务执行完成';
+      } else {
+        resultMessage.content = `任务执行失败: ${data.error || '未知错误'}`;
+      }
+
+      messages.value.push(resultMessage);
+      scrollToBottom();
     }
   },
 

@@ -90,22 +90,21 @@ class TaskResultHandler:
         }
 
         # 4. 推送 SSE 事件到对应的 session 队列
-        if session_id in self.session_queues:
-            try:
-                if self.event_loop and self.event_loop.is_running():
-                    # 在异步事件循环中调度
-                    asyncio.run_coroutine_threadsafe(
-                        self._push_to_queue(session_id, sse_event),
-                        self.event_loop
-                    )
-                else:
-                    # 尝试直接放入队列（如果队列支持线程安全操作）
-                    self.session_queues[session_id].put_nowait(sse_event)
-                logger.info(f"Pushed task result to SSE queue for session: {session_id}")
-            except Exception as e:
-                logger.error(f"Failed to push SSE event: {e}")
-        else:
-            logger.debug(f"No active SSE connection for session: {session_id}")
+        # 注意：SESSION_QUEUES 是 defaultdict(asyncio.Queue)，访问时会自动创建队列
+        # 即使前端 SSE 连接暂时断开，消息也会被缓存在队列中，等待重连后消费
+        try:
+            if self.event_loop and self.event_loop.is_running():
+                # 在异步事件循环中调度
+                asyncio.run_coroutine_threadsafe(
+                    self._push_to_queue(session_id, sse_event),
+                    self.event_loop
+                )
+            else:
+                # 尝试直接放入队列（如果队列支持线程安全操作）
+                self.session_queues[session_id].put_nowait(sse_event)
+            logger.info(f"Pushed task result to SSE queue for session: {session_id}")
+        except Exception as e:
+            logger.error(f"Failed to push SSE event: {e}")
 
         # 5. 更新对话状态（可选：将任务结果添加到对话历史）
         self._update_dialog_state(session_id, trace_id, status, task_result, error)
