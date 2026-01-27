@@ -673,24 +673,44 @@ class TreeContextResolver(IContextResolverCapbility):
     ) -> tuple[dict, dict]:
         """
         使用 LLM 从自由文本上下文中提取可识别的参数值。
-        
+
         Args:
             base_param_descriptions: {"user_id": "用户ID", "tenant_id": "租户ID", ...}
             current_context_str: 任意上下文，如 "当前用户是 test_admin_001，属于租户 test_tenant_001"
-        
+
         Returns:
             (filled_values, remaining_params)
         """
         if not base_param_descriptions:
             return {}, {}
-        
+
         if not self.tree_manager or not self.llm_client:
             self.set_dependencies()
+
+        filled = {}
+
+        # === 预处理：解析特殊格式的 user_id ===
+        # 格式如: <user_id:1,tenant_id:1> 或 <user_id:1>,<tenant_id:1>
+        parsed_ids = self._parse_user_id_format(current_context_str)
+        if parsed_ids:
+            for param_name in base_param_descriptions:
+                if param_name in parsed_ids:
+                    filled[param_name] = parsed_ids[param_name]
+                    logger.info(f"Pre-filled '{param_name}' from special format: {parsed_ids[param_name]}")
+
+        # 检查是否还有剩余参数需要 LLM 处理
+        remaining_for_llm = {
+            k: v for k, v in base_param_descriptions.items()
+            if k not in filled
+        }
+
+        if not remaining_for_llm:
+            return filled, {}
 
         # 构建参数说明
         params_info = "\n".join([
             f"- {name}: {desc}"
-            for name, desc in base_param_descriptions.items()
+            for name, desc in remaining_for_llm.items()
         ])
 
         prompt = f"""你是一个参数值提取器。请从以下上下文中，尽可能提取出与目标参数匹配的具体值。
@@ -721,17 +741,13 @@ class TreeContextResolver(IContextResolverCapbility):
             json_match = response
             if json_match:
                 # extracted = json.loads(json_match.group(0))
-                extracted = json_match  
+                extracted = json_match
                 # 只保留合法参数名 + 字符串值
-                filled = {}
                 for k, v in extracted.items():
-                    if k in base_param_descriptions and isinstance(v, str) and v.strip():
+                    if k in remaining_for_llm and isinstance(v, str) and v.strip():
                         filled[k] = v.strip()
-            else:
-                filled = {}
         except Exception as e:
             print(f"[WARN] LLM 预填充失败，跳过: {e}")
-            filled = {}
 
         # 分离已填充和剩余参数
         remaining = {
@@ -740,6 +756,49 @@ class TreeContextResolver(IContextResolverCapbility):
         }
 
         return filled, remaining
+
+    def _parse_user_id_format(self, context: any) -> dict:
+        """
+        解析特殊格式的 user_id 字符串
+
+        支持格式:
+        - <user_id:1,tenant_id:1>
+        - <user_id:1>,<tenant_id:1>
+        - 嵌套在字典中的 '_user_id': '<user_id:1,tenant_id:1>'
+
+        Args:
+            context: 上下文，可以是字符串或字典
+
+        Returns:
+            dict: 解析出的参数，如 {"user_id": "1", "tenant_id": "1"}
+        """
+        result = {}
+
+        # 将 context 转换为字符串进行搜索
+        if isinstance(context, dict):
+            context_str = json.dumps(context, ensure_ascii=False)
+        else:
+            context_str = str(context)
+
+        # 匹配模式: <key:value> 或 <key:value,key2:value2>
+        # 模式1: <user_id:1,tenant_id:1>
+        pattern1 = r'<([a-zA-Z_]+):([^,>]+)(?:,([a-zA-Z_]+):([^>]+))?>'
+        matches = re.findall(pattern1, context_str)
+
+        for match in matches:
+            if match[0] and match[1]:
+                result[match[0]] = match[1].strip()
+            if match[2] and match[3]:
+                result[match[2]] = match[3].strip()
+
+        # 模式2: 单独的 <key:value>
+        pattern2 = r'<([a-zA-Z_]+):([^<>]+)>'
+        matches2 = re.findall(pattern2, context_str)
+        for key, value in matches2:
+            if key not in result:
+                result[key] = value.strip()
+
+        return result
     
 
 
