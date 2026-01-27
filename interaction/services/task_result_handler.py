@@ -122,9 +122,9 @@ class TaskResultHandler:
         error: Optional[str]
     ) -> None:
         """
-        更新对话状态
+        更新对话状态，并将任务结果保存到对话历史
 
-        将任务结果记录到对话状态中
+        将任务结果记录到对话状态中，确保用户刷新页面后仍能看到结果
         """
         try:
             dialog_state = self.dialog_repo.get_dialog_state(session_id)
@@ -133,11 +133,9 @@ class TaskResultHandler:
                 return
 
             # 更新 active_task_execution 状态
-            # 如果当前活跃任务就是这个 trace_id，则清除
             if dialog_state.active_task_execution:
-                # 任务已完成，可以清除活跃任务标记
-                # 注意：这里可能需要更复杂的逻辑来判断是否清除
-                pass
+                # 任务已完成，清除活跃任务标记
+                dialog_state.active_task_execution = None
 
             # 更新 last_updated
             dialog_state.last_updated = datetime.now(timezone.utc)
@@ -145,10 +143,54 @@ class TaskResultHandler:
             # 保存更新
             self.dialog_repo.update_dialog_state(dialog_state)
 
+            # 将任务结果保存到对话历史
+            self._save_result_to_history(session_id, dialog_state.user_id, status, result, error)
+
             logger.debug(f"Updated dialog state for session: {session_id}")
 
         except Exception as e:
             logger.error(f"Failed to update dialog state: {e}", exc_info=True)
+
+    def _save_result_to_history(
+        self,
+        session_id: str,
+        user_id: str,
+        status: str,
+        result: str,
+        error: Optional[str]
+    ) -> None:
+        """
+        将任务结果保存到对话历史
+
+        这样即使 SSE 断开，用户刷新页面后也能看到任务结果
+        """
+        try:
+            from capabilities.context_manager.interface import IContextManagerCapability
+            from capabilities.registry import capability_registry
+            from common.dialog import DialogTurn
+
+            context_manager = capability_registry.get_capability("context_manager", IContextManagerCapability)
+
+            # 构建结果消息
+            if status == "SUCCESS":
+                content = result or "任务执行完成"
+            else:
+                content = f"任务执行失败: {error or '未知错误'}"
+
+            # 创建系统消息
+            system_turn = DialogTurn(
+                session_id=session_id,
+                user_id=user_id or "",
+                role="system",
+                utterance=content
+            )
+
+            # 保存到对话历史
+            context_manager.add_turn(system_turn)
+            logger.info(f"Saved task result to dialog history for session: {session_id}")
+
+        except Exception as e:
+            logger.warning(f"Failed to save task result to history: {e}")
 
 
 # 全局单例

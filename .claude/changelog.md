@@ -1,6 +1,42 @@
 # Changelog
 
 ---
+## [2026-01-27 12:00] - 任务结果持久化到对话历史
+
+### 任务描述
+当 SSE 连接断开时，任务结果虽然被推送到队列，但用户刷新页面后无法看到结果。
+
+### 解决方案
+将任务结果保存到对话历史（持久化），这样即使 SSE 断开，用户刷新页面后也能从历史记录中看到任务结果。
+
+### 修改文件
+- [x] interaction/services/task_result_handler.py - 添加 `_save_result_to_history` 方法
+
+### 关键修改
+
+**task_result_handler.py**
+- `_update_dialog_state`: 清除 `active_task_execution` 标记，调用 `_save_result_to_history`
+- `_save_result_to_history`: 新方法，将任务结果作为系统消息保存到对话历史
+
+```python
+def _save_result_to_history(self, session_id, user_id, status, result, error):
+    context_manager = capability_registry.get_capability("context_manager", IContextManagerCapability)
+
+    content = result if status == "SUCCESS" else f"任务执行失败: {error}"
+
+    system_turn = DialogTurn(
+        session_id=session_id,
+        user_id=user_id or "",
+        role="system",
+        utterance=content
+    )
+    context_manager.add_turn(system_turn)
+```
+
+### 状态
+✅ 完成 (2026-01-27 12:00)
+
+---
 ## [2026-01-27 11:15] - 修复 MCP Actor 中 ContextEntry 无法 JSON 序列化的问题
 
 ### 任务描述
