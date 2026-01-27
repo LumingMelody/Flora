@@ -1,6 +1,34 @@
 # Changelog
 
 ---
+## [2026-01-27 13:50] - 修复任务结果为字典时无法保存到对话历史的问题
+
+### 任务描述
+任务结果 `result` 可能是字典类型，而 `DialogTurn.utterance` 期望字符串，导致 Pydantic 验证错误。
+
+### 修改文件
+- [x] interaction/services/task_result_handler.py - `_save_result_to_history` 方法增加类型判断
+
+### 关键修改
+
+```python
+# 构建结果消息（确保是字符串）
+if status == "SUCCESS":
+    if result is None:
+        content = "任务执行完成"
+    elif isinstance(result, str):
+        content = result
+    elif isinstance(result, dict):
+        # 如果是字典，转为 JSON 字符串
+        content = json.dumps(result, ensure_ascii=False, indent=2)
+    else:
+        content = str(result)
+```
+
+### 状态
+✅ 完成 (2026-01-27 13:50)
+
+---
 ## [2026-01-27 12:00] - 任务结果持久化到对话历史
 
 ### 任务描述
