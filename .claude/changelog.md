@@ -1,6 +1,74 @@
 # Changelog
 
 ---
+## [2026-01-27 19:00] - 多项问题修复
+
+### 任务描述
+修复多个影响系统运行的问题：
+1. ContextEntry 序列化问题
+2. /health 接口缺失
+3. 任务结果格式化
+4. NEED_INPUT 状态处理
+
+### 修改文件
+- [x] tasks/capabilities/context_resolver/tree_context_resolver.py - 添加 `_safe_serialize_for_parsing` 方法
+- [x] interaction/entry_layer/api_server.py - 添加 `/health` 和 `/v1/health` 接口
+- [x] interaction/services/task_result_handler.py - 使用 SystemResponseManager 格式化任务结果
+- [x] front/src/features/Copilot/index.vue - 支持 NEED_INPUT 状态处理
+
+### 关键修改
+
+**1. tree_context_resolver.py - 安全序列化**
+```python
+def _safe_serialize_for_parsing(self, obj: any) -> str:
+    """处理 ContextEntry、Pydantic BaseModel 等不可直接 JSON 序列化的对象"""
+    from pydantic import BaseModel
+    def make_serializable(item):
+        if isinstance(item, BaseModel):
+            return item.model_dump()
+        # ... 递归处理
+    return json.dumps(make_serializable(obj), ensure_ascii=False)
+```
+
+**2. api_server.py - 健康检查接口**
+```python
+@app.get("/health")
+async def health_check():
+    return {"status": "healthy", "service": "interaction"}
+```
+
+**3. task_result_handler.py - 结果格式化**
+- `_format_result_with_response_manager`: 使用 SystemResponseManager 格式化
+- `_extract_meaningful_result`: 从嵌套 step_results 提取有意义内容
+- `_summarize_step_results`: 汇总多步骤结果
+- 支持 NEED_INPUT 状态
+
+**4. Copilot/index.vue - NEED_INPUT 处理**
+```javascript
+if (data.status === 'NEED_INPUT') {
+    resultMessage.status = 'need_input';
+    const missingParams = data.need_input?.missing_params || [];
+    resultMessage.content = `请补充以下信息：${missingParams.join('、')}`;
+    aiStatus.value = 'waiting_input';
+}
+```
+
+### 状态
+✅ 完成 (2026-01-27 19:00)
+
+---
+## [2026-01-27 17:40] - 解析特殊格式的 user_id 占位符
+
+### 任务描述
+`pre_fill_known_params_with_llm` 无法正确解析 `<user_id:1,tenant_id:1>` 格式的占位符。
+
+### 修改文件
+- [x] tasks/capabilities/context_resolver/tree_context_resolver.py - 添加 `_parse_user_id_format` 方法
+
+### 状态
+✅ 完成 (2026-01-27 17:40)
+
+---
 ## [2026-01-27 13:50] - 修复任务结果为字典时无法保存到对话历史的问题
 
 ### 任务描述
