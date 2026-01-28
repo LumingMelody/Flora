@@ -380,12 +380,12 @@ class TaskGroupAggregatorActor(Actor):
 
     def _enrich_context_from_result(self, result: Any, prefix: str, source: str = "tool_output", task_path: str = "") -> None:
         """
-        将 result 精简后封装进 ContextEntry，存入 enriched_context[prefix]
+        将 result 封装进 ContextEntry，存入 enriched_context[prefix]
 
         优化策略：
-        1. 提取有意义的结果，避免存储完整的嵌套 step_results
-        2. 限制存储大小，避免上下文膨胀
-        3. 只保留对后续任务有用的信息
+        1. 保留完整上下文数据，支持后续任务动态参数传递
+        2. 只处理嵌套的 step_results 结构，提取最终结果
+        3. 跳过冗余的包装字段（step_results, enriched_context, global_context）
 
         Args:
             result: 要保存的任意结果（支持 dict/list/str/int 等）
@@ -396,14 +396,14 @@ class TaskGroupAggregatorActor(Actor):
         if result is None:
             return
 
-        # 精简结果，提取有意义的内容
-        simplified_result = self._simplify_result_for_context(result)
+        # 处理结果：主要是展开嵌套的 step_results
+        processed_result = self._process_result_for_context(result)
 
-        if simplified_result is None:
+        if processed_result is None:
             return
 
         entry = ContextEntry(
-            value=simplified_result,
+            value=processed_result,
             source=source,
             task_path=task_path,
             timestamp=time.time(),
@@ -411,34 +411,25 @@ class TaskGroupAggregatorActor(Actor):
         )
         self.enriched_context[prefix] = entry
 
-    def _simplify_result_for_context(self, result: Any, max_depth: int = 3) -> Any:
+    def _process_result_for_context(self, result: Any) -> Any:
         """
-        精简结果用于上下文存储
+        处理结果用于上下文存储
 
         策略：
         1. 如果是嵌套的 step_results，提取最终有意义的结果
-        2. 如果是错误信息，只保留错误摘要
-        3. 限制字符串长度和嵌套深度
+        2. 保留完整数据，不限制长度和深度
+        3. 跳过冗余的包装字段
 
         Args:
             result: 原始结果
-            max_depth: 最大递归深度
 
         Returns:
-            精简后的结果
+            处理后的结果
         """
-        if max_depth <= 0:
-            if isinstance(result, str):
-                return result[:200] + "..." if len(result) > 200 else result
-            return "[nested data]"
-
         if result is None:
             return None
 
         if isinstance(result, (str, int, float, bool)):
-            # 限制字符串长度
-            if isinstance(result, str) and len(result) > 1000:
-                return result[:1000] + "..."
             return result
 
         if isinstance(result, dict):
@@ -446,51 +437,43 @@ class TaskGroupAggregatorActor(Actor):
             if "step_results" in result:
                 return self._extract_final_results_from_steps(result["step_results"])
 
-            # 处理单个步骤结果
-            if "status" in result:
+            # 处理单个步骤结果包装：提取内部 result
+            if "status" in result and "result" in result:
                 status = result.get("status")
                 if status == "SUCCESS":
                     inner_result = result.get("result")
                     if inner_result:
-                        return self._simplify_result_for_context(inner_result, max_depth - 1)
-                    return {"status": "SUCCESS", "summary": "执行成功"}
+                        return self._process_result_for_context(inner_result)
+                    return {"status": "SUCCESS"}
                 elif status == "ERROR":
                     return {
                         "status": "ERROR",
-                        "error": str(result.get("error", "未知错误"))[:200]
+                        "error": result.get("error", "未知错误")
                     }
 
-            # 处理 Dify 返回格式
+            # 处理 Dify 返回格式：提取 data
             if "code" in result and "data" in result:
                 if result.get("code") == 200 and result.get("data"):
-                    return self._simplify_result_for_context(result["data"], max_depth - 1)
+                    return self._process_result_for_context(result["data"])
                 elif result.get("msg"):
-                    return {"message": str(result["msg"])[:200]}
+                    return {"message": result["msg"]}
 
-            # 普通字典：精简每个字段
-            simplified = {}
-            for key, value in list(result.items())[:10]:  # 最多保留10个字段
+            # 普通字典：保留所有字段，但跳过冗余的包装字段
+            processed = {}
+            for key, value in result.items():
                 # 跳过已知的冗余字段
                 if key in ("step_results", "enriched_context", "global_context"):
                     continue
-                simplified[key] = self._simplify_result_for_context(value, max_depth - 1)
-            return simplified
+                processed[key] = self._process_result_for_context(value)
+            return processed
 
         if isinstance(result, (list, tuple)):
-            if len(result) == 0:
-                return []
-            # 限制列表长度
-            simplified = [
-                self._simplify_result_for_context(item, max_depth - 1)
-                for item in result[:5]
-            ]
-            if len(result) > 5:
-                simplified.append(f"... and {len(result) - 5} more items")
-            return simplified
+            # 保留完整列表
+            return [self._process_result_for_context(item) for item in result]
 
         # 其他类型转字符串
         try:
-            return str(result)[:500]
+            return str(result)
         except Exception:
             return "[unserializable]"
 
@@ -502,12 +485,13 @@ class TaskGroupAggregatorActor(Actor):
             step_results: 步骤结果字典
 
         Returns:
-            精简后的结果摘要
+            提取后的结果（保留完整数据）
         """
         final_results = {}
 
         for step_name, step_result in step_results.items():
             if not isinstance(step_result, dict):
+                final_results[step_name] = step_result
                 continue
 
             status = step_result.get("status")
@@ -520,17 +504,15 @@ class TaskGroupAggregatorActor(Actor):
                         nested = self._extract_final_results_from_steps(inner_result["step_results"])
                         final_results[step_name] = nested
                     else:
-                        # 提取关键信息
-                        simplified = self._simplify_result_for_context(inner_result, max_depth=2)
-                        if simplified:
-                            final_results[step_name] = simplified
+                        # 保留完整结果
+                        final_results[step_name] = self._process_result_for_context(inner_result)
                 else:
                     final_results[step_name] = {"status": "SUCCESS"}
 
             elif status == "ERROR":
                 final_results[step_name] = {
                     "status": "ERROR",
-                    "error": str(step_result.get("error", "未知错误"))[:100]
+                    "error": step_result.get("error", "未知错误")
                 }
 
         return final_results if final_results else {"summary": "无有效结果"}
