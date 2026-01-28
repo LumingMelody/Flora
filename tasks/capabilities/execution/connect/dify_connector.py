@@ -1,6 +1,7 @@
 from typing import Dict, Any, List
 import requests
 import json
+import re
 from external.clients import DifyClient
 from .base_connector import BaseConnector
 
@@ -157,6 +158,74 @@ class DifyConnector(BaseConnector):
         if label and "ID" in label.upper():
             return True
         return False
+
+    @staticmethod
+    def _parse_special_format(value: str) -> Dict[str, str]:
+        """
+        解析特殊格式的字符串，如 <user_id:1,tenant_id:1>
+
+        Args:
+            value: 可能包含特殊格式的字符串
+
+        Returns:
+            dict: 解析出的参数，如 {"user_id": "1", "tenant_id": "1"}
+        """
+        if not isinstance(value, str):
+            return {}
+
+        result = {}
+
+        # 模式1: <user_id:1,tenant_id:1>
+        pattern1 = r'<([a-zA-Z_]+):([^,>]+)(?:,([a-zA-Z_]+):([^>]+))?>'
+        matches = re.findall(pattern1, value)
+
+        for match in matches:
+            if match[0] and match[1]:
+                result[match[0]] = match[1].strip()
+            if match[2] and match[3]:
+                result[match[2]] = match[3].strip()
+
+        # 模式2: 单独的 <key:value>
+        pattern2 = r'<([a-zA-Z_]+):([^<>]+)>'
+        matches2 = re.findall(pattern2, value)
+        for key, val in matches2:
+            if key not in result:
+                result[key] = val.strip()
+
+        return result
+
+    def _resolve_special_format_in_inputs(self, inputs: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        解析 inputs 中所有特殊格式的值
+
+        如果某个值是 <user_id:1,tenant_id:1> 格式，则：
+        1. 将该值替换为解析后的实际值
+        2. 将解析出的其他参数也加入 inputs
+
+        Args:
+            inputs: 原始输入参数
+
+        Returns:
+            dict: 解析后的输入参数
+        """
+        resolved = dict(inputs)
+
+        for key, value in list(inputs.items()):
+            if isinstance(value, str) and '<' in value and ':' in value and '>' in value:
+                parsed = self._parse_special_format(value)
+                if parsed:
+                    # 如果当前 key 在解析结果中，使用解析后的值
+                    if key in parsed:
+                        resolved[key] = parsed[key]
+                        logger.info(f"Resolved '{key}' from special format: {value} -> {parsed[key]}")
+                    # 将其他解析出的参数也加入（如果不存在）
+                    for pk, pv in parsed.items():
+                        if pk not in resolved or resolved[pk] == value:
+                            resolved[pk] = pv
+                            if pk != key:
+                                logger.info(f"Added '{pk}' from special format: {pv}")
+
+        return resolved
     
     def _check_missing_inputs(
         self, inputs: Dict[str, Any], required_inputs: Dict[str, Any] = None
@@ -353,9 +422,13 @@ class DifyConnector(BaseConnector):
                 "Content-Type": "application/json"
             }
 
+            # 【关键】解析特殊格式的参数，如 <user_id:1,tenant_id:1> -> user_id=1, tenant_id=1
+            completed_inputs = self._resolve_special_format_in_inputs(completed_inputs)
+
             completed_inputs = self._normalize_inputs_by_schema(
                 completed_inputs, required_inputs
             )
+            logger.info(f"Final inputs to Dify: {completed_inputs}")
             payload = {
                 "inputs": completed_inputs,
                 "response_mode": "blocking",

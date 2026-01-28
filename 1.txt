@@ -1,693 +1,118 @@
-              ^^^^^^^^^^^^^^^^^^^^^^
-  File "/usr/local/lib/python3.11/site-packages/sentence_transformers/SentenceTransformer.py", line 2112, in _load_auto_model
-    transformer_model = Transformer(
-                        ^^^^^^^^^^^^
-  File "/usr/local/lib/python3.11/site-packages/sentence_transformers/models/Transformer.py", line 88, in __init__
-    config, is_peft_model = self._load_config(model_name_or_path, cache_dir, backend, config_args)
-                            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/usr/local/lib/python3.11/site-packages/sentence_transformers/models/Transformer.py", line 163, in _load_config
-    return AutoConfig.from_pretrained(model_name_or_path, **config_args, cache_dir=cache_dir), False
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/usr/local/lib/python3.11/site-packages/transformers/models/auto/configuration_auto.py", line 1332, in from_pretrained
-    config_dict, unused_kwargs = PretrainedConfig.get_config_dict(pretrained_model_name_or_path, **kwargs)
-                                 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/usr/local/lib/python3.11/site-packages/transformers/configuration_utils.py", line 662, in get_config_dict
-    config_dict, kwargs = cls._get_config_dict(pretrained_model_name_or_path, **kwargs)
-                          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/usr/local/lib/python3.11/site-packages/transformers/configuration_utils.py", line 721, in _get_config_dict
-    resolved_config_file = cached_file(
-                           ^^^^^^^^^^^^
-  File "/usr/local/lib/python3.11/site-packages/transformers/utils/hub.py", line 322, in cached_file
-    file = cached_files(path_or_repo_id=path_or_repo_id, filenames=[filename], **kwargs)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/usr/local/lib/python3.11/site-packages/transformers/utils/hub.py", line 553, in cached_files
-    raise OSError(
-OSError: We couldn't connect to 'https://huggingface.co' to load the files, and couldn't find them in the cached files.
-Check your internet connection or see how to run the library in offline mode at 'https://huggingface.co/docs/transformers/installation#offline-mode'.
-2026-01-22 03:59:00,611 INFO    =>  Registered 'unified_memory' as default handler for 'llm_memory'  [capability_manager.py:173]
-2026-01-22 03:59:00,611 INFO    =>  Initialized: unified_memory  [capability_manager.py:175]
-2026-01-22 03:59:00,611 INFO    =>  Initialization completed.  [capability_manager.py:180]
-2026-01-22 03:59:00,611 INFO    =>  TaskRouterActor initialized  [task_router.py:559]
-2026-01-22 03:59:00,611 INFO    =>  TaskRouter initialized for RabbitMQ listener.  [main.py:87]
-2026-01-22 03:59:00,612 INFO    =>  正在连接 RabbitMQ...  [rabbitmq_listener.py:280]
-2026-01-22 03:59:00,612 INFO    =>  RabbitMQ listener started successfully (TaskRouter mode).  [main.py:101]
-2026-01-22 03:59:00,612 INFO    =>  Starting Flora API Server on http://0.0.0.0:8002 (debug=False)  [main.py:154]
-2026-01-22 03:59:00,612 INFO    =>  Press Ctrl+C to stop.  [main.py:155]
-2026-01-22 03:59:00,615 INFO    =>  Pika version 1.3.2 connecting to ('172.27.0.4', 5672)  [connection_workflow.py:179]
-2026-01-22 03:59:00,616 INFO    =>  Socket connected: <socket.socket fd=24, family=2, type=1, proto=6, laddr=('172.27.0.5', 48366), raddr=('172.27.0.4', 5672)>  [io_services_utils.py:345]
-2026-01-22 03:59:00,619 INFO    =>  Streaming transport linked up: (<pika.adapters.utils.io_services_utils._AsyncPlaintextTransport object at 0x7f96d90ede50>, _StreamingProtocolShim: <SelectConnection PROTOCOL transport=<pika.adapters.utils.io_services_utils._AsyncPlaintextTransport object at 0x7f96d90ede50> params=<ConnectionParameters host=rabbitmq port=5672 virtual_host=/ ssl=False>>).  [connection_workflow.py:428]
-2026-01-22 03:59:00,622 INFO    =>  AMQPConnector - reporting success: <SelectConnection OPEN transport=<pika.adapters.utils.io_services_utils._AsyncPlaintextTransport object at 0x7f96d90ede50> params=<ConnectionParameters host=rabbitmq port=5672 virtual_host=/ ssl=False>>  [connection_workflow.py:293]
-2026-01-22 03:59:00,622 INFO    =>  AMQPConnectionWorkflow - reporting success: <SelectConnection OPEN transport=<pika.adapters.utils.io_services_utils._AsyncPlaintextTransport object at 0x7f96d90ede50> params=<ConnectionParameters host=rabbitmq port=5672 virtual_host=/ ssl=False>>  [connection_workflow.py:725]
-2026-01-22 03:59:00,622 INFO    =>  Connection workflow succeeded: <SelectConnection OPEN transport=<pika.adapters.utils.io_services_utils._AsyncPlaintextTransport object at 0x7f96d90ede50> params=<ConnectionParameters host=rabbitmq port=5672 virtual_host=/ ssl=False>>  [blocking_connection.py:453]
-2026-01-22 03:59:00,622 INFO    =>  Created channel=1  [blocking_connection.py:1264]
-2026-01-22 03:59:00,625 INFO    =>   [*] RabbitMQ监听已启动，队列: work.excute，等待消息...  [rabbitmq_listener.py:298]
-/usr/local/lib/python3.11/site-packages/websockets/legacy/__init__.py:6: DeprecationWarning: websockets.legacy is deprecated; see https://websockets.readthedocs.io/en/stable/howto/upgrade.html for upgrade instructions
-  warnings.warn(  # deprecated in 14.0 - 2024-11-09
-/usr/local/lib/python3.11/site-packages/uvicorn/protocols/websockets/websockets_impl.py:17: DeprecationWarning: websockets.server.WebSocketServerProtocol is deprecated
-  from websockets.server import WebSocketServerProtocol
-INFO:     Started server process [1]
-INFO:     Waiting for application startup.
-INFO:     Application startup complete.
-INFO:     Uvicorn running on http://0.0.0.0:8002 (Press CTRL+C to quit)
-INFO:     127.0.0.1:34420 - "GET /health HTTP/1.1" 200 OK
-INFO:     127.0.0.1:43982 - "GET /health HTTP/1.1" 200 OK
-INFO:     127.0.0.1:43528 - "GET /health HTTP/1.1" 200 OK
-2026-01-22 04:00:35,127 INFO    =>  投递新任务: 71141eff-4052-414f-aa89-14adff9bb528, trace_id: 71141eff-4052-414f-aa89-14adff9bb528  [rabbitmq_listener.py:202]
-2026-01-22 04:00:35,131 INFO    =>  Pika version 1.3.2 connecting to ('172.27.0.4', 5672)  [connection_workflow.py:179]
-2026-01-22 04:00:35,131 ERROR   =>  Failed to send event: All connection attempts failed  [event_bus.py:165]
-2026-01-22 04:00:35,131 ERROR   =>  Failed to process queued event: All connection attempts failed  [event_bus.py:111]
-Traceback (most recent call last):
-  File "/usr/local/lib/python3.11/site-packages/httpx/_transports/default.py", line 101, in map_httpcore_exceptions
-    yield
-  File "/usr/local/lib/python3.11/site-packages/httpx/_transports/default.py", line 394, in handle_async_request
-    resp = await self._pool.handle_async_request(req)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/usr/local/lib/python3.11/site-packages/httpcore/_async/connection_pool.py", line 256, in handle_async_request
-    raise exc from None
-  File "/usr/local/lib/python3.11/site-packages/httpcore/_async/connection_pool.py", line 236, in handle_async_request
-    response = await connection.handle_async_request(
-               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/usr/local/lib/python3.11/site-packages/httpcore/_async/connection.py", line 101, in handle_async_request
-    raise exc
-  File "/usr/local/lib/python3.11/site-packages/httpcore/_async/connection.py", line 78, in handle_async_request
-    stream = await self._connect(request)
-             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/usr/local/lib/python3.11/site-packages/httpcore/_async/connection.py", line 124, in _connect
-    stream = await self._network_backend.connect_tcp(**kwargs)
-             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/usr/local/lib/python3.11/site-packages/httpcore/_backends/auto.py", line 31, in connect_tcp
-    return await self._backend.connect_tcp(
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/usr/local/lib/python3.11/site-packages/httpcore/_backends/anyio.py", line 113, in connect_tcp
-    with map_exceptions(exc_map):
-  File "/usr/local/lib/python3.11/contextlib.py", line 158, in __exit__
-    self.gen.throw(typ, value, traceback)
-  File "/usr/local/lib/python3.11/site-packages/httpcore/_exceptions.py", line 14, in map_exceptions
-    raise to_exc(exc) from exc
-httpcore.ConnectError: All connection attempts failed
+明白了，让我重新梳理：
 
-The above exception was the direct cause of the following exception:
+  核心设计
 
-Traceback (most recent call last):
-  File "/app/tasks/events/event_bus.py", line 106, in _consume_queue
-    await self._send_event_request_internal(client, item.payload)
-  File "/app/tasks/events/event_bus.py", line 159, in _send_event_request_internal
-    resp = await client.post(url, json=serializable_payload)
-          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/usr/local/lib/python3.11/site-packages/httpx/_client.py", line 1859, in post
-    return await self.request(
-           ^^^^^^^^^^^^^^^^^^^
-  File "/usr/local/lib/python3.11/site-packages/httpx/_client.py", line 1540, in request
-    return await self.send(request, auth=auth, follow_redirects=follow_redirects)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/usr/local/lib/python3.11/site-packages/httpx/_client.py", line 1629, in send
-    response = await self._send_handling_auth(
-               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/usr/local/lib/python3.11/site-packages/httpx/_client.py", line 1657, in _send_handling_auth
-    response = await self._send_handling_redirects(
-               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/usr/local/lib/python3.11/site-packages/httpx/_client.py", line 1694, in _send_handling_redirects
-    response = await self._send_single_request(request)
-               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/usr/local/lib/python3.11/site-packages/httpx/_client.py", line 1730, in _send_single_request
-    response = await transport.handle_async_request(request)
-               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/usr/local/lib/python3.11/site-packages/httpx/_transports/default.py", line 393, in handle_async_request
-    with map_httpcore_exceptions():
-  File "/usr/local/lib/python3.11/contextlib.py", line 158, in __exit__
-    self.gen.throw(typ, value, traceback)
-  File "/usr/local/lib/python3.11/site-packages/httpx/_transports/default.py", line 118, in map_httpcore_exceptions
-    raise mapped_exc(message) from exc
-httpx.ConnectError: All connection attempts failed
-2026-01-22 04:00:35,131 INFO    =>  Socket connected: <socket.socket fd=38, family=2, type=1, proto=6, laddr=('172.27.0.5', 39606), raddr=('172.27.0.4', 5672)>  [io_services_utils.py:345]
-2026-01-22 04:00:35,133 INFO    =>  Streaming transport linked up: (<pika.adapters.utils.io_services_utils._AsyncPlaintextTransport object at 0x7f96d847fdd0>, _StreamingProtocolShim: <SelectConnection PROTOCOL transport=<pika.adapters.utils.io_services_utils._AsyncPlaintextTransport object at 0x7f96d847fdd0> params=<URLParameters host=rabbitmq port=5672 virtual_host=/ ssl=False>>).  [connection_workflow.py:428]
-2026-01-22 04:00:35,135 INFO    =>  AMQPConnector - reporting success: <SelectConnection OPEN transport=<pika.adapters.utils.io_services_utils._AsyncPlaintextTransport object at 0x7f96d847fdd0> params=<URLParameters host=rabbitmq port=5672 virtual_host=/ ssl=False>>  [connection_workflow.py:293]
-2026-01-22 04:00:35,135 INFO    =>  AMQPConnectionWorkflow - reporting success: <SelectConnection OPEN transport=<pika.adapters.utils.io_services_utils._AsyncPlaintextTransport object at 0x7f96d847fdd0> params=<URLParameters host=rabbitmq port=5672 virtual_host=/ ssl=False>>  [connection_workflow.py:725]
-2026-01-22 04:00:35,135 INFO    =>  Connection workflow succeeded: <SelectConnection OPEN transport=<pika.adapters.utils.io_services_utils._AsyncPlaintextTransport object at 0x7f96d847fdd0> params=<URLParameters host=rabbitmq port=5672 virtual_host=/ ssl=False>>  [blocking_connection.py:453]
-2026-01-22 04:00:35,135 INFO    =>  Created channel=1  [blocking_connection.py:1264]
-2026-01-22 04:00:35,137 INFO    =>  TaskResultPublisher connected to RabbitMQ, queue: work.result  [task_result_publisher.py:82]
-2026-01-22 04:00:35,137 INFO    =>  TaskResultPublisher initialized  [task_router.py:150]
-2026-01-22 04:00:35,137 INFO    =>  Handling new task: 71141eff-4052-414f-aa89-14adff9bb528, agent=marketing, trace_id=71141eff-4052-414f-aa89-14adff9bb528  [task_router.py:208]
-2026-01-22 04:00:35,138 INFO    =>  Saved task state: trace_id=71141eff-4052-414f-aa89-14adff9bb528, status=RUNNING  [task_state_repo.py:141]
-2026-01-22 04:00:35,138 INFO    =>  Created AgentActor  [task_router.py:162]
-2026-01-22 04:00:35,139 INFO    =>  树形结构管理器初始化成功  [tree_manager.py:35]
-2026-01-22 04:00:35,156 INFO    =>  AgentActor initialized for marketing  [agent_actor.py:112]
-2026-01-22 04:00:35,156 INFO    =>  [AgentActor] Handling task 71141eff-4052-414f-aa89-14adff9bb528: 内容：创建一个针对手机产品的裂变营销活动，目标是让初始参与者能够邀请足够多的新用户加入，直到达到总共...  [agent_actor.py:149]
-2026-01-22 04:00:35,156 WARNING =>  Memory write skipped: MemoryCapability   is not initialized. Call initialize() first.  [agent_actor.py:180]
-2026-01-22 04:00:35,156 ERROR   =>  Error in AgentActor marketing: MemoryCapability   is not initialized. Call initialize() first.  [agent_actor.py:91]
-Traceback (most recent call last):
-  File "/app/tasks/agents/agent_actor.py", line 82, in receiveMessage
-    self._handle_task(message, sender)
-  File "/app/tasks/agents/agent_actor.py", line 185, in _handle_task
-    conversation_context = self.memory_cap.build_conversation_context(
-                           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/app/tasks/capabilities/llm_memory/unified_memory.py", line 170, in build_conversation_context
-    self._ensure_initialized()
-  File "/app/tasks/capabilities/llm_memory/unified_memory.py", line 197, in _ensure_initialized
-    raise RuntimeError(
-RuntimeError: MemoryCapability   is not initialized. Call initialize() first.
-2026-01-22 04:00:36,135 ERROR   =>  Failed to send event: All connection attempts failed  [event_bus.py:165]
-2026-01-22 04:00:36,135 ERROR   =>  Failed to process queued event: All connection attempts failed  [event_bus.py:111]
-Traceback (most recent call last):
-  File "/usr/local/lib/python3.11/site-packages/httpx/_transports/default.py", line 101, in map_httpcore_exceptions
-    yield
-  File "/usr/local/lib/python3.11/site-packages/httpx/_transports/default.py", line 394, in handle_async_request
-    resp = await self._pool.handle_async_request(req)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/usr/local/lib/python3.11/site-packages/httpcore/_async/connection_pool.py", line 256, in handle_async_request
-    raise exc from None
-  File "/usr/local/lib/python3.11/site-packages/httpcore/_async/connection_pool.py", line 236, in handle_async_request
-    response = await connection.handle_async_request(
-               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/usr/local/lib/python3.11/site-packages/httpcore/_async/connection.py", line 101, in handle_async_request
-    raise exc
-  File "/usr/local/lib/python3.11/site-packages/httpcore/_async/connection.py", line 78, in handle_async_request
-    stream = await self._connect(request)
-             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/usr/local/lib/python3.11/site-packages/httpcore/_async/connection.py", line 124, in _connect
-    stream = await self._network_backend.connect_tcp(**kwargs)
-             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/usr/local/lib/python3.11/site-packages/httpcore/_backends/auto.py", line 31, in connect_tcp
-    return await self._backend.connect_tcp(
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/usr/local/lib/python3.11/site-packages/httpcore/_backends/anyio.py", line 113, in connect_tcp
-    with map_exceptions(exc_map):
-  File "/usr/local/lib/python3.11/contextlib.py", line 158, in __exit__
-    self.gen.throw(typ, value, traceback)
-  File "/usr/local/lib/python3.11/site-packages/httpcore/_exceptions.py", line 14, in map_exceptions
-    raise to_exc(exc) from exc
-httpcore.ConnectError: All connection attempts failed
+  1. TreeContextResolver 提供统一的参数解析能力 - 供 MCPActor、CapabilityExecutor 等所有执行层使用
+  2. 传递完整上下文快照 - 不做预筛选
+  3. 引用解析需要优化 - 避免 LLM 逐个展开
 
-The above exception was the direct cause of the following exception:
+  ---
+  引用解析的问题
 
-Traceback (most recent call last):
-  File "/app/tasks/events/event_bus.py", line 106, in _consume_queue
-    await self._send_event_request_internal(client, item.payload)
-  File "/app/tasks/events/event_bus.py", line 159, in _send_event_request_internal
-    resp = await client.post(url, json=serializable_payload)
-          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/usr/local/lib/python3.11/site-packages/httpx/_client.py", line 1859, in post
-    return await self.request(
-           ^^^^^^^^^^^^^^^^^^^
-  File "/usr/local/lib/python3.11/site-packages/httpx/_client.py", line 1540, in request
-    return await self.send(request, auth=auth, follow_redirects=follow_redirects)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/usr/local/lib/python3.11/site-packages/httpx/_client.py", line 1629, in send
-    response = await self._send_handling_auth(
-               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/usr/local/lib/python3.11/site-packages/httpx/_client.py", line 1657, in _send_handling_auth
-    response = await self._send_handling_redirects(
-               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/usr/local/lib/python3.11/site-packages/httpx/_client.py", line 1694, in _send_handling_redirects
-    response = await self._send_single_request(request)
-               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/usr/local/lib/python3.11/site-packages/httpx/_client.py", line 1730, in _send_single_request
-    response = await transport.handle_async_request(request)
-               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/usr/local/lib/python3.11/site-packages/httpx/_transports/default.py", line 393, in handle_async_request
-    with map_httpcore_exceptions():
-  File "/usr/local/lib/python3.11/contextlib.py", line 158, in __exit__
-    self.gen.throw(typ, value, traceback)
-  File "/usr/local/lib/python3.11/site-packages/httpx/_transports/default.py", line 118, in map_httpcore_exceptions
-    raise mapped_exc(message) from exc
-httpx.ConnectError: All connection attempts failed
-2026-01-22 04:00:37,138 ERROR   =>  Failed to send event: All connection attempts failed  [event_bus.py:165]
-2026-01-22 04:00:37,138 ERROR   =>  Failed to process queued event: All connection attempts failed  [event_bus.py:111]
-Traceback (most recent call last):
-  File "/usr/local/lib/python3.11/site-packages/httpx/_transports/default.py", line 101, in map_httpcore_exceptions
-    yield
-  File "/usr/local/lib/python3.11/site-packages/httpx/_transports/default.py", line 394, in handle_async_request
-    resp = await self._pool.handle_async_request(req)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/usr/local/lib/python3.11/site-packages/httpcore/_async/connection_pool.py", line 256, in handle_async_request
-    raise exc from None
-  File "/usr/local/lib/python3.11/site-packages/httpcore/_async/connection_pool.py", line 236, in handle_async_request
-    response = await connection.handle_async_request(
-               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/usr/local/lib/python3.11/site-packages/httpcore/_async/connection.py", line 101, in handle_async_request
-    raise exc
-  File "/usr/local/lib/python3.11/site-packages/httpcore/_async/connection.py", line 78, in handle_async_request
-    stream = await self._connect(request)
-             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/usr/local/lib/python3.11/site-packages/httpcore/_async/connection.py", line 124, in _connect
-    stream = await self._network_backend.connect_tcp(**kwargs)
-             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/usr/local/lib/python3.11/site-packages/httpcore/_backends/auto.py", line 31, in connect_tcp
-    return await self._backend.connect_tcp(
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/usr/local/lib/python3.11/site-packages/httpcore/_backends/anyio.py", line 113, in connect_tcp
-    with map_exceptions(exc_map):
-  File "/usr/local/lib/python3.11/contextlib.py", line 158, in __exit__
-    self.gen.throw(typ, value, traceback)
-  File "/usr/local/lib/python3.11/site-packages/httpcore/_exceptions.py", line 14, in map_exceptions
-    raise to_exc(exc) from exc
-httpcore.ConnectError: All connection attempts failed
+  当前如果传递引用，LLM 看到的是：
+  {
+    "user_profile": {"$ref": "step_1.result.profile"},
+    "orders": {"$ref": "step_2.result.orders"}
+  }
 
-The above exception was the direct cause of the following exception:
+  LLM 不知道里面有什么，必须一个个展开才能判断是否需要 → 消耗大
 
-Traceback (most recent call last):
-  File "/app/tasks/events/event_bus.py", line 106, in _consume_queue
-    await self._send_event_request_internal(client, item.payload)
-  File "/app/tasks/events/event_bus.py", line 159, in _send_event_request_internal
-    resp = await client.post(url, json=serializable_payload)
-          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/usr/local/lib/python3.11/site-packages/httpx/_client.py", line 1859, in post
-    return await self.request(
-           ^^^^^^^^^^^^^^^^^^^
-  File "/usr/local/lib/python3.11/site-packages/httpx/_client.py", line 1540, in request
-    return await self.send(request, auth=auth, follow_redirects=follow_redirects)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/usr/local/lib/python3.11/site-packages/httpx/_client.py", line 1629, in send
-    response = await self._send_handling_auth(
-               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/usr/local/lib/python3.11/site-packages/httpx/_client.py", line 1657, in _send_handling_auth
-    response = await self._send_handling_redirects(
-               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/usr/local/lib/python3.11/site-packages/httpx/_client.py", line 1694, in _send_handling_redirects
-    response = await self._send_single_request(request)
-               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/usr/local/lib/python3.11/site-packages/httpx/_client.py", line 1730, in _send_single_request
-    response = await transport.handle_async_request(request)
-               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/usr/local/lib/python3.11/site-packages/httpx/_transports/default.py", line 393, in handle_async_request
-    with map_httpcore_exceptions():
-  File "/usr/local/lib/python3.11/contextlib.py", line 158, in __exit__
-    self.gen.throw(typ, value, traceback)
-  File "/usr/local/lib/python3.11/site-packages/httpx/_transports/default.py", line 118, in map_httpcore_exceptions
-    raise mapped_exc(message) from exc
-httpx.ConnectError: All connection attempts failed
-2026-01-22 04:00:39,142 ERROR   =>  Failed to send event: All connection attempts failed  [event_bus.py:165]
-2026-01-22 04:00:39,142 ERROR   =>  Failed to process queued event: All connection attempts failed  [event_bus.py:111]
-Traceback (most recent call last):
-  File "/usr/local/lib/python3.11/site-packages/httpx/_transports/default.py", line 101, in map_httpcore_exceptions
-    yield
-  File "/usr/local/lib/python3.11/site-packages/httpx/_transports/default.py", line 394, in handle_async_request
-    resp = await self._pool.handle_async_request(req)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/usr/local/lib/python3.11/site-packages/httpcore/_async/connection_pool.py", line 256, in handle_async_request
-    raise exc from None
-  File "/usr/local/lib/python3.11/site-packages/httpcore/_async/connection_pool.py", line 236, in handle_async_request
-    response = await connection.handle_async_request(
-               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/usr/local/lib/python3.11/site-packages/httpcore/_async/connection.py", line 101, in handle_async_request
-    raise exc
-  File "/usr/local/lib/python3.11/site-packages/httpcore/_async/connection.py", line 78, in handle_async_request
-    stream = await self._connect(request)
-             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/usr/local/lib/python3.11/site-packages/httpcore/_async/connection.py", line 124, in _connect
-    stream = await self._network_backend.connect_tcp(**kwargs)
-             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/usr/local/lib/python3.11/site-packages/httpcore/_backends/auto.py", line 31, in connect_tcp
-    return await self._backend.connect_tcp(
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/usr/local/lib/python3.11/site-packages/httpcore/_backends/anyio.py", line 113, in connect_tcp
-    with map_exceptions(exc_map):
-  File "/usr/local/lib/python3.11/contextlib.py", line 158, in __exit__
-    self.gen.throw(typ, value, traceback)
-  File "/usr/local/lib/python3.11/site-packages/httpcore/_exceptions.py", line 14, in map_exceptions
-    raise to_exc(exc) from exc
-httpcore.ConnectError: All connection attempts failed
+  ---
+  优化方案：Schema 摘要 + 按需展开
 
-The above exception was the direct cause of the following exception:
+  传递的不是纯引用，而是 带 Schema 摘要的引用：
 
-Traceback (most recent call last):
-  File "/app/tasks/events/event_bus.py", line 106, in _consume_queue
-    await self._send_event_request_internal(client, item.payload)
-  File "/app/tasks/events/event_bus.py", line 159, in _send_event_request_internal
-    resp = await client.post(url, json=serializable_payload)
-          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/usr/local/lib/python3.11/site-packages/httpx/_client.py", line 1859, in post
-    return await self.request(
-           ^^^^^^^^^^^^^^^^^^^
-  File "/usr/local/lib/python3.11/site-packages/httpx/_client.py", line 1540, in request
-    return await self.send(request, auth=auth, follow_redirects=follow_redirects)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/usr/local/lib/python3.11/site-packages/httpx/_client.py", line 1629, in send
-    response = await self._send_handling_auth(
-               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/usr/local/lib/python3.11/site-packages/httpx/_client.py", line 1657, in _send_handling_auth
-    response = await self._send_handling_redirects(
-               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/usr/local/lib/python3.11/site-packages/httpx/_client.py", line 1694, in _send_handling_redirects
-    response = await self._send_single_request(request)
-               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/usr/local/lib/python3.11/site-packages/httpx/_client.py", line 1730, in _send_single_request
-    response = await transport.handle_async_request(request)
-               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/usr/local/lib/python3.11/site-packages/httpx/_transports/default.py", line 393, in handle_async_request
-    with map_httpcore_exceptions():
-  File "/usr/local/lib/python3.11/contextlib.py", line 158, in __exit__
-    self.gen.throw(typ, value, traceback)
-  File "/usr/local/lib/python3.11/site-packages/httpx/_transports/default.py", line 118, in map_httpcore_exceptions
-    raise mapped_exc(message) from exc
-httpx.ConnectError: All connection attempts failed
-2026-01-22 04:00:41,146 ERROR   =>  Failed to send event: All connection attempts failed  [event_bus.py:165]
-2026-01-22 04:00:41,146 ERROR   =>  Failed to process queued event: All connection attempts failed  [event_bus.py:111]
-Traceback (most recent call last):
-  File "/usr/local/lib/python3.11/site-packages/httpx/_transports/default.py", line 101, in map_httpcore_exceptions
-    yield
-  File "/usr/local/lib/python3.11/site-packages/httpx/_transports/default.py", line 394, in handle_async_request
-    resp = await self._pool.handle_async_request(req)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/usr/local/lib/python3.11/site-packages/httpcore/_async/connection_pool.py", line 256, in handle_async_request
-    raise exc from None
-  File "/usr/local/lib/python3.11/site-packages/httpcore/_async/connection_pool.py", line 236, in handle_async_request
-    response = await connection.handle_async_request(
-               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/usr/local/lib/python3.11/site-packages/httpcore/_async/connection.py", line 101, in handle_async_request
-    raise exc
-  File "/usr/local/lib/python3.11/site-packages/httpcore/_async/connection.py", line 78, in handle_async_request
-    stream = await self._connect(request)
-             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/usr/local/lib/python3.11/site-packages/httpcore/_async/connection.py", line 124, in _connect
-    stream = await self._network_backend.connect_tcp(**kwargs)
-             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/usr/local/lib/python3.11/site-packages/httpcore/_backends/auto.py", line 31, in connect_tcp
-    return await self._backend.connect_tcp(
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/usr/local/lib/python3.11/site-packages/httpcore/_backends/anyio.py", line 113, in connect_tcp
-    with map_exceptions(exc_map):
-  File "/usr/local/lib/python3.11/contextlib.py", line 158, in __exit__
-    self.gen.throw(typ, value, traceback)
-  File "/usr/local/lib/python3.11/site-packages/httpcore/_exceptions.py", line 14, in map_exceptions
-    raise to_exc(exc) from exc
-httpcore.ConnectError: All connection attempts failed
+  context_snapshot = {
+      "step_1": {
+          "_schema": {
+              "user_id": "string",
+              "profile": {
+                  "name": "string",
+                  "age": "int",
+                  "preferences": "list[string]"
+              }
+          },
+          "_ref": "step_results.step_1"  # 实际数据的引用
+      },
+      "step_2": {
+          "_schema": {
+              "orders": "list[{order_id: string, amount: float, status: string}]",
+              "total": "int"
+          },
+          "_ref": "step_results.step_2"
+      }
+  }
 
-The above exception was the direct cause of the following exception:
+  LLM 工作流程：
+  1. 看 _schema 就知道每个步骤有哪些字段和类型
+  2. 决定需要哪些数据（如 step_1.profile.name, step_2.orders）
+  3. TreeContextResolver 根据 LLM 的选择，从 _ref 指向的实际数据中提取
 
-Traceback (most recent call last):
-  File "/app/tasks/events/event_bus.py", line 106, in _consume_queue
-    await self._send_event_request_internal(client, item.payload)
-  File "/app/tasks/events/event_bus.py", line 159, in _send_event_request_internal
-    resp = await client.post(url, json=serializable_payload)
-          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/usr/local/lib/python3.11/site-packages/httpx/_client.py", line 1859, in post
-    return await self.request(
-           ^^^^^^^^^^^^^^^^^^^
-  File "/usr/local/lib/python3.11/site-packages/httpx/_client.py", line 1540, in request
-    return await self.send(request, auth=auth, follow_redirects=follow_redirects)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/usr/local/lib/python3.11/site-packages/httpx/_client.py", line 1629, in send
-    response = await self._send_handling_auth(
-               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/usr/local/lib/python3.11/site-packages/httpx/_client.py", line 1657, in _send_handling_auth
-    response = await self._send_handling_redirects(
-               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/usr/local/lib/python3.11/site-packages/httpx/_client.py", line 1694, in _send_handling_redirects
-    response = await self._send_single_request(request)
-               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/usr/local/lib/python3.11/site-packages/httpx/_client.py", line 1730, in _send_single_request
-    response = await transport.handle_async_request(request)
-               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/usr/local/lib/python3.11/site-packages/httpx/_transports/default.py", line 393, in handle_async_request
-    with map_httpcore_exceptions():
-  File "/usr/local/lib/python3.11/contextlib.py", line 158, in __exit__
-    self.gen.throw(typ, value, traceback)
-  File "/usr/local/lib/python3.11/site-packages/httpx/_transports/default.py", line 118, in map_httpcore_exceptions
-    raise mapped_exc(message) from exc
-httpx.ConnectError: All connection attempts failed
-2026-01-22 04:00:45,152 ERROR   =>  Failed to send event: All connection attempts failed  [event_bus.py:165]
-2026-01-22 04:00:45,152 ERROR   =>  Failed to process queued event: All connection attempts failed  [event_bus.py:111]
-Traceback (most recent call last):
-  File "/usr/local/lib/python3.11/site-packages/httpx/_transports/default.py", line 101, in map_httpcore_exceptions
-    yield
-  File "/usr/local/lib/python3.11/site-packages/httpx/_transports/default.py", line 394, in handle_async_request
-    resp = await self._pool.handle_async_request(req)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/usr/local/lib/python3.11/site-packages/httpcore/_async/connection_pool.py", line 256, in handle_async_request
-    raise exc from None
-  File "/usr/local/lib/python3.11/site-packages/httpcore/_async/connection_pool.py", line 236, in handle_async_request
-    response = await connection.handle_async_request(
-               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/usr/local/lib/python3.11/site-packages/httpcore/_async/connection.py", line 101, in handle_async_request
-    raise exc
-  File "/usr/local/lib/python3.11/site-packages/httpcore/_async/connection.py", line 78, in handle_async_request
-    stream = await self._connect(request)
-             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/usr/local/lib/python3.11/site-packages/httpcore/_async/connection.py", line 124, in _connect
-    stream = await self._network_backend.connect_tcp(**kwargs)
-             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/usr/local/lib/python3.11/site-packages/httpcore/_backends/auto.py", line 31, in connect_tcp
-    return await self._backend.connect_tcp(
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/usr/local/lib/python3.11/site-packages/httpcore/_backends/anyio.py", line 113, in connect_tcp
-    with map_exceptions(exc_map):
-  File "/usr/local/lib/python3.11/contextlib.py", line 158, in __exit__
-    self.gen.throw(typ, value, traceback)
-  File "/usr/local/lib/python3.11/site-packages/httpcore/_exceptions.py", line 14, in map_exceptions
-    raise to_exc(exc) from exc
-httpcore.ConnectError: All connection attempts failed
+  优点：
+  - LLM 只需看 Schema 摘要，不需要展开完整数据
+  - Schema 很小，token 消耗低
+  - 实际数据按需提取，精确高效
 
-The above exception was the direct cause of the following exception:
+  ---
+  TreeContextResolver 增强
 
-Traceback (most recent call last):
-  File "/app/tasks/events/event_bus.py", line 106, in _consume_queue
-    await self._send_event_request_internal(client, item.payload)
-  File "/app/tasks/events/event_bus.py", line 159, in _send_event_request_internal
-    resp = await client.post(url, json=serializable_payload)
-          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/usr/local/lib/python3.11/site-packages/httpx/_client.py", line 1859, in post
-    return await self.request(
-           ^^^^^^^^^^^^^^^^^^^
-  File "/usr/local/lib/python3.11/site-packages/httpx/_client.py", line 1540, in request
-    return await self.send(request, auth=auth, follow_redirects=follow_redirects)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/usr/local/lib/python3.11/site-packages/httpx/_client.py", line 1629, in send
-    response = await self._send_handling_auth(
-               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/usr/local/lib/python3.11/site-packages/httpx/_client.py", line 1657, in _send_handling_auth
-    response = await self._send_handling_redirects(
-               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/usr/local/lib/python3.11/site-packages/httpx/_client.py", line 1694, in _send_handling_redirects
-    response = await self._send_single_request(request)
-               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/usr/local/lib/python3.11/site-packages/httpx/_client.py", line 1730, in _send_single_request
-    response = await transport.handle_async_request(request)
-               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/usr/local/lib/python3.11/site-packages/httpx/_transports/default.py", line 393, in handle_async_request
-    with map_httpcore_exceptions():
-  File "/usr/local/lib/python3.11/contextlib.py", line 158, in __exit__
-    self.gen.throw(typ, value, traceback)
-  File "/usr/local/lib/python3.11/site-packages/httpx/_transports/default.py", line 118, in map_httpcore_exceptions
-    raise mapped_exc(message) from exc
-httpx.ConnectError: All connection attempts failed
-2026-01-22 04:00:49,158 ERROR   =>  Failed to send event: All connection attempts failed  [event_bus.py:165]
-2026-01-22 04:00:49,158 ERROR   =>  Failed to process queued event: All connection attempts failed  [event_bus.py:111]
-Traceback (most recent call last):
-  File "/usr/local/lib/python3.11/site-packages/httpx/_transports/default.py", line 101, in map_httpcore_exceptions
-    yield
-  File "/usr/local/lib/python3.11/site-packages/httpx/_transports/default.py", line 394, in handle_async_request
-    resp = await self._pool.handle_async_request(req)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/usr/local/lib/python3.11/site-packages/httpcore/_async/connection_pool.py", line 256, in handle_async_request
-    raise exc from None
-  File "/usr/local/lib/python3.11/site-packages/httpcore/_async/connection_pool.py", line 236, in handle_async_request
-    response = await connection.handle_async_request(
-               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/usr/local/lib/python3.11/site-packages/httpcore/_async/connection.py", line 101, in handle_async_request
-    raise exc
-  File "/usr/local/lib/python3.11/site-packages/httpcore/_async/connection.py", line 78, in handle_async_request
-    stream = await self._connect(request)
-             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/usr/local/lib/python3.11/site-packages/httpcore/_async/connection.py", line 124, in _connect
-    stream = await self._network_backend.connect_tcp(**kwargs)
-             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/usr/local/lib/python3.11/site-packages/httpcore/_backends/auto.py", line 31, in connect_tcp
-    return await self._backend.connect_tcp(
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/usr/local/lib/python3.11/site-packages/httpcore/_backends/anyio.py", line 113, in connect_tcp
-    with map_exceptions(exc_map):
-  File "/usr/local/lib/python3.11/contextlib.py", line 158, in __exit__
-    self.gen.throw(typ, value, traceback)
-  File "/usr/local/lib/python3.11/site-packages/httpcore/_exceptions.py", line 14, in map_exceptions
-    raise to_exc(exc) from exc
-httpcore.ConnectError: All connection attempts failed
+  class TreeContextResolver:
+      def resolve_params_for_tool(
+          self,
+          tool_schema: dict,           # 工具的参数定义
+          context_snapshot: dict,      # 带 Schema 摘要的上下文
+          step_results: dict           # 实际数据存储
+      ) -> dict:
+          """
+          1. 将 tool_schema 和 context_snapshot._schema 交给 LLM
+          2. LLM 返回参数映射：{"user_id": "step_1.user_id", "name": "step_1.profile.name"}
+          3. 根据映射从 step_results 提取实际值
+          """
+          # Step 1: LLM 决定参数来源（只看 schema，不看数据）
+          param_mapping = self._llm_resolve_mapping(tool_schema, context_snapshot)
 
-The above exception was the direct cause of the following exception:
+          # Step 2: 按映射提取实际值
+          resolved = {}
+          for param_name, path in param_mapping.items():
+              resolved[param_name] = self._extract_by_path(step_results, path)
 
-Traceback (most recent call last):
-  File "/app/tasks/events/event_bus.py", line 106, in _consume_queue
-    await self._send_event_request_internal(client, item.payload)
-  File "/app/tasks/events/event_bus.py", line 159, in _send_event_request_internal
-    resp = await client.post(url, json=serializable_payload)
-          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/usr/local/lib/python3.11/site-packages/httpx/_client.py", line 1859, in post
-    return await self.request(
-           ^^^^^^^^^^^^^^^^^^^
-  File "/usr/local/lib/python3.11/site-packages/httpx/_client.py", line 1540, in request
-    return await self.send(request, auth=auth, follow_redirects=follow_redirects)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/usr/local/lib/python3.11/site-packages/httpx/_client.py", line 1629, in send
-    response = await self._send_handling_auth(
-               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/usr/local/lib/python3.11/site-packages/httpx/_client.py", line 1657, in _send_handling_auth
-    response = await self._send_handling_redirects(
-               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/usr/local/lib/python3.11/site-packages/httpx/_client.py", line 1694, in _send_handling_redirects
-    response = await self._send_single_request(request)
-               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/usr/local/lib/python3.11/site-packages/httpx/_client.py", line 1730, in _send_single_request
-    response = await transport.handle_async_request(request)
-               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/usr/local/lib/python3.11/site-packages/httpx/_transports/default.py", line 393, in handle_async_request
-    with map_httpcore_exceptions():
-  File "/usr/local/lib/python3.11/contextlib.py", line 158, in __exit__
-    self.gen.throw(typ, value, traceback)
-  File "/usr/local/lib/python3.11/site-packages/httpx/_transports/default.py", line 118, in map_httpcore_exceptions
-    raise mapped_exc(message) from exc
-httpx.ConnectError: All connection attempts failed
-2026-01-22 04:00:49,159 ERROR   =>  Event dropped after 3 retries: {'task_id': '71141eff-4052-414f-aa89-14adff9bb528', 'event_type': 'STARTED', 'trace_id': '71141eff-4052-414f-aa89-14adff9bb528', 'source': 'RootActor', 'agent_id': 'marketing', 'data': {'task_spec': '', 'agent_id': 'marketing', 'merged_context': '', 'task_path': '/', 'message_type': None, 'user_id': '<user_id:1,tenant_id:1>'}, 'error': None, 'name': '营销', 'enriched_context_snapshot': None, 'timestamp': 1769054435.127926}  [event_bus.py:119]
-2026-01-22 04:00:49,160 ERROR   =>  Failed to send event: All connection attempts failed  [event_bus.py:165]
-2026-01-22 04:00:49,160 ERROR   =>  Failed to process queued event: All connection attempts failed  [event_bus.py:111]
-Traceback (most recent call last):
-  File "/usr/local/lib/python3.11/site-packages/httpx/_transports/default.py", line 101, in map_httpcore_exceptions
-    yield
-  File "/usr/local/lib/python3.11/site-packages/httpx/_transports/default.py", line 394, in handle_async_request
-    resp = await self._pool.handle_async_request(req)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/usr/local/lib/python3.11/site-packages/httpcore/_async/connection_pool.py", line 256, in handle_async_request
-    raise exc from None
-  File "/usr/local/lib/python3.11/site-packages/httpcore/_async/connection_pool.py", line 236, in handle_async_request
-    response = await connection.handle_async_request(
-               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/usr/local/lib/python3.11/site-packages/httpcore/_async/connection.py", line 101, in handle_async_request
-    raise exc
-  File "/usr/local/lib/python3.11/site-packages/httpcore/_async/connection.py", line 78, in handle_async_request
-    stream = await self._connect(request)
-             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/usr/local/lib/python3.11/site-packages/httpcore/_async/connection.py", line 124, in _connect
-    stream = await self._network_backend.connect_tcp(**kwargs)
-             ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/usr/local/lib/python3.11/site-packages/httpcore/_backends/auto.py", line 31, in connect_tcp
-    return await self._backend.connect_tcp(
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/usr/local/lib/python3.11/site-packages/httpcore/_backends/anyio.py", line 113, in connect_tcp
-    with map_exceptions(exc_map):
-  File "/usr/local/lib/python3.11/contextlib.py", line 158, in __exit__
-    self.gen.throw(typ, value, traceback)
-  File "/usr/local/lib/python3.11/site-packages/httpcore/_exceptions.py", line 14, in map_exceptions
-    raise to_exc(exc) from exc
-httpcore.ConnectError: All connection attempts failed
+          return resolved
 
-The above exception was the direct cause of the following exception:
+      def _build_schema_summary(self, data: Any) -> dict:
+          """从实际数据自动生成 Schema 摘要"""
+          if isinstance(data, dict):
+              return {k: self._build_schema_summary(v) for k, v in data.items()}
+          elif isinstance(data, list):
+              if data:
+                  return f"list[{self._build_schema_summary(data[0])}]"
+              return "list[]"
+          elif isinstance(data, str):
+              return "string"
+          elif isinstance(data, int):
+              return "int"
+          elif isinstance(data, float):
+              return "float"
+          elif isinstance(data, bool):
+              return "bool"
+          else:
+              return type(data).__name__
 
-Traceback (most recent call last):
-  File "/app/tasks/events/event_bus.py", line 106, in _consume_queue
-    await self._send_event_request_internal(client, item.payload)
-  File "/app/tasks/events/event_bus.py", line 159, in _send_event_request_internal
-    resp = await client.post(url, json=serializable_payload)
-          ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/usr/local/lib/python3.11/site-packages/httpx/_client.py", line 1859, in post
-    return await self.request(
-           ^^^^^^^^^^^^^^^^^^^
-  File "/usr/local/lib/python3.11/site-packages/httpx/_client.py", line 1540, in request
-    return await self.send(request, auth=auth, follow_redirects=follow_redirects)
-           ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/usr/local/lib/python3.11/site-packages/httpx/_client.py", line 1629, in send
-    response = await self._send_handling_auth(
-               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/usr/local/lib/python3.11/site-packages/httpx/_client.py", line 1657, in _send_handling_auth
-    response = await self._send_handling_redirects(
-               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/usr/local/lib/python3.11/site-packages/httpx/_client.py", line 1694, in _send_handling_redirects
-    response = await self._send_single_request(request)
-               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/usr/local/lib/python3.11/site-packages/httpx/_client.py", line 1730, in _send_single_request
-    response = await transport.handle_async_request(request)
-               ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-  File "/usr/local/lib/python3.11/site-packages/httpx/_transports/default.py", line 393, in handle_async_request
-    with map_httpcore_exceptions():
-  File "/usr/local/lib/python3.11/contextlib.py", line 158, in __exit__
-    self.gen.throw(typ, value, traceback)
-  File "/usr/local/lib/python3.11/site-packages/httpx/_transports/default.py", line 118, in map_httpcore_exceptions
-    raise mapped_exc(message) from exc
-httpx.ConnectError: All connection attempts failed
-2026-01-22 04:00:49,161 ERROR   =>  Event dropped after 3 retries: {'task_id': '71141eff-4052-414f-aa89-14adff9bb528', 'event_type': 'TASK_CREATED', 'trace_id': '71141eff-4052-414f-aa89-14adff9bb528', 'source': 'AgentActor', 'agent_id': 'marketing', 'data': {'user_input': '内容：创建一个针对手机产品的裂变营销活动，目标是让初始参与者能够邀请足够多的新用户加入，直到达到总共20人的参与规模。 描述：创建一个针对手机产品的裂变营销活动，目标是让初始参与者能够邀请足够多的新用', 'user_id': '<user_id:1,tenant_id:1>', 'task_path': '/0', 'message_type': None}, 'error': None, 'name': '营销', 'enriched_context_snapshot': None, 'timestamp': 1769054435.156632}  [event_bus.py:119]
-INFO:     127.0.0.1:35484 - "GET /health HTTP/1.1" 200 OK
-INFO:     127.0.0.1:47680 - "GET /health HTTP/1.1" 200 OK
-INFO:     127.0.0.1:47736 - "GET /health HTTP/1.1" 200 OK
-INFO:     127.0.0.1:56360 - "GET /health HTTP/1.1" 200 OK
-INFO:     127.0.0.1:45720 - "GET /health HTTP/1.1" 200 OK
-INFO:     127.0.0.1:55648 - "GET /health HTTP/1.1" 200 OK
-INFO:     127.0.0.1:60854 - "GET /health HTTP/1.1" 200 OK
-INFO:     127.0.0.1:60194 - "GET /health HTTP/1.1" 200 OK
-INFO:     127.0.0.1:50274 - "GET /health HTTP/1.1" 200 OK
-le named 'logic'  [capability_manager.py:94]
-2026-01-22 03:59:00,592 WARNING =>  Failed to load module common_task_operation in task_operation copy: No module named 'common.types'  [capability_manager.py:94]
-2026-01-22 03:59:00,592 WARNING =>  Failed to load module interface in task_operation copy: No module named 'common.types'  [capability_manager.py:94]
-2026-01-22 03:59:00,602 INFO    =>  Discovery completed. Found 50 capability classes.  [capability_manager.py:67]
-2026-01-22 03:59:00,602 INFO    =>  Starting initialization based on Config...  [capability_manager.py:105]
-2026-01-22 03:59:00,602 INFO    =>  [llm] Active implementation selected: qwen_llm  [capability_manager.py:127]
-2026-01-22 03:59:00,602 INFO    =>  [llm] Initializing: qwen_llm  [capabili[root@master Flora]# 2026-01-22 03:59:00,006 - chromadb.config - DEBUG - Starting component System
-ty_manager.py:149]
-DashScope API key:  sk-a48a1d84e015410292d07021f60b9acb
-2026-01-22 03:59:00,602 INFO    =>  Registered 'qwen_llm' as default handler for 'llm'  [capability_manager.py:173]
-2026-01-22 03:59:00,602 INFO    =>  Initialized: qwen_llm  [capability_manager.py:175]
-2026-01-22 03:59:00,602 INFO    =>  [task_planning] Active implementation selected: common_task_planning  [capability_manager.py:127]
-2026-01-22 03:59:00,602 INFO    =>  [task_planning] Initializing: common_task_planning  [capability_manager.py:149]
-2026-01-22 03:59:00,602 INFO    =>  Registered 'common_task_planning' as default handler for 'task_planning'  [capability_manager.py:173]
-2026-01-22 03:59:00,602 INFO    =>  Initialized: common_task_planning  [capability_manager.py:175]
-202-bash: 2026-01-22：未找到命令
-[root@master Flora]# 2026-01-22 03:59:00,006 - chromadb.config - DEBUG - Starting component Posthog
--bash: 2026-01-22：未找到命令
-[root@master Flora]# 2026-01-22 03:59:00,074 - mem0.vector_stores.chroma - INFO - Inserting 1 vectors into collection mem0migrations
--bash: 2026-01-22：未找到命令
-[root@master Flora]# 2026-01-22 03:59:00,114 - asyncio - DEBUG - Using selector: EpollSelector
--bash: 2026-01-22：未找到命令
-[root@master Flora]# 2026-01-22 03:59:00,114 - events.event_bus.EventPublisher - INFO - EventPublisher initialized with base URL: http://localhost:8004
--bash: 2026-01-22：未找到命令
-[root@master Flora]# 2026-01-22 03:59:00,566 - agents.tree.tree_manager - INFO - 树形结构管理器初始化成功
--bash: 2026-01-22：未找到命令
-[root@master Flora]# 2026-01-22 03:59:00,584 INFO    =>  Starting dynamic discovery of capabilities...  [capability_manager.py:52]
--bash: 2026-01-22：未找到命令
-[root@master Flora]# 2026-01-22 03:59:00,587 WARNING =>  Failed to load module main in multifeature: No module named 'logic'  [capability_manager.py:94]
--bash: 2026-01-22：未找到命令
-[root@master Flora]# 2026-01-22 03:59:00,592 WARNING =>  Failed to load module common_task_operation in task_operation copy: No module named 'common.types'  [capability_manager.py:94]
--bash: 2026-01-22：未找到命令
-[root@master Flora]# 2026-01-22 03:59:00,592 WARNING =>  Failed to load module interface in task_operation copy: No module named 'common.types'  [capability_manager.py:94]
--bash: 2026-01-22：未找到命令
-[root@master Flora]# 2026-01-22 03:59:00,602 INFO    =>  Discovery completed. Found 50 capability classes.  [capability_manager.py:67]
--bash: 2026-01-22：未找到命令
-[root@master Flora]# 2026-01-22 03:59:00,602 INFO    =>  Starting initialization based on Config...  [capability_manager.py:105]
--bash: 2026-01-22：未找到命令
-[root@master Flora]# 2026-01-22 03:59:00,602 INFO    =>  [llm] Active implementation selected: qwen_llm  [capability_manager.py:127]
-6-01-22 03:59:00,602 INFO    =>  [excution] Active implementation selected: universal_execution  [capability_manager.py:127]
-2026-01-22 03:59:00,602 INFO    =>  [excution] Initializing: universal_execution  [capability_manager.py:149]
-2026-01-22 03:59:00,602 INFO    =>  Registered 'universal_execution' as default handler for 'excution'  [capability_manager.py:173]
-2026-01-22 03:59:00,602 INFO    =>  Initialized: universal_execution  [capability_manager.py:175]
-2026-01-22 03:59:00,602 INFO    =>  [context_resolver] Active implementation selected: tree_context_resolver  [capability_manager.py:127]
-2026-01-22 03:59:00,602 INFO    =>  [context_resolver] Initializing: tree_context_resolver  [capability_manager.py:149]
-2026-01-22 03:59:00,603 INFO    => -bash: 2026-01-22：未找到命令
- TreeConte[root@master Flora]# 2026-01-22 03:59:00,602 INFO    =>  [llm] Initializing: qwen_llm  [capability_manager.py:149]
--bash: 2026-01-22：未找到命令
-[root@master Flora]# DashScope API key:  sk-a48a1d84e015410292d07021f60b9acb
--bash: DashScope：未找到命令
-[root@master Flora]# 2026-01-22 03:59:00,602 INFO    =>  Registered 'qwen_llm' as default handler for 'llm'  [capability_manager.py:173]
--bash: 2026-01-22：未找到命令
-[root@master Flora]# 2026-01-22 03:59:00,602 INFO    =>  Initialized: qwen_llm  [capability_manager.py:175]
--bash: 2026-01-22：未找到命令
-[root@master Flora]# 2026-01-22 03:59:00,602 INFO    =>  [task_planning] Active implementation selected: common_task_planning  [capability_manager.py:127]
--bash: 2026-01-22：未找到命令
-[root@master Flora]# 2026-01-22 03:59:00,602 INFO    =>  [task_planning] Initializing: common_task_planning  [capability_manager.py:149]
--bash: 2026-01-22：未找到命令
-[root@master Flora]# 2026-01-22 03:59:00,602 INFO    =>  Registered 'common_task_planning' as default handler for 'task_planning'  [capability_manager.py:173]
--bash: 2026-01-22：未找到命令
-[root@master Flora]# 2026-01-22 03:59:00,602 INFO    =>  Initialized: common_task_planning  [capability_manager.py:175]
--bash: 2026-01-22：未找到命令
-[root@master Flora]# 2026-01-22 03:59:00,602 INFO    =>  [excution] Active implementation selected: universal_execution  [capability_manager.py:127]
--bash: 2026-01-22：未找到命令
-[root@master Flora]# 2026-01-22 03:59:00,602 INFO    =>  [excution] Initializing: universal_execution  [capability_manager.py:149]
--bash: 2026-01-22：未找到命令
-[root@master Flora]# 2026-01-22 03:59:00,602 INFO    =>  Registered 'universal_execution' as default handler for 'excution'  [capability_manager.py:173]
--bash: 2026-01-22：未找到命令
-[root@master Flora]# 2026-01-22 03:59:00,602 INFO    =>  Initialized: universal_execution  [capability_manager.py:175]
--bash: 2026-01-22：未找到命令
-[root@master Flora]# 2026-01-22 03:59:00,602 INFO    =>  [context_resolver] Active implementation selected: tree_context_resolver  [capability_manager.py:127]
--bash: 2026-01-22：未找到命令
-[root@master Flora]# 2026-01-22 03:59:00,602 INFO    =>  [context_resolver] Initializing: tree_context_resolver  [capability_manager.py:149]
--bash: 2026-01-22：未找到命令
-[root@master Flora]# 2026-01-22 03:59:00,603 INFO    =>  TreeContextResolver initialized with config.  [tree_context_resolver.py:33]
--bash: 2026-01-22：未找到命令
-[root@master Flora]# 2026-01-22 03:59:00,603 INFO    =>  Registered 'tree_context_resolver' as default handler for 'context_resolver'  [capability_manager.py:173]
--bash: 2026-01-22：未找到命令
-[root@master Flora]# 2026-01-22 03:59:00,603 INFO    =>  Initialized: tree_cont
+  ---
+  数据流
+
+  TaskGroupAggregator
+      │
+      │ 每步执行完后：
+      │   1. 存储完整结果到 step_results[step_id]
+      │   2. 生成 schema 摘要存入 context_snapshot[step_id]._schema
+      │
+      ▼
+  MCPActor / CapabilityExecutor
+      │
+      │ 调用 TreeContextResolver.resolve_params_for_tool()
+      │   - 输入：tool_schema + context_snapshot (只有 schema)
+      │   - LLM 决定映射
+      │   - 按映射从 step_results 提取实际值
+      │
+      ▼
+  实际工具调用（参数已解析）

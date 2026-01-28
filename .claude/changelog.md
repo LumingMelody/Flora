@@ -1,6 +1,23 @@
 # Changelog
 
 ---
+## [2026-01-28 22:45] - 修复 user_id 特殊格式未解析导致 Dify 报错
+
+### 任务描述
+修复 `user_id` 参数传递 `<user_id:1,tenant_id:1>` 格式字符串给 Dify，导致 Dify 后端报错 `For input string: "<user_id:1,tenant_id:1>"`
+
+### 修改文件
+- [x] tasks/capabilities/execution/connect/dify_connector.py - 添加 `_parse_special_format` 和 `_resolve_special_format_in_inputs` 方法
+
+### 关键修复
+1. 添加 `_parse_special_format()` 静态方法：解析 `<user_id:1,tenant_id:1>` 格式
+2. 添加 `_resolve_special_format_in_inputs()` 方法：遍历所有 inputs，解析特殊格式
+3. 在发送给 Dify 之前调用解析方法，确保 `user_id` 和 `tenant_id` 是实际值而非格式字符串
+
+### 状态
+✅ 完成 (2026-01-28 22:50)
+
+---
 ## [2026-01-28 13:37] - 实现 AgentPlanCache 规划缓存
 
 ### 任务描述
