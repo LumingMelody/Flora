@@ -42,6 +42,7 @@ class ExecutionActor(Actor):
         self.reply_to=None
         self.global_context:Dict[str, Any] = {}
         self.enriched_context:Dict[str, Any] = {}
+        self.step_results:Dict[str, Any] = {}  # 完整步骤结果，用于参数解析
 
     def receiveMessage(self, msg: Any, sender: str) -> None:
         """
@@ -80,6 +81,7 @@ class ExecutionActor(Actor):
         self.reply_to = msg.reply_to
         self.global_context = msg.global_context or {}
         self.enriched_context = msg.enriched_context or {}
+        self.step_results = getattr(msg, "step_results", {}) or {}  # 获取步骤结果
 
 
 
@@ -217,9 +219,10 @@ class ExecutionActor(Actor):
                 "user_id": user_id,
                 "content": content,
                 "description": description,
-                # 如果 connector 需要上下文，可在此加入：
+                # 上下文信息，用于参数解析
                 "global_context": self.global_context,
                 "enriched_context": self.enriched_context,
+                "step_results": self.step_results,  # 完整步骤结果
             }
 
             result = self._execution.execute(

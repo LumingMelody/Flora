@@ -1,4 +1,5 @@
 from typing import Dict, Any, Optional, List, Type, Tuple
+
 from abc import ABC, abstractmethod
 
 import logging
@@ -9,31 +10,31 @@ class BaseConnector(ABC):
     """
     连接器抽象基类，定义连接器的公共接口
 
-     提供统一的参数补全机制：
-    1. pre_fill_known_params_with_llm() - 从 context 提取已有值
-    2. enhance_param_descriptions_with_context() - 增强描述
-    3. resolve_semantic_pointers() - 语义指针补全（消解歧义）
-    4. resolve_context() - text_to_sql 查询
+    提供统一的参数补全机制（Schema 摘要 + 按需展开）：
+    1. 构建上下文快照（带 Schema 摘要）
+    2. LLM 根据 Schema 决定参数映射
+    3. 按需从 step_results 提取实际值
+    4. 如果仍有缺失，使用传统方法补全
     """
-    
+
     def __init__(self):
         """初始化连接器"""
         pass
-    
+
     @abstractmethod
     def execute(self, inputs: Dict[str, Any], params: Dict[str, Any]) -> Dict[str, Any]:
         """
         执行连接器操作
-        
+
         Args:
             inputs: 输入参数
             params: 配置参数
-            
+
         Returns:
             Dict[str, Any]: 执行结果
         """
         pass
-    
+
      # ==================== 统一参数补全逻辑 ====================
 
     def _resolve_all_params(
@@ -44,19 +45,19 @@ class BaseConnector(ABC):
         user_id: str
     ) -> Tuple[Dict[str, Any], Dict[str, str]]:
         """
-        统一的参数补全流程
+        统一的参数补全流程（Schema 摘要 + 按需展开）
 
-        四步补全：
-        1. pre_fill_known_params_with_llm() - 从 context 提取已有值
-        2. enhance_param_descriptions_with_context() - 增强描述
-        3. resolve_semantic_pointers() - 语义指针补全（消解歧义）
-        4. resolve_context() - text_to_sql 查询
+        新流程：
+        1. 构建上下文快照（带 Schema 摘要）
+        2. 使用 resolve_params_for_tool 解析参数
+        3. 如果仍有缺失，回退到传统方法
 
         Args:
             missing_params: 缺失参数 {param_name: description}
             context: 上下文信息，包含：
                 - global_context: 全局上下文
                 - enriched_context: 富上下文
+                - step_results: 完整步骤结果
                 - content: 任务内容
                 - description: 任务描述
             agent_id: 当前 Agent ID
@@ -78,63 +79,114 @@ class BaseConnector(ABC):
             logger.warning(f"Failed to get context_resolver: {e}")
             return {}, missing_params
 
-        # Step 1: 从 context 中直接提取已有值
-        filled_params, remaining_params = context_resolver.pre_fill_known_params_with_llm(
-            base_param_descriptions=missing_params,
-            current_context_str=context
-        )
-        logger.info(f"Step 1 - Pre-filled: {list(filled_params.keys())}, Remaining: {list(remaining_params.keys())}")
+        # 提取上下文组件
+        global_context = context.get("global_context", {})
+        enriched_context = context.get("enriched_context", {})
+        step_results = context.get("step_results", {})
+        task_description = context.get("description", "") or context.get("content", "")
 
-        if not remaining_params:
-            return filled_params, {}
+        filled_params = {}
+        remaining_params = dict(missing_params)
 
-        # 判断是否全是 ID 类型参数（用于决定上下文增强策略）
-        all_id_params = all(
-            self._is_id_like_param(name, desc)
-            for name, desc in remaining_params.items()
-        )
-
-        # 构建用于增强的上下文
-        context_for_enhance = context
-        if all_id_params:
-            # ID 类型参数只使用关键字段，避免噪音
-            safe_context = {}
-            for key in ("user_id", "tenant_id", "userid", "session_id"):
-                value = (
-                    context.get("global_context", {}).get(key) or
-                    context.get("enriched_context", {}).get(key) or
-                    context.get(key)
+        # ========== 新方案：Schema 摘要 + 按需展开 ==========
+        if step_results or enriched_context:
+            try:
+                # Step 1: 构建上下文快照
+                context_snapshot = context_resolver.build_context_snapshot(
+                    step_results=step_results,
+                    global_context=global_context,
+                    enriched_context=enriched_context
                 )
-                if value:
-                    safe_context[key] = value
-            context_for_enhance = safe_context or {"user_id": user_id}
 
-        # Step 2: 用 context 增强剩余参数的描述
-        enhanced_descs = context_resolver.enhance_param_descriptions_with_context(
-            base_param_descriptions=remaining_params,
-            current_inputs=context_for_enhance
-        )
-        logger.info(f"Step 2 - Enhanced descriptions: {enhanced_descs}")
+                # Step 2: 构建工具 schema
+                tool_schema = {
+                    "parameters": {
+                        name: {"type": "string", "description": desc}
+                        for name, desc in missing_params.items()
+                    },
+                    "required": list(missing_params.keys())
+                }
 
-        # Step 3: 语义指针补全（消解歧义）
-        semantic_pointers = context_resolver.resolve_semantic_pointers(
-            param_descriptions=enhanced_descs,
-            current_context=context,
-            agent_id=agent_id,
-            user_id=user_id
-        )
-        final_descs = self._apply_semantic_pointers(enhanced_descs, semantic_pointers)
-        logger.info(f"Step 3 - After semantic pointers: {final_descs}")
+                # Step 3: 使用新接口解析参数
+                resolved = context_resolver.resolve_params_for_tool(
+                    tool_schema=tool_schema,
+                    context_snapshot=context_snapshot,
+                    step_results=step_results,
+                    task_description=task_description
+                )
 
-        # Step 4: 使用精确描述查询数据库
-        resolved_params = context_resolver.resolve_context(final_descs, agent_id)
-        logger.info(f"Step 4 - Resolved from DB: {resolved_params}")
+                logger.info(f"[Schema-based] Resolved params: {list(resolved.keys())}")
 
-        filled_params.update(resolved_params)
+                # 更新已填充的参数
+                for name, value in resolved.items():
+                    if value is not None and (not isinstance(value, str) or value.strip()):
+                        filled_params[name] = value
+                        if name in remaining_params:
+                            del remaining_params[name]
+
+            except Exception as e:
+                logger.warning(f"Schema-based param resolution failed: {e}, falling back to traditional method")
+
+        # ========== 回退：传统方法 ==========
+        if remaining_params:
+            logger.info(f"[Fallback] Still missing: {list(remaining_params.keys())}, using traditional method")
+
+            # Step 1: 从 context 中直接提取已有值
+            pre_filled, still_remaining = context_resolver.pre_fill_known_params_with_llm(
+                base_param_descriptions=remaining_params,
+                current_context_str=context
+            )
+            filled_params.update(pre_filled)
+            logger.info(f"Step 1 - Pre-filled: {list(pre_filled.keys())}, Remaining: {list(still_remaining.keys())}")
+
+            if still_remaining:
+                # 判断是否全是 ID 类型参数
+                all_id_params = all(
+                    self._is_id_like_param(name, desc)
+                    for name, desc in still_remaining.items()
+                )
+
+                # 构建用于增强的上下文
+                context_for_enhance = context
+                if all_id_params:
+                    safe_context = {}
+                    for key in ("user_id", "tenant_id", "userid", "session_id"):
+                        value = (
+                            global_context.get(key) or
+                            enriched_context.get(key) or
+                            context.get(key)
+                        )
+                        if value:
+                            safe_context[key] = value
+                    context_for_enhance = safe_context or {"user_id": user_id}
+
+                # Step 2: 用 context 增强剩余参数的描述
+                enhanced_descs = context_resolver.enhance_param_descriptions_with_context(
+                    base_param_descriptions=still_remaining,
+                    current_inputs=context_for_enhance
+                )
+                logger.info(f"Step 2 - Enhanced descriptions: {enhanced_descs}")
+
+                # Step 3: 语义指针补全（消解歧义）
+                semantic_pointers = context_resolver.resolve_semantic_pointers(
+                    param_descriptions=enhanced_descs,
+                    current_context=context,
+                    agent_id=agent_id,
+                    user_id=user_id
+                )
+                final_descs = self._apply_semantic_pointers(enhanced_descs, semantic_pointers)
+                logger.info(f"Step 3 - After semantic pointers: {final_descs}")
+
+                # Step 4: 使用精确描述查询数据库
+                resolved_params = context_resolver.resolve_context(final_descs, agent_id)
+                logger.info(f"Step 4 - Resolved from DB: {resolved_params}")
+
+                filled_params.update(resolved_params)
+                remaining_params = still_remaining
 
         # 检查仍然缺失的参数
         still_missing = {}
-        for name, desc in remaining_params.items():
+        for name, desc in missing_params.items():
             value = filled_params.get(name)
             if value is None or (isinstance(value, str) and value.strip() == ""):
                 still_missing[name] = desc

@@ -16,6 +16,8 @@
 - [x] tasks/common/messages/task_messages.py - TaskMessage 添加 step_results 字段
 - [x] tasks/capability_actors/mcp_actor.py - 使用新的参数解析接口
 - [x] tasks/capability_actors/task_group_aggregator_actor.py - 传递 step_results
+- [x] tasks/capability_actors/execution_actor.py - 添加 step_results 字段并传递给 connector
+- [x] tasks/capabilities/execution/connect/base_connector.py - _resolve_all_params 使用新方案
 
 ### 关键设计
 - `context_snapshot[step_id]._schema`: 数据结构摘要（类型信息）
