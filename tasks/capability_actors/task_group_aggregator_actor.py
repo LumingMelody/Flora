@@ -380,36 +380,160 @@ class TaskGroupAggregatorActor(Actor):
 
     def _enrich_context_from_result(self, result: Any, prefix: str, source: str = "tool_output", task_path: str = "") -> None:
         """
-        将 result 整体作为 value 封装进 ContextEntry，存入 enriched_context[prefix]
-        
+        将 result 精简后封装进 ContextEntry，存入 enriched_context[prefix]
+
+        优化策略：
+        1. 提取有意义的结果，避免存储完整的嵌套 step_results
+        2. 限制存储大小，避免上下文膨胀
+        3. 只保留对后续任务有用的信息
+
         Args:
             result: 要保存的任意结果（支持 dict/list/str/int 等）
             prefix: 上下文中的键名（如 "profile"、"search_results"）
             source: 数据来源（默认 "tool_output"）
             task_path: 任务路径（用于追踪）
         """
-        # 只有当 result 不是 None 时才记录（可选：也可保留 None）
         if result is None:
             return
-        
-         # Expose top-level scalar outputs as direct context keys for later param resolution.
-        # if isinstance(result, dict):
-        #     for key, value in result.items():
-        #         if key in self.enriched_context:
-        #             continue
-        #         if isinstance(value, ContextEntry):
-        #             self.enriched_context[key] = value.value
-        #         elif isinstance(value, (str, int, float, bool)):
-        #             self.enriched_context[key] = value
+
+        # 精简结果，提取有意义的内容
+        simplified_result = self._simplify_result_for_context(result)
+
+        if simplified_result is None:
+            return
 
         entry = ContextEntry(
-            value=result,
+            value=simplified_result,
             source=source,
             task_path=task_path,
-            timestamp=time.time(),  # 或用 default_factory 自动填充
+            timestamp=time.time(),
             confidence=1.0
         )
         self.enriched_context[prefix] = entry
+
+    def _simplify_result_for_context(self, result: Any, max_depth: int = 3) -> Any:
+        """
+        精简结果用于上下文存储
+
+        策略：
+        1. 如果是嵌套的 step_results，提取最终有意义的结果
+        2. 如果是错误信息，只保留错误摘要
+        3. 限制字符串长度和嵌套深度
+
+        Args:
+            result: 原始结果
+            max_depth: 最大递归深度
+
+        Returns:
+            精简后的结果
+        """
+        if max_depth <= 0:
+            if isinstance(result, str):
+                return result[:200] + "..." if len(result) > 200 else result
+            return "[nested data]"
+
+        if result is None:
+            return None
+
+        if isinstance(result, (str, int, float, bool)):
+            # 限制字符串长度
+            if isinstance(result, str) and len(result) > 1000:
+                return result[:1000] + "..."
+            return result
+
+        if isinstance(result, dict):
+            # 处理嵌套的 step_results - 提取最终结果
+            if "step_results" in result:
+                return self._extract_final_results_from_steps(result["step_results"])
+
+            # 处理单个步骤结果
+            if "status" in result:
+                status = result.get("status")
+                if status == "SUCCESS":
+                    inner_result = result.get("result")
+                    if inner_result:
+                        return self._simplify_result_for_context(inner_result, max_depth - 1)
+                    return {"status": "SUCCESS", "summary": "执行成功"}
+                elif status == "ERROR":
+                    return {
+                        "status": "ERROR",
+                        "error": str(result.get("error", "未知错误"))[:200]
+                    }
+
+            # 处理 Dify 返回格式
+            if "code" in result and "data" in result:
+                if result.get("code") == 200 and result.get("data"):
+                    return self._simplify_result_for_context(result["data"], max_depth - 1)
+                elif result.get("msg"):
+                    return {"message": str(result["msg"])[:200]}
+
+            # 普通字典：精简每个字段
+            simplified = {}
+            for key, value in list(result.items())[:10]:  # 最多保留10个字段
+                # 跳过已知的冗余字段
+                if key in ("step_results", "enriched_context", "global_context"):
+                    continue
+                simplified[key] = self._simplify_result_for_context(value, max_depth - 1)
+            return simplified
+
+        if isinstance(result, (list, tuple)):
+            if len(result) == 0:
+                return []
+            # 限制列表长度
+            simplified = [
+                self._simplify_result_for_context(item, max_depth - 1)
+                for item in result[:5]
+            ]
+            if len(result) > 5:
+                simplified.append(f"... and {len(result) - 5} more items")
+            return simplified
+
+        # 其他类型转字符串
+        try:
+            return str(result)[:500]
+        except Exception:
+            return "[unserializable]"
+
+    def _extract_final_results_from_steps(self, step_results: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        从嵌套的 step_results 中提取最终有意义的结果
+
+        Args:
+            step_results: 步骤结果字典
+
+        Returns:
+            精简后的结果摘要
+        """
+        final_results = {}
+
+        for step_name, step_result in step_results.items():
+            if not isinstance(step_result, dict):
+                continue
+
+            status = step_result.get("status")
+
+            if status == "SUCCESS":
+                inner_result = step_result.get("result")
+                if inner_result:
+                    # 递归处理嵌套的 step_results
+                    if isinstance(inner_result, dict) and "step_results" in inner_result:
+                        nested = self._extract_final_results_from_steps(inner_result["step_results"])
+                        final_results[step_name] = nested
+                    else:
+                        # 提取关键信息
+                        simplified = self._simplify_result_for_context(inner_result, max_depth=2)
+                        if simplified:
+                            final_results[step_name] = simplified
+                else:
+                    final_results[step_name] = {"status": "SUCCESS"}
+
+            elif status == "ERROR":
+                final_results[step_name] = {
+                    "status": "ERROR",
+                    "error": str(step_result.get("error", "未知错误"))[:100]
+                }
+
+        return final_results if final_results else {"summary": "无有效结果"}
 
 
     def _handle_step_failure(self, msg: TaskCompletedMessage, sender: Actor) -> None:
