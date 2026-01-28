@@ -515,13 +515,33 @@ const {
         role: 'ai',
         content: '',
         timestamp: new Date(),
-        status: data.status === 'SUCCESS' ? 'completed' : 'error'
+        status: 'completed'
       };
 
       if (data.status === 'SUCCESS') {
         resultMessage.content = data.result || '任务执行完成';
+        resultMessage.status = 'completed';
+      } else if (data.status === 'NEED_INPUT') {
+        // 需要用户输入
+        resultMessage.status = 'need_input';
+        const needInput = data.need_input || {};
+        const missingParams = needInput.missing_params || [];
+        const message = needInput.message || data.result || '请补充以下信息';
+
+        if (missingParams.length > 0) {
+          resultMessage.content = `${message}\n\n需要补充：${missingParams.join('、')}`;
+        } else {
+          resultMessage.content = message;
+        }
+
+        // 设置等待输入状态
+        aiStatus.value = 'waiting_input';
+      } else if (data.status === 'FAILED' || data.status === 'ERROR') {
+        resultMessage.content = data.result || `任务执行失败: ${data.error || '未知错误'}`;
+        resultMessage.status = 'error';
       } else {
-        resultMessage.content = `任务执行失败: ${data.error || '未知错误'}`;
+        // 其他状态
+        resultMessage.content = data.result || '任务处理中...';
       }
 
       messages.value.push(resultMessage);
