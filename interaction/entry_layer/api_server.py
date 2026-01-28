@@ -36,6 +36,20 @@ from external.rag import DifyDatasetClient
 # 创建FastAPI应用
 app = FastAPI(title="AI任务管理API")
 
+
+# ==================== 健康检查接口 ====================
+@app.get("/health", tags=["系统"])
+async def health_check():
+    """健康检查接口"""
+    return {"status": "healthy", "service": "interaction"}
+
+
+@app.get("/v1/health", tags=["系统"])
+async def health_check_v1():
+    """健康检查接口 (v1)"""
+    return {"status": "healthy", "service": "interaction", "version": "v1"}
+
+
 # 初始化对话编排器
 _orchestrator = None
 

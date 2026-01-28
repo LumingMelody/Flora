@@ -775,10 +775,8 @@ class TreeContextResolver(IContextResolverCapbility):
         result = {}
 
         # 将 context 转换为字符串进行搜索
-        if isinstance(context, dict):
-            context_str = json.dumps(context, ensure_ascii=False)
-        else:
-            context_str = str(context)
+        # 使用安全的序列化方法，处理 ContextEntry 等不可序列化的对象
+        context_str = self._safe_serialize_for_parsing(context)
 
         # 匹配模式: <key:value> 或 <key:value,key2:value2>
         # 模式1: <user_id:1,tenant_id:1>
@@ -799,6 +797,44 @@ class TreeContextResolver(IContextResolverCapbility):
                 result[key] = value.strip()
 
         return result
+
+    def _safe_serialize_for_parsing(self, obj: any) -> str:
+        """
+        安全地将对象序列化为字符串，用于正则匹配解析
+
+        处理 ContextEntry、Pydantic BaseModel 等不可直接 JSON 序列化的对象
+
+        Args:
+            obj: 任意对象
+
+        Returns:
+            str: 序列化后的字符串
+        """
+        from pydantic import BaseModel
+
+        def make_serializable(item: any) -> any:
+            if item is None:
+                return None
+            if isinstance(item, (str, int, float, bool)):
+                return item
+            if isinstance(item, BaseModel):
+                return item.model_dump()
+            if isinstance(item, dict):
+                return {k: make_serializable(v) for k, v in item.items()}
+            if isinstance(item, (list, tuple)):
+                return [make_serializable(i) for i in item]
+            # 其他类型转为字符串
+            try:
+                return str(item)
+            except Exception:
+                return repr(item)
+
+        try:
+            serializable = make_serializable(obj)
+            return json.dumps(serializable, ensure_ascii=False)
+        except Exception as e:
+            logger.warning(f"Failed to serialize context for parsing: {e}")
+            return str(obj)
     
 
 
