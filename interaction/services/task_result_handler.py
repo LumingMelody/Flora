@@ -3,8 +3,9 @@
 
 处理从 RabbitMQ 接收到的任务结果：
 1. 根据 trace_id 查找对应的 session_id
-2. 将结果存储到对话历史
-3. 通过 SSE 推送给前端
+2. 使用 ISystemResponseManagerCapability 格式化结果
+3. 将结果存储到对话历史
+4. 通过 SSE 推送给前端
 """
 import logging
 import json
@@ -50,9 +51,10 @@ class TaskResultHandler:
             result: 任务结果，格式：
                 {
                     "trace_id": "xxx",
-                    "status": "SUCCESS" | "FAILED",
-                    "result": "任务结果文本",
+                    "status": "SUCCESS" | "FAILED" | "NEED_INPUT",
+                    "result": "任务结果文本或结构化数据",
                     "error": "错误信息（可选）",
+                    "need_input": { ... }（可选，当 status 为 NEED_INPUT 时）
                     "received_at": "ISO时间戳"
                 }
         """
@@ -73,41 +75,245 @@ class TaskResultHandler:
         mapping = self.dialog_repo.get_trace_mapping(trace_id)
         user_id = mapping.get("user_id") if mapping else None
 
-        # 3. 构建 SSE 事件
+        # 3. 获取状态和结果
         status = result.get("status", "UNKNOWN")
         task_result = result.get("result", "")
         error = result.get("error")
+        need_input = result.get("need_input")
 
+        # 4. 使用 SystemResponseManager 格式化结果
+        formatted_content = self._format_result_with_response_manager(
+            session_id, status, task_result, error, need_input
+        )
+
+        # 5. 构建 SSE 事件
         sse_event = {
             "event": "task_result",
             "data": json.dumps({
                 "trace_id": trace_id,
                 "status": status,
-                "result": task_result,
+                "result": formatted_content,
                 "error": error,
+                "need_input": need_input,
                 "timestamp": datetime.now(timezone.utc).isoformat()
             }, ensure_ascii=False)
         }
 
-        # 4. 推送 SSE 事件到对应的 session 队列
-        # 注意：SESSION_QUEUES 是 defaultdict(asyncio.Queue)，访问时会自动创建队列
-        # 即使前端 SSE 连接暂时断开，消息也会被缓存在队列中，等待重连后消费
+        # 6. 推送 SSE 事件到对应的 session 队列
         try:
             if self.event_loop and self.event_loop.is_running():
-                # 在异步事件循环中调度
                 asyncio.run_coroutine_threadsafe(
                     self._push_to_queue(session_id, sse_event),
                     self.event_loop
                 )
             else:
-                # 尝试直接放入队列（如果队列支持线程安全操作）
                 self.session_queues[session_id].put_nowait(sse_event)
             logger.info(f"Pushed task result to SSE queue for session: {session_id}")
         except Exception as e:
             logger.error(f"Failed to push SSE event: {e}")
 
-        # 5. 更新对话状态（可选：将任务结果添加到对话历史）
-        self._update_dialog_state(session_id, trace_id, status, task_result, error)
+        # 7. 更新对话状态并保存到历史
+        self._update_dialog_state(session_id, trace_id, status, formatted_content, error)
+
+    def _format_result_with_response_manager(
+        self,
+        session_id: str,
+        status: str,
+        result: Any,
+        error: Optional[str],
+        need_input: Optional[Dict[str, Any]]
+    ) -> str:
+        """
+        使用 ISystemResponseManagerCapability 格式化任务结果
+
+        Args:
+            session_id: 会话ID
+            status: 任务状态
+            result: 原始任务结果
+            error: 错误信息
+            need_input: 需要用户输入的信息
+
+        Returns:
+            格式化后的用户友好消息
+        """
+        try:
+            from capabilities.system_response_manager.interface import ISystemResponseManagerCapability
+            from capabilities.registry import capability_registry
+
+            response_manager = capability_registry.get_capability(
+                "system_response", ISystemResponseManagerCapability
+            )
+
+            # 根据状态选择不同的格式化方式
+            if status == "NEED_INPUT" and need_input:
+                # 需要用户输入
+                slot_name = need_input.get("slot_name", "信息")
+                prompt = need_input.get("prompt", f"请提供 {slot_name}")
+                response = response_manager.generate_fill_slot_response(
+                    session_id=session_id,
+                    missing_slots=[slot_name],
+                    draft_id=need_input.get("task_id", "")
+                )
+                return response.response_text or prompt
+
+            elif status == "SUCCESS":
+                # 成功：提取并格式化结果
+                formatted = self._extract_meaningful_result(result)
+                response = response_manager.generate_response(
+                    session_id=session_id,
+                    response_text=formatted
+                )
+                return response.response_text or formatted
+
+            elif status in ("FAILED", "ERROR"):
+                # 失败
+                response = response_manager.generate_error_response(
+                    session_id=session_id,
+                    error_message=error or "任务执行失败"
+                )
+                return response.response_text or f"任务执行失败: {error or '未知错误'}"
+
+            else:
+                # 其他状态
+                return self._extract_meaningful_result(result)
+
+        except Exception as e:
+            logger.warning(f"Failed to use SystemResponseManager, falling back: {e}")
+            # 降级：直接格式化
+            return self._extract_meaningful_result(result)
+
+    def _extract_meaningful_result(self, result: Any) -> str:
+        """
+        从复杂的任务结果中提取有意义的内容
+
+        处理嵌套的 step_results 结构，提取最终结果
+
+        Args:
+            result: 原始任务结果
+
+        Returns:
+            提取后的字符串结果
+        """
+        if result is None:
+            return "任务执行完成"
+
+        if isinstance(result, str):
+            # 尝试解析 JSON 字符串
+            try:
+                parsed = json.loads(result)
+                return self._extract_meaningful_result(parsed)
+            except (json.JSONDecodeError, TypeError):
+                return result
+
+        if isinstance(result, dict):
+            # 处理嵌套的 step_results
+            if "step_results" in result:
+                return self._summarize_step_results(result["step_results"])
+
+            # 处理单个步骤结果
+            if "status" in result and "result" in result:
+                if result["status"] == "SUCCESS":
+                    return self._extract_meaningful_result(result["result"])
+                elif result["status"] == "ERROR":
+                    return f"执行出错: {result.get('error', '未知错误')}"
+
+            # 处理 Dify 工作流返回的结果
+            if "code" in result and "data" in result:
+                if result["code"] == 200 and result["data"]:
+                    return self._extract_meaningful_result(result["data"])
+                elif result.get("msg"):
+                    return result["msg"]
+
+            # 其他字典：尝试提取关键字段
+            for key in ["result", "output", "response", "message", "content", "data"]:
+                if key in result and result[key]:
+                    return self._extract_meaningful_result(result[key])
+
+            # 无法提取，返回简化的 JSON
+            return self._simplify_dict_for_display(result)
+
+        if isinstance(result, list):
+            if len(result) == 0:
+                return "无结果"
+            if len(result) == 1:
+                return self._extract_meaningful_result(result[0])
+            # 多个结果，提取每个的摘要
+            summaries = [self._extract_meaningful_result(item) for item in result[:5]]
+            return "\n".join(f"• {s}" for s in summaries if s)
+
+        return str(result)
+
+    def _summarize_step_results(self, step_results: Dict[str, Any]) -> str:
+        """
+        汇总多个步骤的执行结果
+
+        Args:
+            step_results: 步骤结果字典
+
+        Returns:
+            汇总后的字符串
+        """
+        summaries = []
+        success_count = 0
+        error_count = 0
+
+        for step_name, step_result in step_results.items():
+            if isinstance(step_result, dict):
+                status = step_result.get("status", "UNKNOWN")
+                if status == "SUCCESS":
+                    success_count += 1
+                    # 提取成功结果的摘要
+                    result_content = step_result.get("result")
+                    if result_content:
+                        summary = self._extract_meaningful_result(result_content)
+                        if summary and len(summary) < 200:
+                            summaries.append(summary)
+                elif status == "ERROR":
+                    error_count += 1
+                elif "step_results" in step_result:
+                    # 递归处理嵌套的 step_results
+                    nested_summary = self._summarize_step_results(step_result["step_results"])
+                    if nested_summary:
+                        summaries.append(nested_summary)
+
+        # 构建最终摘要
+        if error_count > 0 and success_count == 0:
+            return f"任务执行失败，共 {error_count} 个步骤出错"
+        elif summaries:
+            # 返回最有意义的摘要（通常是最后一个成功的结果）
+            return summaries[-1] if summaries else "任务执行完成"
+        else:
+            return f"任务执行完成，成功 {success_count} 步"
+
+    def _simplify_dict_for_display(self, d: Dict[str, Any], max_depth: int = 2) -> str:
+        """
+        简化字典用于显示
+
+        Args:
+            d: 原始字典
+            max_depth: 最大深度
+
+        Returns:
+            简化后的字符串
+        """
+        if max_depth <= 0:
+            return "..."
+
+        simplified = {}
+        for k, v in list(d.items())[:5]:  # 最多显示5个字段
+            if isinstance(v, dict):
+                simplified[k] = self._simplify_dict_for_display(v, max_depth - 1)
+            elif isinstance(v, list):
+                simplified[k] = f"[{len(v)} items]"
+            elif isinstance(v, str) and len(v) > 100:
+                simplified[k] = v[:100] + "..."
+            else:
+                simplified[k] = v
+
+        try:
+            return json.dumps(simplified, ensure_ascii=False, indent=2)
+        except Exception:
+            return str(simplified)
 
     async def _push_to_queue(self, session_id: str, event: Dict[str, Any]) -> None:
         """异步推送事件到队列"""
@@ -143,7 +349,7 @@ class TaskResultHandler:
             # 保存更新
             self.dialog_repo.update_dialog_state(dialog_state)
 
-            # 将任务结果保存到对话历史
+            # 将任务结果保存到对话历史（result 已经是格式化后的字符串）
             self._save_result_to_history(session_id, dialog_state.user_id, status, result, error)
 
             logger.debug(f"Updated dialog state for session: {session_id}")
@@ -156,7 +362,7 @@ class TaskResultHandler:
         session_id: str,
         user_id: str,
         status: str,
-        result: Any,
+        result: str,
         error: Optional[str]
     ) -> None:
         """
@@ -171,19 +377,12 @@ class TaskResultHandler:
 
             context_manager = capability_registry.get_capability("context_manager", IContextManagerCapability)
 
-            # 构建结果消息（确保是字符串）
-            if status == "SUCCESS":
-                if result is None:
-                    content = "任务执行完成"
-                elif isinstance(result, str):
-                    content = result
-                elif isinstance(result, dict):
-                    # 如果是字典，尝试提取有意义的内容或转为 JSON 字符串
-                    content = json.dumps(result, ensure_ascii=False, indent=2)
-                else:
-                    content = str(result)
-            else:
-                content = f"任务执行失败: {error or '未知错误'}"
+            # result 已经是格式化后的字符串
+            content = result if isinstance(result, str) else str(result)
+
+            # 如果是错误状态且 content 不包含错误信息，添加错误前缀
+            if status in ("FAILED", "ERROR") and error and error not in content:
+                content = f"任务执行失败: {error}"
 
             # 创建系统消息
             system_turn = DialogTurn(
