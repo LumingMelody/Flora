@@ -1,6 +1,68 @@
 # Changelog
 
 ---
+## [2026-01-28 11:23] - 上下文参数解析优化：Schema 摘要 + 按需展开
+
+### 任务描述
+优化上下文传递和参数解析机制：
+1. 传递完整上下文快照，不做预筛选
+2. 使用 Schema 摘要让 LLM 快速了解数据结构，而不需要看完整内容
+3. TreeContextResolver 提供统一的参数解析能力，供 MCPActor、CapabilityExecutor 等执行层使用
+4. 按需从 step_results 提取实际值
+
+### 修改文件
+- [x] tasks/capabilities/context_resolver/interface.py - 添加新接口定义
+- [x] tasks/capabilities/context_resolver/tree_context_resolver.py - 实现 Schema 摘要和参数解析
+- [x] tasks/common/messages/task_messages.py - TaskMessage 添加 step_results 字段
+- [x] tasks/capability_actors/mcp_actor.py - 使用新的参数解析接口
+- [x] tasks/capability_actors/task_group_aggregator_actor.py - 传递 step_results
+
+### 关键设计
+- `context_snapshot[step_id]._schema`: 数据结构摘要（类型信息）
+- `context_snapshot[step_id]._ref`: 实际数据的引用路径
+- `step_results`: 存储完整的步骤执行结果
+- TreeContextResolver.resolve_params_for_tool(): 统一参数解析入口
+
+### 新增方法
+**TreeContextResolver:**
+- `build_schema_summary(data)`: 从数据生成类型摘要
+- `build_context_snapshot(step_results, global_context, enriched_context)`: 构建带 Schema 的上下文快照
+- `resolve_params_for_tool(tool_schema, context_snapshot, step_results, task_description)`: 统一参数解析入口
+- `get_missing_required_params(tool_schema, resolved_params)`: 获取缺失的必填参数
+
+**MCPActor:**
+- `_resolve_params_with_context_resolver(task_description)`: 使用新接口解析参数
+- `_extract_and_resolve_params(task_description, context_snapshot, context_resolver)`: 提取并解析参数
+
+### 状态
+✅ 完成 (2026-01-28 12:00)
+
+---
+## [2026-01-28 10:30] - ContextEntry 存储优化
+
+### 任务描述
+优化 TaskGroupAggregatorActor 中的 ContextEntry 存储逻辑，避免上下文膨胀。
+
+### 修改文件
+- [x] tasks/capability_actors/task_group_aggregator_actor.py - 添加结果精简逻辑
+
+### 关键修改
+
+**task_group_aggregator_actor.py - 结果精简**
+- `_simplify_result_for_context`: 递归精简结果，限制深度和长度
+- `_extract_final_results_from_steps`: 从嵌套 step_results 提取最终有意义的结果
+- 修改 `_enrich_context_from_result` 使用新的精简逻辑
+
+优化策略：
+1. 提取有意义的结果，避免存储完整的嵌套 step_results
+2. 限制存储大小（字符串 1000 字符，列表 5 项，字典 10 字段）
+3. 限制递归深度（默认 3 层）
+4. 跳过冗余字段（step_results, enriched_context, global_context）
+
+### 状态
+✅ 完成 (2026-01-28 10:30)
+
+---
 ## [2026-01-27 19:00] - 多项问题修复
 
 ### 任务描述

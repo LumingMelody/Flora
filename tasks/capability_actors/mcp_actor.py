@@ -28,6 +28,11 @@ class MCPCapabilityActor(Actor):
         self.skill_index = []
         self._init_skills()
 
+        # 上下文相关
+        self._step_results: Dict[str, Any] = {}
+        self._global_context: Dict[str, Any] = {}
+        self._enriched_context: Dict[str, Any] = {}
+
 
     def receiveMessage(self, msg: Any, sender: str) -> None:
         if isinstance(msg, MCPTaskMessage):
@@ -36,11 +41,15 @@ class MCPCapabilityActor(Actor):
     def _handle_new_task(self, msg: MCPTaskMessage, sender: str):
         task_id = str(msg.step)
         description = msg.description
-        enriched_context = getattr(msg, "enriched_context", "")
-        
-        # 从 enriched_context 中提取参数
-        params = self._extract_params_with_llm(description, enriched_context)
-        
+
+        # 保存上下文信息
+        self._global_context = getattr(msg, "global_context", {}) or {}
+        self._enriched_context = getattr(msg, "enriched_context", {}) or {}
+        self._step_results = getattr(msg, "step_results", {}) or {}
+
+        # 使用新的参数解析方式
+        params = self._resolve_params_with_context_resolver(description)
+
         agent_id = self._extract_agent_id_from_path(getattr(msg, "task_path", "") or "")
         if agent_id:
             self.agent_id = agent_id
@@ -76,6 +85,115 @@ class MCPCapabilityActor(Actor):
             # Step 3: 非查询任务，走 MCP LLM
             result = self._execute_via_mcp_llm(description, params)
             self._send_task_completed(sender, task_id, result)
+
+    def _resolve_params_with_context_resolver(self, task_description: str) -> Dict[str, Any]:
+        """
+        使用 TreeContextResolver 的新接口解析参数
+
+        工作流程：
+        1. 构建上下文快照（带 Schema 摘要）
+        2. 调用 resolve_params_for_tool 解析参数
+        """
+        try:
+            from capabilities.context_resolver.interface import IContextResolverCapbility
+            context_resolver: IContextResolverCapbility = get_capability(
+                "context_resolver", IContextResolverCapbility
+            )
+
+            # 构建上下文快照
+            context_snapshot = context_resolver.build_context_snapshot(
+                step_results=self._step_results,
+                global_context=self._global_context,
+                enriched_context=self._enriched_context
+            )
+
+            # 构建一个通用的工具 schema（MCP 任务通常是动态的）
+            # 这里我们让 LLM 自己决定需要什么参数
+            tool_schema = {
+                "parameters": {},
+                "required": []
+            }
+
+            # 使用 LLM 从任务描述中提取参数需求，然后从上下文中解析
+            params = self._extract_and_resolve_params(
+                task_description=task_description,
+                context_snapshot=context_snapshot,
+                context_resolver=context_resolver
+            )
+
+            return params
+
+        except Exception as e:
+            self.logger.warning(f"Failed to resolve params with context resolver: {e}")
+            # 降级到旧方法
+            return self._extract_params_with_llm(task_description, self._enriched_context)
+
+    def _extract_and_resolve_params(
+        self,
+        task_description: str,
+        context_snapshot: Dict[str, Any],
+        context_resolver: Any
+    ) -> Dict[str, Any]:
+        """
+        从任务描述中提取参数需求，然后从上下文中解析
+        """
+        llm = get_capability("llm", expected_type=ILLMCapability)
+
+        # 构建上下文 Schema 说明
+        schema_parts = []
+        if "global" in context_snapshot:
+            schema_parts.append(f"全局上下文: {json.dumps(context_snapshot['global'].get('_schema', {}), ensure_ascii=False)}")
+        if "enriched" in context_snapshot:
+            schema_parts.append(f"富化上下文: {json.dumps(context_snapshot['enriched'].get('_schema', {}), ensure_ascii=False)}")
+        if "steps" in context_snapshot:
+            for step_key, step_info in context_snapshot["steps"].items():
+                schema_parts.append(f"{step_key}: {json.dumps(step_info.get('_schema', {}), ensure_ascii=False)}")
+
+        schema_text = "\n".join(schema_parts) if schema_parts else "无可用上下文"
+
+        prompt = f"""你是一个智能参数提取器。请根据任务描述和可用上下文结构，提取完成该任务所需的参数。
+
+任务描述：
+{task_description}
+
+可用上下文结构（Schema）：
+{schema_text}
+
+请输出 JSON 格式的参数映射，格式：
+{{
+    "参数名": "上下文路径（如 global.user_id 或 enriched.xxx 或 steps.step_1.xxx）"
+}}
+
+如果某个参数无法从上下文获取，值设为 null。
+只输出 JSON，不要任何解释。
+"""
+
+        try:
+            response = llm.generate(prompt, parse_json=True, max_tokens=300)
+
+            if not isinstance(response, dict):
+                return {}
+
+            # 根据映射提取实际值
+            resolved = {}
+            for param_name, path in response.items():
+                if path is None or path == "null":
+                    continue
+
+                value = context_resolver._extract_value_by_path(
+                    path=path,
+                    context_snapshot=context_snapshot,
+                    step_results=self._step_results
+                )
+
+                if value is not None:
+                    resolved[param_name] = value
+
+            return resolved
+
+        except Exception as e:
+            self.logger.warning(f"Failed to extract and resolve params: {e}")
+            return {}
 
     def _extract_params_with_llm(self, task_description: str, context: Any) -> Dict[str, Any]:
         """

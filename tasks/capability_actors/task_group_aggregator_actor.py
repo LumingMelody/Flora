@@ -257,12 +257,12 @@ class TaskGroupAggregatorActor(Actor):
         场景：需要生成"几个方案"，或者进行参数优化
         """
         logger.info(f"--> Route: Parallel Optimizer for Step {task.step}")
-        
+
         parallel_aggregator = self.createActor(ParallelTaskAggregatorActor)
         self.current_worker = parallel_aggregator
-        
 
-        
+
+
         msg = ParallelTaskRequestMessage(
             task_id=task.task_id,
             trace_id=self._trace_id,
@@ -276,6 +276,7 @@ class TaskGroupAggregatorActor(Actor):
             user_id=self.current_user_id,
             global_context=self.global_context.copy(),
             enriched_context=self.enriched_context.copy(),
+            step_results=self.step_results.copy(),  # 传递完整步骤结果
         )
         self.send(parallel_aggregator, msg)
 
@@ -283,10 +284,10 @@ class TaskGroupAggregatorActor(Actor):
     def _dispatch_to_result_aggregator(self, task: TaskSpec) -> None:
         """分发给 ResultAggregator (Agent 任务代理)"""
         logger.info(f"--> Route: ResultAggregator for Step {task.step} (Agent)")
-        
+
         aggregator = self.createActor(ResultAggregatorActor)
         self.current_worker = aggregator
-        
+
         # 发送 ResultAggregatorTaskRequestMessage - 统一上下文传播与富集方案
         msg = ResultAggregatorTaskRequestMessage(
             task_id=task.task_id,
@@ -301,6 +302,7 @@ class TaskGroupAggregatorActor(Actor):
             user_id=self.current_user_id,
             global_context=self.global_context.copy(),
             enriched_context=self.enriched_context.copy(),
+            step_results=self.step_results.copy(),  # 传递完整步骤结果
         )
         self.send(aggregator, msg)
 
@@ -308,7 +310,7 @@ class TaskGroupAggregatorActor(Actor):
     def _dispatch_to_mcp_executor(self, task: TaskSpec) -> None:
         """分发给 MCP Actor (工具调用)"""
         logger.info(f"--> Route: MCP Executor for Step {task.step}")
-        
+
         mcp_worker = self.createActor(MCPCapabilityActor)
         self.current_worker = mcp_worker
 
@@ -326,6 +328,7 @@ class TaskGroupAggregatorActor(Actor):
             user_id=self.current_user_id,
             global_context=self.global_context.copy(),
             enriched_context=self.enriched_context.copy(),
+            step_results=self.step_results.copy(),  # 传递完整步骤结果
         )
         self.send(mcp_worker, msg)
 

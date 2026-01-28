@@ -1358,3 +1358,406 @@ class TreeContextResolver(IContextResolverCapbility):
 
         return enhanced_descriptions
 
+    # ----------------------------------------------------------
+    # Schema 摘要 + 按需展开：统一参数解析
+    # ----------------------------------------------------------
+
+    def build_schema_summary(self, data: Any) -> Any:
+        """
+        从实际数据自动生成 Schema 摘要（类型信息）
+
+        用于让 LLM 快速了解数据结构，而不需要看完整内容。
+
+        Args:
+            data: 任意数据
+
+        Returns:
+            Schema 摘要，保留结构但用类型替代值
+
+        Example:
+            输入: {"user_id": "123", "profile": {"name": "张三", "age": 25}}
+            输出: {"user_id": "string", "profile": {"name": "string", "age": "int"}}
+        """
+        if data is None:
+            return "null"
+
+        if isinstance(data, str):
+            # 对于较长的字符串，显示长度信息
+            if len(data) > 100:
+                return f"string(len={len(data)})"
+            return "string"
+
+        if isinstance(data, bool):
+            return "bool"
+
+        if isinstance(data, int):
+            return "int"
+
+        if isinstance(data, float):
+            return "float"
+
+        if isinstance(data, dict):
+            if not data:
+                return "{}"
+            # 递归处理字典的每个字段
+            return {k: self.build_schema_summary(v) for k, v in data.items()}
+
+        if isinstance(data, (list, tuple)):
+            if not data:
+                return "list[]"
+            # 取第一个元素的 schema 作为列表元素类型
+            first_schema = self.build_schema_summary(data[0])
+            if len(data) > 1:
+                return f"list[{first_schema}](len={len(data)})"
+            return f"list[{first_schema}]"
+
+        # Pydantic BaseModel
+        try:
+            from pydantic import BaseModel
+            if isinstance(data, BaseModel):
+                return self.build_schema_summary(data.model_dump())
+        except ImportError:
+            pass
+
+        # 其他类型
+        return type(data).__name__
+
+    def build_context_snapshot(
+        self,
+        step_results: Dict[str, Any],
+        global_context: Dict[str, Any] = None,
+        enriched_context: Dict[str, Any] = None
+    ) -> Dict[str, Any]:
+        """
+        构建带 Schema 摘要的上下文快照
+
+        Args:
+            step_results: 各步骤的完整执行结果
+            global_context: 全局上下文
+            enriched_context: 富化上下文
+
+        Returns:
+            上下文快照，包含 _schema 和 _ref 字段
+
+        Example:
+            {
+                "global": {
+                    "_schema": {"user_id": "string", "tenant_id": "string"},
+                    "_data": {"user_id": "123", "tenant_id": "t1"}
+                },
+                "steps": {
+                    "step_1": {
+                        "_schema": {"profile": {"name": "string", "age": "int"}},
+                        "_ref": "step_results.step_1"
+                    }
+                }
+            }
+        """
+        snapshot = {}
+
+        # 全局上下文（通常较小，直接包含数据）
+        if global_context:
+            snapshot["global"] = {
+                "_schema": self.build_schema_summary(global_context),
+                "_data": global_context  # 全局上下文直接包含数据
+            }
+
+        # 富化上下文
+        if enriched_context:
+            # 处理 ContextEntry 类型
+            processed_enriched = {}
+            for k, v in enriched_context.items():
+                try:
+                    from pydantic import BaseModel
+                    if isinstance(v, BaseModel):
+                        processed_enriched[k] = v.model_dump()
+                    else:
+                        processed_enriched[k] = v
+                except ImportError:
+                    processed_enriched[k] = v
+
+            snapshot["enriched"] = {
+                "_schema": self.build_schema_summary(processed_enriched),
+                "_data": processed_enriched
+            }
+
+        # 步骤结果（可能较大，使用引用）
+        if step_results:
+            snapshot["steps"] = {}
+            for step_key, step_data in step_results.items():
+                snapshot["steps"][step_key] = {
+                    "_schema": self.build_schema_summary(step_data),
+                    "_ref": f"step_results.{step_key}"
+                }
+
+        return snapshot
+
+    def resolve_params_for_tool(
+        self,
+        tool_schema: Dict[str, Any],
+        context_snapshot: Dict[str, Any],
+        step_results: Dict[str, Any],
+        task_description: str = ""
+    ) -> Dict[str, Any]:
+        """
+        为工具调用解析参数（统一入口）
+
+        工作流程：
+        1. 将 tool_schema 和 context_snapshot._schema 交给 LLM
+        2. LLM 返回参数映射：{"param_name": "path.to.value"}
+        3. 根据映射从实际数据中提取值
+
+        Args:
+            tool_schema: 工具的参数定义，格式：
+                {
+                    "parameters": {
+                        "user_id": {"type": "string", "description": "用户ID"},
+                        "limit": {"type": "int", "description": "返回数量", "default": 10}
+                    },
+                    "required": ["user_id"]
+                }
+            context_snapshot: 带 Schema 摘要的上下文快照
+            step_results: 完整的步骤执行结果（用于按需提取）
+            task_description: 任务描述（可选，帮助 LLM 理解意图）
+
+        Returns:
+            解析后的参数字典
+        """
+        if not self.llm_client:
+            self.set_dependencies()
+
+        if not tool_schema or "parameters" not in tool_schema:
+            return {}
+
+        # Step 1: 构建 LLM Prompt
+        param_mapping = self._llm_resolve_param_mapping(
+            tool_schema=tool_schema,
+            context_snapshot=context_snapshot,
+            task_description=task_description
+        )
+
+        if not param_mapping:
+            return {}
+
+        # Step 2: 根据映射提取实际值
+        resolved_params = {}
+        for param_name, path in param_mapping.items():
+            if path is None or path == "null" or path == "":
+                # 参数无法从上下文获取，检查是否有默认值
+                param_spec = tool_schema["parameters"].get(param_name, {})
+                if "default" in param_spec:
+                    resolved_params[param_name] = param_spec["default"]
+                continue
+
+            value = self._extract_value_by_path(
+                path=path,
+                context_snapshot=context_snapshot,
+                step_results=step_results
+            )
+
+            if value is not None:
+                resolved_params[param_name] = value
+            else:
+                # 提取失败，检查默认值
+                param_spec = tool_schema["parameters"].get(param_name, {})
+                if "default" in param_spec:
+                    resolved_params[param_name] = param_spec["default"]
+
+        return resolved_params
+
+    def _llm_resolve_param_mapping(
+        self,
+        tool_schema: Dict[str, Any],
+        context_snapshot: Dict[str, Any],
+        task_description: str = ""
+    ) -> Dict[str, str]:
+        """
+        使用 LLM 决定参数来源映射
+
+        Args:
+            tool_schema: 工具参数定义
+            context_snapshot: 上下文快照（只包含 Schema）
+            task_description: 任务描述
+
+        Returns:
+            参数映射：{"param_name": "path.to.value"} 或 {"param_name": null}
+        """
+        if not self.llm_client:
+            return {}
+
+        # 构建参数说明
+        params_info = []
+        required_params = tool_schema.get("required", [])
+
+        for param_name, param_spec in tool_schema["parameters"].items():
+            param_type = param_spec.get("type", "any")
+            param_desc = param_spec.get("description", "")
+            is_required = param_name in required_params
+            has_default = "default" in param_spec
+
+            req_mark = "[必填]" if is_required else "[可选]"
+            default_mark = f"(默认: {param_spec['default']})" if has_default else ""
+
+            params_info.append(f"- {param_name}: {param_type} {req_mark} {default_mark}\n  描述: {param_desc}")
+
+        params_text = "\n".join(params_info)
+
+        # 构建上下文 Schema 说明
+        schema_parts = []
+
+        if "global" in context_snapshot:
+            global_schema = context_snapshot["global"].get("_schema", {})
+            schema_parts.append(f"【全局上下文 global】\n{json.dumps(global_schema, ensure_ascii=False, indent=2)}")
+
+        if "enriched" in context_snapshot:
+            enriched_schema = context_snapshot["enriched"].get("_schema", {})
+            schema_parts.append(f"【富化上下文 enriched】\n{json.dumps(enriched_schema, ensure_ascii=False, indent=2)}")
+
+        if "steps" in context_snapshot:
+            for step_key, step_info in context_snapshot["steps"].items():
+                step_schema = step_info.get("_schema", {})
+                schema_parts.append(f"【步骤结果 {step_key}】\n{json.dumps(step_schema, ensure_ascii=False, indent=2)}")
+
+        schema_text = "\n\n".join(schema_parts) if schema_parts else "无可用上下文"
+
+        # 构建 Prompt
+        prompt = f"""你是一个智能参数映射器。请根据工具所需参数和可用上下文，决定每个参数应该从哪里获取。
+
+【任务描述】
+{task_description or "执行工具调用"}
+
+【工具所需参数】
+{params_text}
+
+【可用上下文结构】
+{schema_text}
+
+【任务】
+为每个参数指定数据来源路径。路径格式：
+- global.xxx: 从全局上下文获取
+- enriched.xxx: 从富化上下文获取
+- steps.step_N.xxx: 从步骤结果获取
+- null: 无法从上下文获取（需要用户输入或使用默认值）
+
+【输出格式】
+严格输出 JSON，格式如下：
+{{
+    "参数名1": "path.to.value",
+    "参数名2": "global.user_id",
+    "参数名3": null
+}}
+
+注意：
+1. 只输出 JSON，不要任何解释
+2. 路径必须与上下文结构匹配
+3. 如果参数有默认值且上下文中没有，输出 null
+4. 优先使用最近的数据（steps > enriched > global）
+"""
+
+        try:
+            response = self.llm_client.generate(
+                prompt=prompt,
+                parse_json=True,
+                max_tokens=500
+            )
+
+            if isinstance(response, dict):
+                return response
+            return {}
+
+        except Exception as e:
+            self.logger.error(f"LLM param mapping failed: {e}")
+            return {}
+
+    def _extract_value_by_path(
+        self,
+        path: str,
+        context_snapshot: Dict[str, Any],
+        step_results: Dict[str, Any]
+    ) -> Any:
+        """
+        根据路径从上下文中提取实际值
+
+        Args:
+            path: 数据路径，如 "global.user_id" 或 "steps.step_1.profile.name"
+            context_snapshot: 上下文快照
+            step_results: 完整的步骤结果
+
+        Returns:
+            提取的值，如果路径无效返回 None
+        """
+        if not path or path == "null":
+            return None
+
+        parts = path.split(".")
+        if not parts:
+            return None
+
+        root = parts[0]
+        remaining_path = parts[1:]
+
+        # 确定数据源
+        if root == "global":
+            data = context_snapshot.get("global", {}).get("_data", {})
+        elif root == "enriched":
+            data = context_snapshot.get("enriched", {}).get("_data", {})
+        elif root == "steps":
+            if not remaining_path:
+                return None
+            step_key = remaining_path[0]
+            remaining_path = remaining_path[1:]
+            # 从 step_results 获取完整数据
+            data = step_results.get(step_key, {})
+        else:
+            # 尝试直接从 step_results 获取
+            data = step_results.get(root, {})
+            # 如果 root 不是 step key，remaining_path 需要包含 root 之后的部分
+
+        # 沿路径提取值
+        current = data
+        for key in remaining_path:
+            if isinstance(current, dict):
+                current = current.get(key)
+            elif isinstance(current, (list, tuple)):
+                try:
+                    idx = int(key)
+                    current = current[idx] if 0 <= idx < len(current) else None
+                except (ValueError, IndexError):
+                    current = None
+            else:
+                current = None
+
+            if current is None:
+                break
+
+        return current
+
+    def get_missing_required_params(
+        self,
+        tool_schema: Dict[str, Any],
+        resolved_params: Dict[str, Any]
+    ) -> List[Dict[str, str]]:
+        """
+        获取缺失的必填参数列表
+
+        Args:
+            tool_schema: 工具参数定义
+            resolved_params: 已解析的参数
+
+        Returns:
+            缺失参数列表，每项包含 name 和 description
+        """
+        missing = []
+        required_params = tool_schema.get("required", [])
+
+        for param_name in required_params:
+            if param_name not in resolved_params:
+                param_spec = tool_schema["parameters"].get(param_name, {})
+                missing.append({
+                    "name": param_name,
+                    "description": param_spec.get("description", ""),
+                    "type": param_spec.get("type", "string")
+                })
+
+        return missing
+
