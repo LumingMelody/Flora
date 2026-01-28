@@ -1,0 +1,9 @@
+# 此目录用于存储 Agent 规划缓存
+# 按 agent_id 分子目录存储 YAML 文件
+#
+# 结构示例:
+# execution_cache/agent_plans/
+# ├── marketing/
+# │   └── abc12345.yaml
+# └── user_strat_fission/
+#     └── def67890.yaml

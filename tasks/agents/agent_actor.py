@@ -55,11 +55,14 @@ class AgentActor(Actor):
         # 添加当前聚合器和原始客户端地址
         self.current_aggregator = None
         self.original_client_addr = None
-        
+
         self._task_path: Optional[str] = None
 
         self.memory_cap: Optional[IMemoryCapability] = None
         self.task_planner: Optional[ITaskPlanningCapability] = None
+
+        # 规划缓存：记录当前任务使用的缓存 ID（用于统计更新）
+        self._used_cached_plan_id: Optional[str] = None
 
     def receiveMessage(self, message: Any, sender: ActorAddress):
         """
@@ -430,7 +433,7 @@ class AgentActor(Actor):
 
     def _plan_task_execution(self, task_description: str, memory_context: str = None) -> Dict[str, Any]:
         """
-        ⑤ 任务规划 - 使用TaskPlanner生成执行计划
+        ⑤ 任务规划 - 优先查找缓存，否则使用TaskPlanner生成执行计划
 
         Args:
             task_description: 任务描述
@@ -439,12 +442,55 @@ class AgentActor(Actor):
         Returns:
             执行计划，包含subtasks, dependencies, parallel_groups
         """
+        # === 新增：查找规划缓存 ===
+        try:
+            from capabilities.plan_cache import get_plan_cache_store
+            plan_cache = get_plan_cache_store()
+
+            cached = plan_cache.find_matching_plan(
+                agent_id=self.agent_id,
+                user_id=self.current_user_id or "",
+                task_description=task_description,
+                threshold=0.7
+            )
+
+            if cached and cached.confidence >= 0.7:
+                self.log.info(
+                    f"[PlanCache] Using cached plan for {self.agent_id}: "
+                    f"{cached.cache_id} (confidence={cached.confidence:.2f})"
+                )
+                # 标记使用了缓存（用于后续统计）
+                self._used_cached_plan_id = cached.cache_id
+                return cached.plan
+
+        except Exception as e:
+            self.log.warning(f"[PlanCache] Cache lookup failed: {e}")
+
+        # === 正常规划流程 ===
         try:
             if not self.task_planner:
                 self.task_planner: ITaskPlanningCapability = get_capability("task_planning", expected_type=ITaskPlanningCapability)
-            
+
             # 使用TaskPlanner生成计划
             subtasks = self.task_planner.generate_execution_plan(self.agent_id, task_description, memory_context)
+
+            # === 新增：保存新规划到缓存 ===
+            if subtasks:
+                try:
+                    from capabilities.plan_cache import get_plan_cache_store
+                    plan_cache = get_plan_cache_store()
+                    cache_id = plan_cache.save_plan(
+                        agent_id=self.agent_id,
+                        user_id=self.current_user_id or "",
+                        task_description=task_description,
+                        plan=subtasks
+                    )
+                    self.log.info(f"[PlanCache] Saved new plan: {cache_id}")
+                    # 标记新保存的缓存（用于后续统计）
+                    self._used_cached_plan_id = cache_id
+                except Exception as e:
+                    self.log.warning(f"[PlanCache] Failed to save plan: {e}")
+
             return subtasks
         except Exception as e:
             self.log.warning(f"Task planning failed: {e}")
@@ -534,6 +580,9 @@ class AgentActor(Actor):
         result_data = result_msg.result
         status = result_msg.status
 
+        # === 新增：更新规划缓存统计 ===
+        self._update_plan_cache_stats(status)
+
         if status=="NEED_INPUT":
             self._handle_task_paused_from_execution(result_msg, sender)
             return
@@ -599,6 +648,33 @@ class AgentActor(Actor):
             # 5. 清理映射
             self.task_id_to_sender.pop(task_id, None)
             self.task_id_to_execution_actor.pop(task_id, None)
+
+    def _update_plan_cache_stats(self, status: str):
+        """
+        更新规划缓存统计
+
+        Args:
+            status: 任务状态（SUCCESS, FAILED, ERROR 等）
+        """
+        if not self._used_cached_plan_id:
+            return
+
+        try:
+            from capabilities.plan_cache import get_plan_cache_store
+            plan_cache = get_plan_cache_store()
+
+            success = status == "SUCCESS"
+            plan_cache.update_stats(self._used_cached_plan_id, success=success)
+
+            self.log.info(
+                f"[PlanCache] Updated stats for {self._used_cached_plan_id}: "
+                f"success={success}"
+            )
+        except Exception as e:
+            self.log.warning(f"[PlanCache] Failed to update stats: {e}")
+        finally:
+            # 清理缓存 ID
+            self._used_cached_plan_id = None
 
     def _ensure_memory_ready(self) -> bool:
         """

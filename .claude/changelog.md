@@ -1,6 +1,84 @@
 # Changelog
 
 ---
+## [2026-01-28 13:37] - 实现 AgentPlanCache 规划缓存
+
+### 任务描述
+实现 V2 方案：每个 AgentActor 独立管理自己的规划缓存
+
+### 修改文件
+- [x] tasks/capabilities/plan_cache/__init__.py - 模块初始化
+- [x] tasks/capabilities/plan_cache/interface.py - IPlanCacheCapability 接口定义
+- [x] tasks/capabilities/plan_cache/agent_plan_cache.py - AgentPlanCache 数据结构
+- [x] tasks/capabilities/plan_cache/plan_cache_store.py - PlanCacheStore 存储实现
+- [x] tasks/agents/agent_actor.py - 集成缓存查找和保存
+- [x] tasks/execution_cache/agent_plans/.gitkeep - 缓存存储目录
+
+### 关键实现
+
+**AgentPlanCache 数据结构**
+- `cache_id`: 唯一标识
+- `agent_id`: 所属 Agent
+- `task_description`: 原始任务描述
+- `trigger_keywords`: 触发关键词
+- `plan`: 规划结果（局部 Plan）
+- `confidence`: 置信度（成功 +0.05，失败 -0.15）
+
+**PlanCacheStore 存储**
+- 按 agent_id 分目录存储 YAML 文件
+- 支持语义相似度匹配（复用 all-MiniLM-L6-v2 模型）
+- 支持关键词匹配作为回退
+
+**AgentActor 集成**
+- `_plan_task_execution()`: 优先查找缓存，未命中则规划并保存
+- `_handle_task_result()`: 任务完成后更新缓存统计
+- `_update_plan_cache_stats()`: 更新置信度
+
+### 状态
+✅ 完成 (2026-01-28 14:00)
+
+---
+## [2026-01-28 11:44] - 任务执行路径保存与记忆复用方案设计
+
+### 任务描述
+设计一个机制：
+1. 保存已完成任务的执行路径，下次执行类似任务时直接复用
+2. 利用记忆系统记住成功的处理模式
+
+### 设计文档
+- V1（已废弃）: `.claude/designs/task_path_memory_design.md`
+- **V2（修正）**: `.claude/designs/task_path_memory_design_v2.md`
+
+### V2 修正要点
+**问题**：V1 忽略了系统的递归特性
+- 系统是递归的：AgentActor → TaskGroupAggregator → ResultAggregator → AgentActor（子）
+- 每个 AgentActor 独立规划，只知道自己的子节点
+- 不能在 TaskRouter 层保存"完整执行路径"
+
+**修正方案**：
+- 保存粒度：每个 Agent 的**局部 Plan**，而非完整链路
+- 集成点：**AgentActor._plan_task_execution()**，而非 TaskRouter
+- 每层独立缓存，支持递归嵌套
+
+### 核心概念
+1. **AgentPlanCache**: 单个 Agent 的规划缓存（Plan + 意图模式 + 置信度）
+2. **AgentPlanCacheStore**: 按 agent_id 分目录存储，支持语义匹配
+3. 集成在 AgentActor 内部，不影响其他组件
+
+### 执行流程
+```
+AgentActor._plan_task_execution()
+    ├─ 查找 AgentPlanCache
+    │   ├─ 命中 → 直接使用缓存的 Plan
+    │   └─ 未命中 → TaskPlanner 规划 → 保存到缓存
+    │
+    └─ 任务完成后更新缓存统计（成功/失败）
+```
+
+### 状态
+✅ 设计完成 V2 (2026-01-28 12:30) - 待用户确认后实现
+
+---
 ## [2026-01-28 11:23] - 上下文参数解析优化：Schema 摘要 + 按需展开
 
 ### 任务描述
