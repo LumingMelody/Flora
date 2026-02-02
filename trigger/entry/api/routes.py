@@ -279,6 +279,40 @@ async def resume_trace_tasks(
     )
 
 
+class ResumeWithInputRequest(BaseModel):
+    """恢复任务并提供输入参数的请求"""
+    parameters: dict
+    user_id: Optional[str] = None
+
+
+@router.post("/traces/{trace_id}/resume-with-input", response_model=TaskControlResponse)
+async def resume_trace_with_input(
+    trace_id: str,
+    request: ResumeWithInputRequest,
+    db: AsyncSession = Depends(get_db),
+    lifecycle_svc: LifecycleService = Depends(get_lifecycle_service)
+):
+    """
+    恢复等待输入的任务（NEED_INPUT 状态）
+
+    当任务处于 NEED_INPUT 状态时，用户提供所需参数后调用此接口恢复任务执行。
+    """
+    result = await lifecycle_svc.resume_task_with_input(
+        session=db,
+        trace_id=trace_id,
+        parameters=request.parameters,
+        user_id=request.user_id
+    )
+    return TaskControlResponse(
+        success=result["success"],
+        message=result["message"],
+        details={
+            "trace_id": trace_id,
+            **result.get("details", {})
+        }
+    )
+
+
 @router.patch("/traces/{trace_id}/modify", response_model=TaskControlResponse)
 async def modify_trace_tasks(
     trace_id: str,

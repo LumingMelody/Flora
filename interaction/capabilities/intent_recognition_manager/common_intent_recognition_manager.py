@@ -265,98 +265,163 @@ class CommonIntentRecognition(IIntentRecognitionManagerCapability):
         """将结构化状态转换为 LLM 可读的自然语言描述"""
         if not state:
             return "当前无活跃会话上下文。"
-        
+
         parts = []
-        
+
+        # 0. 检查是否处于等待任务输入状态（NEED_INPUT）
+        if getattr(state, 'awaiting_task_input', False):
+            missing_params = getattr(state, 'awaiting_task_missing_params', []) or []
+            completed_params = getattr(state, 'awaiting_task_completed_params', {}) or {}
+
+            status_desc = "任务执行过程中需要用户补充信息。"
+            if missing_params:
+                param_names = [p if isinstance(p, str) else p.get("name", str(p)) for p in missing_params]
+                status_desc += f" 正在等待用户提供: {', '.join(param_names)}。"
+            if completed_params:
+                status_desc += f" 已收集: {', '.join(completed_params.keys())}。"
+
+            parts.append(status_desc)
+            parts.append("【重要提示】此时用户的输入极大概率是在【提供所需参数】。")
+            parts.append("- 如果用户直接输入了信息（如数字、ID、名称等），应视为 PROVIDE_INPUT（提供参数）")
+            parts.append("- 如果用户说'取消'、'不要了'等，应视为 CANCEL")
+            parts.append("- 如果用户说'修改'、'换一个'等，应视为 MODIFY")
+
         # 1. 检查是否有正在草拟的任务
-        if state.active_task_draft:
+        elif state.active_task_draft:
             draft = state.active_task_draft
             status_desc = f"用户正在创建一个 '{draft.task_type}' 任务 (状态: {draft.status})。"
-            
+
             # 提取已填和缺失信息
             filled = [k for k, v in draft.slots.items() if v.confirmed]
             missing = draft.missing_slots
-            
+
             if missing:
                 status_desc += f" 正在等待用户提供: {', '.join(missing)}。"
             elif filled:
                 status_desc += f" 已收集信息: {', '.join(filled)}。"
-                
+
             parts.append(status_desc)
-            
+
             # 关键：告诉 LLM 此时的预期
             parts.append("【重要提示】此时用户的短语（如时间、地点、人名、确认/拒绝）极大概率是在【修改任务/填充参数】，而非闲聊。")
 
         # 2. 检查是否有正在执行的任务
         elif state.active_task_execution:
             parts.append(f"当前有一个任务正在执行中 (TaskID: {state.active_task_execution})。")
-            
+
         # 3. 检查澄清状态
         if state.requires_clarification:
             parts.append(f"系统上一轮发起了澄清提问：{state.clarification_message}")
 
         if not parts:
             return "当前无活跃任务，处于空闲状态。"
-            
+
         return "\n".join(parts)
+
     def judge_special_intent(self, user_input: str, dialog_state: DialogStateDTO) -> str:
-        """判断特殊意图：确认、修改草稿或拒绝（使用LLM）"""
+        """判断特殊意图：确认、修改草稿、拒绝或提供输入（使用LLM）
+
+        Returns:
+            字符串表示的意图类型：
+            - "CONFIRM"：用户确认当前操作
+            - "CANCEL"：用户取消当前操作
+            - "MODIFY"：用户想要修改任务信息
+            - "PROVIDE_INPUT"：用户提供了所需的参数（仅在 awaiting_task_input 状态下）
+            - ""：无特殊意图
+        """
         self.logger.info(f"开始判断特殊意图，user_input={user_input[:50]}...")
         context_desc = self._format_context_for_llm(dialog_state)
-        
-        prompt = (
-            f"你是一个意图识别助手。请判断用户输入的特殊意图类型。\n\n"
-            f"【当前上下文状态】\n{context_desc}\n\n"
-            f"【用户输入】\n{user_input}\n\n"
-            f"【可能的意图类型】\n"
-            f"1. CONFIRM：用户确认当前操作或任务信息\n"
-            f"2. CANCEL：用户拒绝当前操作或取消任务\n"
-            f"3. MODIFY：用户想要修改当前任务的信息\n"
-            f"4. 无特殊意图：返回空字符串\n\n"
-            f"【判断规则】\n"
-            f"1. 考虑当前上下文状态，理解用户输入的真实意图\n"
-            f"2. 只有明确的确认、拒绝或修改意图才返回对应类型\n"
-            f"3. 否则返回空字符串\n\n"
-            f"请严格按照以下JSON格式返回，不要包含任何其他内容：\n"
-            f"{{\"intent_type\": \"CONFIRM\" 或 \"CANCEL\" 或 \"MODIFY\" 或 \"\"}}"
-        )
-        
+
+        # 检查是否处于等待任务输入状态
+        is_awaiting_input = getattr(dialog_state, 'awaiting_task_input', False)
+
+        # 根据状态构建不同的 prompt
+        if is_awaiting_input:
+            prompt = (
+                f"你是一个意图识别助手。当前任务正在等待用户提供参数。请判断用户输入的意图类型。\n\n"
+                f"【当前上下文状态】\n{context_desc}\n\n"
+                f"【用户输入】\n{user_input}\n\n"
+                f"【可能的意图类型】\n"
+                f"1. PROVIDE_INPUT：用户直接提供了所需的参数值（如数字、ID、名称、日期等具体信息）\n"
+                f"2. CANCEL：用户明确表示取消任务（如'取消'、'不要了'、'算了'）\n"
+                f"3. MODIFY：用户想要修改之前提供的信息（如'修改'、'换一个'、'重新选'）\n"
+                f"4. 无特殊意图：用户说了与任务无关的内容\n\n"
+                f"【判断规则】\n"
+                f"1. 如果用户输入看起来像是在提供参数值（数字、ID、名称等），返回 PROVIDE_INPUT\n"
+                f"2. 如果用户明确表示取消，返回 CANCEL\n"
+                f"3. 如果用户想修改之前的信息，返回 MODIFY\n"
+                f"4. 其他情况返回空字符串\n\n"
+                f"请严格按照以下JSON格式返回，不要包含任何其他内容：\n"
+                f"{{\"intent_type\": \"PROVIDE_INPUT\" 或 \"CANCEL\" 或 \"MODIFY\" 或 \"\"}}"
+            )
+            valid_intents = ["PROVIDE_INPUT", "CANCEL", "MODIFY", ""]
+        else:
+            prompt = (
+                f"你是一个意图识别助手。请判断用户输入的特殊意图类型。\n\n"
+                f"【当前上下文状态】\n{context_desc}\n\n"
+                f"【用户输入】\n{user_input}\n\n"
+                f"【可能的意图类型】\n"
+                f"1. CONFIRM：用户确认当前操作或任务信息\n"
+                f"2. CANCEL：用户拒绝当前操作或取消任务\n"
+                f"3. MODIFY：用户想要修改当前任务的信息\n"
+                f"4. 无特殊意图：返回空字符串\n\n"
+                f"【判断规则】\n"
+                f"1. 考虑当前上下文状态，理解用户输入的真实意图\n"
+                f"2. 只有明确的确认、拒绝或修改意图才返回对应类型\n"
+                f"3. 否则返回空字符串\n\n"
+                f"请严格按照以下JSON格式返回，不要包含任何其他内容：\n"
+                f"{{\"intent_type\": \"CONFIRM\" 或 \"CANCEL\" 或 \"MODIFY\" 或 \"\"}}"
+            )
+            valid_intents = ["CONFIRM", "CANCEL", "MODIFY", ""]
+
         try:
             response: dict = self.llm.generate(prompt, parse_json=True)
             self.logger.info(f"Special intent LLM Response: {str(response)}")
             intent_type = response.get("intent_type", "")
-            
+
             # 验证返回值是否合法
-            if intent_type in ["CONFIRM", "CANCEL", "MODIFY", ""]:
+            if intent_type in valid_intents:
                 self.logger.info(f"成功判断特殊意图，结果={intent_type}")
                 return intent_type
             else:
                 self.logger.warning(f"Invalid special intent type: {intent_type}, returning empty string")
                 return ""
-                
+
         except Exception as e:
             self.logger.exception("Special intent LLM failed")
             # 降级为关键字匹配
-            lower_input = user_input.lower()
-            
+            return self._fallback_keyword_match(user_input, is_awaiting_input)
+
+    def _fallback_keyword_match(self, user_input: str, is_awaiting_input: bool) -> str:
+        """降级的关键字匹配逻辑"""
+        lower_input = user_input.lower()
+
+        # 检查取消意图（优先级最高）
+        cancel_keywords = ["取消", "拒绝", "不要了", "算了", "不行", "不对", "no", "取消操作", "停止"]
+        if any(kw in lower_input for kw in cancel_keywords):
+            self.logger.info(f"关键字匹配特殊意图，结果=CANCEL")
+            return "CANCEL"
+
+        # 检查修改意图
+        modify_keywords = ["修改", "编辑", "更新", "改一下", "调整", "换", "重新", "变更", "换一个"]
+        if any(kw in lower_input for kw in modify_keywords):
+            self.logger.info(f"关键字匹配特殊意图，结果=MODIFY")
+            return "MODIFY"
+
+        if is_awaiting_input:
+            # 在等待输入状态下，如果不是取消或修改，默认视为提供参数
+            # 除非输入看起来像是闲聊
+            chat_keywords = ["你好", "谢谢", "再见", "帮我", "请问", "什么是", "怎么"]
+            if not any(kw in lower_input for kw in chat_keywords):
+                self.logger.info(f"关键字匹配特殊意图，结果=PROVIDE_INPUT")
+                return "PROVIDE_INPUT"
+        else:
             # 检查确认意图
             confirm_keywords = ["确认", "是的", "对的", "好的", "行", "没问题", "可以", "同意", "ok", "yes"]
             if any(kw in lower_input for kw in confirm_keywords):
-                self.logger.info(f"成功判断特殊意图，结果=CONFIRM")
+                self.logger.info(f"关键字匹配特殊意图，结果=CONFIRM")
                 return "CONFIRM"
-            
-            # 检查拒绝意图
-            cancel_keywords = ["取消", "拒绝", "不", "不行", "不要", "不对", "no", "取消操作", "停止"]
-            if any(kw in lower_input for kw in cancel_keywords):
-                self.logger.info(f"成功判断特殊意图，结果=CANCEL")
-                return "CANCEL"
-            
-            # 检查修改草稿意图
-            modify_keywords = ["修改", "编辑", "更新", "改一下", "调整", "换", "重新", "变更"]
-            if any(kw in lower_input for kw in modify_keywords):
-                self.logger.info(f"成功判断特殊意图，结果=MODIFY")
-                return "MODIFY"
-            
-            # 默认返回空字符串，表示不是特殊意图
-            self.logger.info(f"成功判断特殊意图，结果=无特殊意图")
-            return ""
+
+        # 默认返回空字符串，表示不是特殊意图
+        self.logger.info(f"关键字匹配特殊意图，结果=无特殊意图")
+        return ""

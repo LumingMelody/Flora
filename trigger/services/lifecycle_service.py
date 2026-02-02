@@ -313,22 +313,22 @@ class LifecycleService:
             if inst: instances.append(inst)
         elif trace_id:
             instances = await instance_repo.list_by_trace_id(trace_id)
-        
+
         if not instances:
             return {"success": False, "message": "No tasks found", "affected_instances": []}
-        
+
         results = {"affected": [], "failed": []}
-        
+
         for instance in instances:
             try:
                 if instance.status != "PAUSED":
                     results["failed"].append(instance.id)
                     continue
-                
+
                 # 区分逻辑：如果是外部推送过的暂停，需要外部恢复；否则内部恢复为 PENDING
                 is_external = getattr(instance, "external_status_pushed", False)
                 target_status = "RUNNING" if is_external else "PENDING"
-                
+
                 success, details = await self._perform_control_action(
                     repo=instance_repo,
                     instance=instance,
@@ -341,7 +341,7 @@ class LifecycleService:
                     results["failed"].append(instance.id)
             except Exception:
                 results["failed"].append(instance.id)
-                
+
         success_all = len(results["failed"]) == 0
         return {
             "success": success_all,
@@ -349,6 +349,60 @@ class LifecycleService:
             "affected_instances": results["affected"],
             "failed_instances": results["failed"]
         }
+
+    async def resume_task_with_input(
+        self,
+        session: AsyncSession,
+        trace_id: str,
+        parameters: Dict[str, Any],
+        user_id: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """
+        恢复等待输入的任务（NEED_INPUT 状态）
+
+        将用户提供的参数发送到 tasks 服务的 TaskRouter，恢复任务执行。
+
+        Args:
+            session: 数据库会话
+            trace_id: 任务的 trace_id
+            parameters: 用户提供的参数
+            user_id: 用户ID
+
+        Returns:
+            操作结果
+        """
+        try:
+            # 构造 RESUME_TASK 消息，与 rabbitmq_listener.py 中的 _handle_resume_task 对应
+            message = {
+                "msg_type": "RESUME_TASK",
+                "trace_id": trace_id,
+                "task_id": trace_id,  # 使用 trace_id 作为 task_id
+                "task_path": "/0",
+                "parameters": parameters,
+                "user_id": user_id or "system"
+            }
+
+            # 发布到 work.excute 队列（tasks 服务监听的队列）
+            await self.broker.publish(
+                topic="work.excute",
+                message=message
+            )
+
+            return {
+                "success": True,
+                "message": f"Resume request sent for trace_id={trace_id}",
+                "details": {
+                    "trace_id": trace_id,
+                    "parameters_provided": list(parameters.keys())
+                }
+            }
+
+        except Exception as e:
+            return {
+                "success": False,
+                "message": f"Failed to resume task: {str(e)}",
+                "details": {"error": str(e)}
+            }
 
     async def modify_task(
         self, session: AsyncSession, instance_id: Optional[str] = None, trace_id: Optional[str] = None,

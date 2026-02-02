@@ -267,18 +267,34 @@ class TaskClient:
         endpoint = f"/traces/{actual_trace_id}/pause"
         return self._request("POST", endpoint)
     
-    def resume_task(self, trace_id: Optional[str] = None, request_id: Optional[str] = None) -> Dict[str, Any]:
-        """恢复任务
-        
+    def resume_task(self, trace_id: Optional[str] = None, request_id: Optional[str] = None, parameters: Optional[Dict[str, Any]] = None, user_id: Optional[str] = None) -> Dict[str, Any]:
+        """恢复任务（支持 NEED_INPUT 场景）
+
         Args:
             trace_id: 跟踪ID，由后端传入（可选）
             request_id: 业务侧/幂等控制ID（可选）
-            
+            parameters: 用户提供的参数（用于 NEED_INPUT 场景）
+            user_id: 用户ID（可选）
+
         Returns:
             操作结果
         """
         actual_trace_id = self._resolve_trace_id(trace_id, request_id)
-        
+
+        # 如果有参数，说明是 NEED_INPUT 场景，需要调用 resume-with-input 接口
+        if parameters:
+            payload = {
+                "parameters": parameters
+            }
+            if user_id:
+                payload["user_id"] = user_id
+
+            # 调用 tasks 服务的 resume-with-input 接口
+            # 注意：这个接口需要在 tasks 服务中实现
+            endpoint = f"/traces/{actual_trace_id}/resume-with-input"
+            return self._request("POST", endpoint, json=payload)
+
+        # 普通恢复（暂停后恢复）
         # 对应 Server: @router.post("/traces/{trace_id}/resume")
         # 使用 /traces/{trace_id}/resume 端点来恢复指定trace下的所有任务实例
         endpoint = f"/traces/{actual_trace_id}/resume"

@@ -498,6 +498,18 @@ class CommonSystemResponse(ISystemResponseManagerCapability):
                 "- 只输出 Markdown 内容，不要添加任何解释\n\n"
                 f"原始消息：{base_info['fallback_text']}\n"
             ),
+            "need_input": (
+                "你是一个耐心的任务助手。任务执行过程中需要用户补充一些信息。请根据以下内容生成友好的提示消息。\n"
+                "要求：\n"
+                "- 使用 📋 和 📝 表情符号区分已收集和待补充的信息\n"
+                "- 已收集的信息用列表展示，参数名**加粗**\n"
+                "- 待补充的信息用列表展示，突出显示\n"
+                "- 语气亲切、耐心，引导用户提供信息\n"
+                "- 结尾提示用户可以直接输入信息或选择取消\n"
+                "- 只输出 Markdown 内容，不要添加任何解释\n\n"
+                f"已收集的参数：{base_info.get('completed_params', {})}\n"
+                f"待补充的参数：{base_info.get('missing_params', [])}\n"
+            ),
             "default": (
                 "请将以下系统消息改写成一句自然、流畅、对用户友好的 Markdown 格式文本。\n"
                 "要求：\n"
@@ -542,3 +554,164 @@ class CommonSystemResponse(ISystemResponseManagerCapability):
         }
         
         return slot_display_names.get(slot_name, slot_name)
+
+    def generate_need_input_response(
+        self,
+        session_id: str,
+        trace_id: str,
+        missing_params: list,
+        completed_params: dict = None
+    ) -> SystemResponseDTO:
+        """生成任务需要输入的响应（NEED_INPUT 状态）
+
+        Args:
+            session_id: 会话ID
+            trace_id: 任务的 trace_id
+            missing_params: 缺失的参数列表
+            completed_params: 已完成的参数字典
+
+        Returns:
+            系统响应DTO，包含自然语言格式的提示和建议操作
+        """
+        completed_params = completed_params or {}
+
+        # 构建自然语言消息
+        message_parts = []
+
+        # 已收集的信息
+        if completed_params:
+            message_parts.append("📋 **已收集的信息：**")
+            for key, value in completed_params.items():
+                display_key = self._get_param_display_name(key)
+                display_value = self._format_param_value(value)
+                message_parts.append(f"  • {display_key}：{display_value}")
+
+        # 缺失的信息
+        if missing_params:
+            if message_parts:
+                message_parts.append("")  # 空行分隔
+            message_parts.append("📝 **还需要您提供：**")
+            for param in missing_params:
+                if isinstance(param, str):
+                    display_name = self._get_param_display_name(param)
+                    message_parts.append(f"  • {display_name}")
+                elif isinstance(param, dict):
+                    param_name = param.get("name", param.get("key", "未知参数"))
+                    display_name = self._get_param_display_name(param_name)
+                    message_parts.append(f"  • {display_name}")
+
+            message_parts.append("")
+            message_parts.append("请直接输入上述信息，或选择下方操作。")
+
+        response_text = "\n".join(message_parts) if message_parts else "任务需要更多信息才能继续，请补充相关内容。"
+
+        # 使用 LLM 美化（可选）
+        enhanced_text = self._enhance_text_with_llm(
+            base_info={
+                "fallback_text": response_text,
+                "missing_params": [self._get_param_display_name(p) if isinstance(p, str) else str(p) for p in missing_params],
+                "completed_params": {self._get_param_display_name(k): self._format_param_value(v) for k, v in completed_params.items()}
+            },
+            context_type="need_input"
+        )
+
+        # 生成建议操作
+        suggested_actions = [
+            SuggestedActionDTO(
+                type=ActionType.CANCEL,
+                title="取消任务",
+                payload=f"CANCEL_TASK_{trace_id}"
+            )
+        ]
+
+        return self.generate_response(
+            session_id=session_id,
+            response_text=enhanced_text,
+            suggested_actions=suggested_actions,
+            requires_input=True,
+            awaiting_slot=missing_params[0] if missing_params else None
+        )
+
+    def _get_param_display_name(self, param_name: str) -> str:
+        """获取参数的显示名称
+
+        Args:
+            param_name: 参数名
+
+        Returns:
+            用户友好的显示名称
+        """
+        # 常见参数名映射
+        display_names = {
+            "user_id": "用户ID",
+            "tenant_id": "租户ID",
+            "active_id": "活动ID",
+            "task_name": "任务名称",
+            "target_url": "目标网址",
+            "start_time": "开始时间",
+            "end_time": "结束时间",
+            "frequency": "执行频率",
+            "max_runs": "最大执行次数",
+            "description": "描述",
+            "content": "内容",
+            "title": "标题",
+            "name": "名称",
+            "email": "邮箱",
+            "phone": "电话",
+            "address": "地址",
+            "amount": "金额",
+            "quantity": "数量",
+            "date": "日期",
+            "time": "时间",
+            "type": "类型",
+            "status": "状态",
+            "reason": "原因",
+            "comment": "备注",
+            "file": "文件",
+            "image": "图片",
+            "url": "链接",
+            "code": "验证码",
+            "password": "密码",
+            "username": "用户名",
+            "account": "账号",
+        }
+
+        # 先尝试精确匹配
+        if param_name.lower() in display_names:
+            return display_names[param_name.lower()]
+
+        # 尝试部分匹配
+        param_lower = param_name.lower()
+        for key, value in display_names.items():
+            if key in param_lower or param_lower in key:
+                return value
+
+        # 返回原始名称（首字母大写，下划线转空格）
+        return param_name.replace("_", " ").title()
+
+    def _format_param_value(self, value) -> str:
+        """格式化参数值用于显示
+
+        Args:
+            value: 参数值
+
+        Returns:
+            格式化后的字符串
+        """
+        if value is None:
+            return "未设置"
+        if isinstance(value, bool):
+            return "是" if value else "否"
+        if isinstance(value, (int, float)):
+            return str(value)
+        if isinstance(value, str):
+            if len(value) > 50:
+                return value[:50] + "..."
+            return value
+        if isinstance(value, list):
+            if len(value) == 0:
+                return "空列表"
+            return f"{len(value)} 项"
+        if isinstance(value, dict):
+            return f"{len(value)} 个字段"
+        return str(value)[:50]

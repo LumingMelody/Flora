@@ -104,12 +104,33 @@ class ISystemResponseManagerCapability(BaseManager):
     @abstractmethod
     def generate_idle_response(self, session_id: str, idle_message: str) -> SystemResponseDTO:
         """生成闲聊模式响应
-        
+
         Args:
             session_id: 会话ID
             idle_message: 闲聊消息
-            
+
         Returns:
             系统响应DTO
+        """
+        pass
+
+    @abstractmethod
+    def generate_need_input_response(
+        self,
+        session_id: str,
+        trace_id: str,
+        missing_params: List[str],
+        completed_params: Optional[Dict[str, Any]] = None
+    ) -> SystemResponseDTO:
+        """生成任务需要输入的响应（NEED_INPUT 状态）
+
+        Args:
+            session_id: 会话ID
+            trace_id: 任务的 trace_id
+            missing_params: 缺失的参数列表
+            completed_params: 已完成的参数字典
+
+        Returns:
+            系统响应DTO，包含自然语言格式的提示和建议操作
         """
         pass

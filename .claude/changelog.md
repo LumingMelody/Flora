@@ -1,6 +1,117 @@
 # Changelog
 
 ---
+## [2026-01-29 11:37] - 重构 NEED_INPUT 处理：遵循 Capability 架构
+
+### 任务描述
+重构之前的实现，遵循系统的 Capability 架构设计：
+1. 消息格式化移到 `SystemResponseManager` capability
+2. 状态拦截复用 `IntentRecognitionManager` 的意图判断逻辑
+3. 支持用户在 NEED_INPUT 状态下选择：提供参数、取消任务、修改任务
+
+### 修改文件
+- [x] interaction/capabilities/system_response_manager/interface.py - 添加 generate_need_input_response() 接口
+- [x] interaction/capabilities/system_response_manager/common_system_response_manager.py - 实现 generate_need_input_response()，添加 need_input prompt 模板
+- [x] interaction/services/task_result_handler.py - 调用 capability 而非直接格式化
+- [x] interaction/capabilities/intent_recognition_manager/common_intent_recognition_manager.py - 扩展 judge_special_intent 支持 NEED_INPUT 状态，添加 PROVIDE_INPUT 意图
+- [x] interaction/interaction_handler.py - 统一状态拦截器，处理 awaiting_task_input 状态
+
+### 关键修改
+
+**1. SystemResponseManager 新增方法**
+```python
+def generate_need_input_response(
+    self, session_id: str, trace_id: str,
+    missing_params: List[str], completed_params: Dict = None
+) -> SystemResponseDTO:
+    # 格式化为自然语言，使用 LLM 美化
+```
+
+**2. IntentRecognitionManager 扩展**
+- `_format_context_for_llm()`: 添加对 `awaiting_task_input` 状态的描述
+- `judge_special_intent()`: 在 NEED_INPUT 状态下返回 `PROVIDE_INPUT`/`CANCEL`/`MODIFY`
+- `_fallback_keyword_match()`: 降级关键字匹配逻辑
+
+**3. 统一状态拦截器流程**
+```
+用户输入 → 检查 awaiting_task_input 状态
+    ├─ PROVIDE_INPUT → 恢复任务执行
+    ├─ CANCEL → 取消任务，清除状态
+    ├─ MODIFY → 清除状态，提示重新描述
+    └─ 其他 → 继续正常意图识别
+```
+
+**4. 用户可选操作**
+- 直接输入参数值 → 系统识别为 PROVIDE_INPUT，恢复任务
+- 说"取消"/"不要了" → 系统识别为 CANCEL，取消任务
+- 说"修改"/"换一个" → 系统识别为 MODIFY，重新开始
+
+### 状态
+✅ 完成 (2026-01-29 11:44)
+
+---
+## [2026-01-29 11:00] - 修复 NEED_INPUT 消息格式和事件判断
+
+### 任务描述
+1. 回传给用户的 JSON 格式需要美化，使用自然语言展示而非直接展示 JSON
+2. NEED_INPUT 事件未被正确识别，系统错误地创建了新任务而非暂停等待输入
+
+### 问题分析
+**问题1：消息格式**
+- `task_result_handler.py` 中 NEED_INPUT 状态直接展示 JSON
+- 需要使用 LLM 美化输出，或至少格式化为自然语言
+
+**问题2：事件判断**
+- `DialogStateDTO` 没有跟踪 NEED_INPUT 状态（只有 `waiting_for_confirmation`）
+- 用户回复时走正常意图识别，而不是恢复任务
+- 需要：
+  1. 在 `DialogStateDTO` 添加 `awaiting_task_input` 字段跟踪 NEED_INPUT 状态
+  2. 在 `task_result_handler.py` 收到 NEED_INPUT 时更新 dialog_state
+  3. 在 `interaction_handler.py` 检测到 awaiting_task_input 时，恢复任务而非创建新任务
+
+### 修改文件
+- [x] interaction/common/response_state.py - DialogStateDTO 添加 awaiting_task_input 相关字段
+- [x] interaction/services/task_result_handler.py - NEED_INPUT 时更新 dialog_state，美化消息格式
+- [x] interaction/interaction_handler.py - 检测 awaiting_task_input 状态，调用恢复任务逻辑
+- [x] interaction/external/client/task_client.py - resume_task 方法支持 parameters 参数
+- [x] trigger/entry/api/routes.py - 添加 /traces/{trace_id}/resume-with-input 接口
+- [x] trigger/services/lifecycle_service.py - 添加 resume_task_with_input 方法
+
+### 关键修改
+
+**1. DialogStateDTO 新增字段** (response_state.py)
+```python
+awaiting_task_input: bool = False
+awaiting_task_trace_id: Optional[str] = None
+awaiting_task_missing_params: Optional[List[str]] = None
+awaiting_task_completed_params: Optional[Dict[str, Any]] = None
+```
+
+**2. NEED_INPUT 消息美化** (task_result_handler.py)
+- `_format_need_input_message()`: 将 JSON 格式化为自然语言
+- `_get_param_display_name()`: 参数名映射为中文显示名
+- `_format_param_value()`: 格式化参数值
+
+**3. 状态拦截器** (interaction_handler.py)
+- 在意图识别前检测 `awaiting_task_input` 状态
+- 如果为 True，调用 `_resume_task_with_input()` 恢复任务
+- 恢复后清除状态并返回确认消息
+
+**4. 任务恢复流程**
+```
+用户输入 → interaction_handler 检测 awaiting_task_input
+    → TaskClient.resume_task(trace_id, parameters)
+    → trigger /traces/{trace_id}/resume-with-input
+    → lifecycle_service.resume_task_with_input()
+    → RabbitMQ (work.excute, msg_type=RESUME_TASK)
+    → tasks rabbitmq_listener._handle_resume_task()
+    → TaskRouter.submit_resume_task()
+```
+
+### 状态
+✅ 完成 (2026-01-29 11:30)
+
+---
 ## [2026-01-28 22:45] - 修复 user_id 特殊格式未解析导致 Dify 报错
 
 ### 任务描述

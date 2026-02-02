@@ -59,10 +59,17 @@ class DialogStateDTO(BaseModel):
 
     # ✅ 【新增】待确认状态锁
     # 当这个为 True 时，系统的第一优先级是判断用户是否确认
-    waiting_for_confirmation: bool = False 
+    waiting_for_confirmation: bool = False
     confirmation_action: Optional[str] = None  # 等待确认的动作类型
     # (可选) 存一下到底在确认什么，防止上下文丢失
     confirmation_payload: Optional[Dict[str, Any]] = None
+
+    # ✅ 【新增】等待任务输入状态（NEED_INPUT）
+    # 当任务执行中需要用户补充信息时，设置此状态
+    awaiting_task_input: bool = False
+    awaiting_task_trace_id: Optional[str] = None  # 等待输入的任务 trace_id
+    awaiting_task_missing_params: Optional[List[str]] = None  # 缺失的参数列表
+    awaiting_task_completed_params: Optional[Dict[str, Any]] = None  # 已完成的参数
 
     # --- 新增字段：会话生命周期 ---
     last_updated: datetime =  Field(default_factory=lambda: datetime.now(timezone.utc))

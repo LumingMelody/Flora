@@ -443,17 +443,18 @@ class InteractionHandler:
                 yield "thought", {"message": "生成会话名称和描述", "name": dialog_state.name, "description": dialog_state.description}
         
             yield "thought", {"message": "对话状态加载完成"}
-            
+
         except Exception as e:
             logger.error(f"Failed to manage dialog state: {e}")
             logger.debug(f"Error traceback: {traceback.format_exc()}")
             yield "error", {"message": f"对话状态管理失败: {str(e)}"}
             return
+
         # =========================================================================
-        # 🔥 【新增逻辑】 状态拦截器 (State Interceptor)
-        # 如果处于“待确认”状态，且用户意图是“确认/肯定”，则直接短路进执行
+        # 🔥 【状态拦截器】统一处理特殊状态
+        # 包括：waiting_for_confirmation 和 awaiting_task_input
         # =========================================================================
-        
+
         intent_result: IntentRecognitionResultDTO
         # === 3. 智能意图识别：根据对话状态决定识别策略 ===
         intent_result = None
@@ -461,17 +462,47 @@ class InteractionHandler:
         try:
             intent_recognition_manager = self.registry.get_capability("intent_recognition", IIntentRecognitionManagerCapability)
 
-            if dialog_state.waiting_for_confirmation:
-                # 【特殊状态】只先判断是否为特殊意图（CONFIRM/CANCEL/MODIFY）
+            # 检查是否处于等待任务输入状态（NEED_INPUT）
+            is_awaiting_task_input = getattr(dialog_state, 'awaiting_task_input', False)
+
+            if is_awaiting_task_input:
+                # 【NEED_INPUT 状态】判断用户意图：提供参数、取消、修改
                 special_intent = intent_recognition_manager.judge_special_intent(original_input.utterance, dialog_state)
-                
+
+                yield "thought", {
+                    "message": "处于等待任务输入状态，检查用户意图",
+                    "special_intent": special_intent,
+                    "trace_id": getattr(dialog_state, 'awaiting_task_trace_id', None)
+                }
+
+                # PROVIDE_INPUT/CANCEL/MODIFY 走拦截器，其它情况继续完整意图识别
+                if special_intent in ("PROVIDE_INPUT", "CANCEL", "MODIFY"):
+                    intent_result = IntentRecognitionResultDTO(
+                        primary_intent=IntentType.IDLE_CHAT,
+                        confidence=0.0,
+                        entities=[],
+                        raw_nlu_output={}
+                    )
+                else:
+                    # 用户说了无关内容，继续完整意图识别
+                    intent_result = intent_recognition_manager.recognize_intent(input)
+                    dialog_state.current_intent = intent_result.primary_intent
+                    yield "thought", {
+                        "message": "非特殊意图，执行完整意图识别",
+                        "primary_intent": intent_result.primary_intent.value
+                    }
+
+            elif dialog_state.waiting_for_confirmation:
+                # 【待确认状态】只先判断是否为特殊意图（CONFIRM/CANCEL/MODIFY）
+                special_intent = intent_recognition_manager.judge_special_intent(original_input.utterance, dialog_state)
+
                 yield "thought", {
                     "message": "处于等待确认状态，仅检查特殊意图",
                     "special_intent": special_intent
                 }
 
-                # 如果不是特殊意图（即用户说了无关内容，如“今天天气如何”）
-                 # CONFIRM/CANCEL 直接走拦截器，其它情况继续完整意图识别
+                # 如果不是特殊意图（即用户说了无关内容，如"今天天气如何"）
+                # CONFIRM/CANCEL 直接走拦截器，其它情况继续完整意图识别
                 if special_intent not in ("CONFIRM", "CANCEL"):
                     # 才 fallback 到完整意图识别
                     intent_result = intent_recognition_manager.recognize_intent(input)
@@ -496,7 +527,7 @@ class InteractionHandler:
                 intent_result = intent_recognition_manager.recognize_intent(input)
                 dialog_state.current_intent = intent_result.primary_intent
 
-                
+
                 yield "thought", {
                     "message": "正常状态，执行完整意图识别",
                     "primary_intent": intent_result.primary_intent.value,
@@ -536,11 +567,82 @@ class InteractionHandler:
         # 这样 task_draft_manager.update_draft_from_intent 才能获取到用户纠正后的理解
         intent_result.raw_nlu_output["enhanced_utterance"] = session_state.get("enhanced_utterance", input.utterance)
 
-        # === 4. 【状态拦截器】处理特殊意图（CONFIRM / CANCEL / MODIFY）===
+        # === 4. 【状态拦截器】处理特殊意图（CONFIRM / CANCEL / MODIFY / PROVIDE_INPUT）===
         bypass_routing = False
         result_data: Dict[str, Any] = {}
 
-        if dialog_state.waiting_for_confirmation:
+        # 4.1 处理 NEED_INPUT 状态（awaiting_task_input）
+        is_awaiting_task_input = getattr(dialog_state, 'awaiting_task_input', False)
+        if is_awaiting_task_input:
+            is_provide_input = (special_intent == "PROVIDE_INPUT")
+            is_cancel = (special_intent == "CANCEL")
+            is_modify = (special_intent == "MODIFY")
+
+            if is_provide_input:
+                yield "thought", {"message": "用户提供了任务所需的参数，恢复任务执行"}
+
+                try:
+                    # 调用任务恢复逻辑
+                    resume_result = await self._resume_task_with_input(
+                        trace_id=dialog_state.awaiting_task_trace_id,
+                        user_input=input.utterance,
+                        missing_params=dialog_state.awaiting_task_missing_params,
+                        user_id=input.user_id
+                    )
+
+                    # 清除等待输入状态
+                    dialog_state.awaiting_task_input = False
+                    dialog_state.awaiting_task_trace_id = None
+                    dialog_state.awaiting_task_missing_params = None
+                    dialog_state.awaiting_task_completed_params = None
+
+                    result_data = {
+                        "response_text": resume_result.get("message", "已收到您的输入，任务继续执行中..."),
+                        "requires_input": False
+                    }
+                    bypass_routing = True
+
+                except Exception as e:
+                    logger.error(f"Failed to resume task with input: {e}")
+                    logger.debug(f"Error traceback: {traceback.format_exc()}")
+                    result_data = {
+                        "response_text": f"恢复任务失败: {str(e)}，请重试或取消任务。",
+                        "requires_input": True
+                    }
+                    bypass_routing = True
+
+            elif is_cancel:
+                yield "thought", {"message": "用户取消了等待输入的任务"}
+
+                # 清除等待输入状态
+                dialog_state.awaiting_task_input = False
+                dialog_state.awaiting_task_trace_id = None
+                dialog_state.awaiting_task_missing_params = None
+                dialog_state.awaiting_task_completed_params = None
+
+                # TODO: 可选 - 调用 TaskClient 取消任务
+                result_data = {"response_text": "已取消任务，有其他需要帮助的吗？"}
+                bypass_routing = True
+
+            elif is_modify:
+                yield "thought", {"message": "用户想要修改任务参数"}
+
+                # 清除等待输入状态，但保留 trace_id 以便后续可能的重新提交
+                # 这里简单处理：清除状态，提示用户重新描述
+                dialog_state.awaiting_task_input = False
+                dialog_state.awaiting_task_trace_id = None
+                dialog_state.awaiting_task_missing_params = None
+                dialog_state.awaiting_task_completed_params = None
+
+                result_data = {"response_text": "好的，请重新描述您的需求，我会重新为您处理。"}
+                bypass_routing = True
+
+            else:
+                # 用户说了无关内容，不清除状态，继续走正常路由
+                pass
+
+        # 4.2 处理待确认状态（waiting_for_confirmation）
+        elif dialog_state.waiting_for_confirmation:
             is_confirm = (special_intent == "CONFIRM")
             is_cancel = (special_intent == "CANCEL")
             is_modify = (special_intent == "MODIFY")
@@ -1132,7 +1234,71 @@ class InteractionHandler:
             logger.debug(f"Error traceback: {traceback.format_exc()}")
             yield "error", {"message": f"响应生成失败: {str(e)}"}
             return
-    
+
+    async def _resume_task_with_input(
+        self,
+        trace_id: str,
+        user_input: str,
+        missing_params: Optional[list],
+        user_id: str
+    ) -> Dict[str, Any]:
+        """
+        恢复等待输入的任务
+
+        Args:
+            trace_id: 任务的 trace_id
+            user_input: 用户输入的内容
+            missing_params: 缺失的参数列表
+            user_id: 用户ID
+
+        Returns:
+            恢复结果
+        """
+        from external.client.task_client import TaskClient
+
+        # 构建参数：将用户输入映射到缺失的参数
+        parameters = {}
+
+        if missing_params and len(missing_params) > 0:
+            # 如果只有一个缺失参数，直接赋值
+            if len(missing_params) == 1:
+                param_name = missing_params[0]
+                if isinstance(param_name, dict):
+                    param_name = param_name.get("name", param_name.get("key", "input"))
+                parameters[param_name] = user_input
+            else:
+                # 多个缺失参数，尝试解析用户输入
+                # 简单策略：将整个输入作为第一个缺失参数的值
+                first_param = missing_params[0]
+                if isinstance(first_param, dict):
+                    first_param = first_param.get("name", first_param.get("key", "input"))
+                parameters[first_param] = user_input
+        else:
+            # 没有明确的缺失参数，使用通用键名
+            parameters["user_input"] = user_input
+
+        logger.info(f"Resuming task trace_id={trace_id} with parameters: {parameters}")
+
+        try:
+            # 调用 TaskClient 恢复任务
+            task_client = TaskClient()
+            result = task_client.resume_task(
+                trace_id=trace_id,
+                parameters=parameters,
+                user_id=user_id
+            )
+
+            return {
+                "success": True,
+                "message": "已收到您的输入，任务继续执行中...",
+                "trace_id": trace_id,
+                "result": result
+            }
+
+        except Exception as e:
+            logger.error(f"Failed to resume task via TaskClient: {e}")
+            raise
+
     def fallback_response(self, session_id: str, msg: str) -> SystemResponseDTO:
         """生成兜底响应
         

@@ -113,7 +113,10 @@ class TaskResultHandler:
             logger.error(f"Failed to push SSE event: {e}")
 
         # 7. 更新对话状态并保存到历史
-        self._update_dialog_state(session_id, trace_id, status, formatted_content, error)
+        self._update_dialog_state(
+            session_id, trace_id, status, formatted_content, error,
+            raw_result=task_result if status == "NEED_INPUT" else None
+        )
 
     def _format_result_with_response_manager(
         self,
@@ -145,16 +148,16 @@ class TaskResultHandler:
             )
 
             # 根据状态选择不同的格式化方式
-            if status == "NEED_INPUT" and need_input:
-                # 需要用户输入
-                slot_name = need_input.get("slot_name", "信息")
-                prompt = need_input.get("prompt", f"请提供 {slot_name}")
-                response = response_manager.generate_fill_slot_response(
+            if status == "NEED_INPUT":
+                # 需要用户输入 - 使用 capability 格式化
+                missing_params, completed_params, trace_id = self._extract_need_input_info(result, need_input)
+                response = response_manager.generate_need_input_response(
                     session_id=session_id,
-                    missing_slots=[slot_name],
-                    draft_id=need_input.get("task_id", "")
+                    trace_id=trace_id or "",
+                    missing_params=missing_params,
+                    completed_params=completed_params
                 )
-                return response.response_text or prompt
+                return response.response_text
 
             elif status == "SUCCESS":
                 # 成功：提取并格式化结果
@@ -180,7 +183,58 @@ class TaskResultHandler:
         except Exception as e:
             logger.warning(f"Failed to use SystemResponseManager, falling back: {e}")
             # 降级：直接格式化
+            if status == "NEED_INPUT":
+                missing_params, completed_params, _ = self._extract_need_input_info(result, need_input)
+                return self._format_need_input_fallback(missing_params, completed_params)
             return self._extract_meaningful_result(result)
+
+    def _extract_need_input_info(
+        self,
+        result: Any,
+        need_input: Optional[Dict[str, Any]]
+    ) -> tuple:
+        """
+        从结果中提取 NEED_INPUT 相关信息
+
+        Returns:
+            (missing_params, completed_params, trace_id)
+        """
+        missing_params = []
+        completed_params = {}
+        trace_id = None
+
+        if isinstance(result, dict):
+            missing_params = result.get("missing_params", [])
+            completed_params = result.get("completed_params", {})
+            trace_id = result.get("trace_id")
+
+        if need_input and isinstance(need_input, dict):
+            if not missing_params:
+                missing_params = need_input.get("missing_params", [])
+            if not completed_params:
+                completed_params = need_input.get("completed_params", {})
+            if not trace_id:
+                trace_id = need_input.get("trace_id") or need_input.get("task_id")
+
+        return missing_params, completed_params, trace_id
+
+    def _format_need_input_fallback(
+        self,
+        missing_params: list,
+        completed_params: dict
+    ) -> str:
+        """
+        NEED_INPUT 消息的降级格式化（不使用 capability）
+        """
+        if missing_params:
+            param_names = []
+            for p in missing_params:
+                if isinstance(p, str):
+                    param_names.append(p)
+                elif isinstance(p, dict):
+                    param_names.append(p.get("name", p.get("key", str(p))))
+            return f"请补充以下信息：{', '.join(param_names)}"
+        return "任务需要更多信息才能继续，请补充相关内容。"
 
     def _extract_meaningful_result(self, result: Any) -> str:
         """
@@ -325,7 +379,8 @@ class TaskResultHandler:
         trace_id: str,
         status: str,
         result: str,
-        error: Optional[str]
+        error: Optional[str],
+        raw_result: Optional[Dict[str, Any]] = None
     ) -> None:
         """
         更新对话状态，并将任务结果保存到对话历史
@@ -338,10 +393,29 @@ class TaskResultHandler:
                 logger.warning(f"Dialog state not found for session: {session_id}")
                 return
 
-            # 更新 active_task_execution 状态
-            if dialog_state.active_task_execution:
-                # 任务已完成，清除活跃任务标记
-                dialog_state.active_task_execution = None
+            # 根据状态更新 dialog_state
+            if status == "NEED_INPUT":
+                # 设置等待任务输入状态
+                dialog_state.awaiting_task_input = True
+                dialog_state.awaiting_task_trace_id = trace_id
+
+                # 提取缺失参数和已完成参数
+                if raw_result and isinstance(raw_result, dict):
+                    dialog_state.awaiting_task_missing_params = raw_result.get("missing_params", [])
+                    dialog_state.awaiting_task_completed_params = raw_result.get("completed_params", {})
+
+                logger.info(f"Set awaiting_task_input=True for session: {session_id}, trace_id: {trace_id}")
+
+            else:
+                # 任务完成（成功或失败），清除等待输入状态
+                dialog_state.awaiting_task_input = False
+                dialog_state.awaiting_task_trace_id = None
+                dialog_state.awaiting_task_missing_params = None
+                dialog_state.awaiting_task_completed_params = None
+
+                # 清除活跃任务标记
+                if dialog_state.active_task_execution:
+                    dialog_state.active_task_execution = None
 
             # 更新 last_updated
             dialog_state.last_updated = datetime.now(timezone.utc)
@@ -352,7 +426,7 @@ class TaskResultHandler:
             # 将任务结果保存到对话历史（result 已经是格式化后的字符串）
             self._save_result_to_history(session_id, dialog_state.user_id, status, result, error)
 
-            logger.debug(f"Updated dialog state for session: {session_id}")
+            logger.debug(f"Updated dialog state for session: {session_id}, status: {status}")
 
         except Exception as e:
             logger.error(f"Failed to update dialog state: {e}", exc_info=True)
