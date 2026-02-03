@@ -260,36 +260,60 @@ class ObserverService:
                 # -----------------------------------------------
                 # 场景 B: 节点状态流转 (节点变色)
                 # -----------------------------------------------
-                elif event_type in ["TASK_STARTED", "TASK_RUNNING"]:
+                elif event_type in ["TASK_STARTED", "TASK_RUNNING", "STARTED", "RUNNING"]:
                     socket_msg = {
                         "event": "node_updated",
                         "data": {
                             "node_id": payload.get("task_id"),
                             "status": "RUNNING",
                             "worker_id": payload.get("worker_id"),
-                            "progress": payload.get("progress", 0)
+                            "progress": payload.get("progress", 0),
+                            "name": payload.get("name"),
+                            "message": payload.get("data", {}).get("message") if isinstance(payload.get("data"), dict) else None
                         }
                     }
 
-                elif event_type == "TASK_COMPLETED":
+                elif event_type in ["TASK_COMPLETED", "COMPLETED"]:
                     socket_msg = {
                         "event": "node_updated",
                         "data": {
                             "node_id": payload.get("task_id"),
                             "status": "SUCCESS",
                             "progress": 100,
+                            "name": payload.get("name"),
                             # 可选：携带少量结果摘要
-                            "output_summary": str(payload.get("data", ""))[:50]
+                            "output_summary": str(payload.get("data", {}).get("message", ""))[:100] if isinstance(payload.get("data"), dict) else str(payload.get("data", ""))[:50]
                         }
                     }
 
-                elif event_type == "TASK_FAILED":
+                elif event_type in ["TASK_FAILED", "FAILED"]:
                     socket_msg = {
                         "event": "node_updated",
                         "data": {
                             "node_id": payload.get("task_id"),
                             "status": "FAILED",
-                            "error": payload.get("error_msg")
+                            "error": payload.get("error") or payload.get("error_msg"),
+                            "name": payload.get("name"),
+                            "message": payload.get("data", {}).get("message") if isinstance(payload.get("data"), dict) else None
+                        }
+                    }
+
+                # 场景 B2: 进度更新事件
+                elif event_type in ["TASK_PROGRESS", "PROGRESS"]:
+                    data_dict = payload.get("data", {}) if isinstance(payload.get("data"), dict) else {}
+                    socket_msg = {
+                        "event": "node_updated",
+                        "data": {
+                            "node_id": payload.get("task_id"),
+                            "status": "RUNNING",
+                            "progress": data_dict.get("progress", 50),
+                            "name": payload.get("name"),
+                            "step": data_dict.get("step"),
+                            "step_description": data_dict.get("step_description"),
+                            "step_result_summary": data_dict.get("step_result_summary"),
+                            "completed_steps": data_dict.get("completed_steps"),
+                            "total_steps": data_dict.get("total_steps"),
+                            "message": data_dict.get("message")
                         }
                     }
 

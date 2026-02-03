@@ -1,6 +1,294 @@
 # Changelog
 
 ---
+## [2026-02-03 17:09] - Neo4j 树节点新增 role 字段，AgentActor 规划时带上 role 和 memory
+
+### 任务描述
+1. 在 Neo4j 树节点解析中新增 `role` 字段
+2. `AgentActor` 在调用 `TaskPlanner` 规划时，带上自己的 `role` 和 `memory`
+3. `TaskPlanner` 在生成规划时，根据 Agent 的角色定位来制定更合适的计划
+
+### 修改文件
+- [x] tasks/agents/tree/node_service.py - `get_agent_meta` 新增 `role` 字段提取
+- [x] tasks/agents/agent_actor.py - `_plan_task_execution` 获取并传递 `agent_role`
+- [x] tasks/capabilities/task_planning/interface.py - `generate_execution_plan` 接口添加 `agent_role` 参数
+- [x] tasks/capabilities/task_planning/common_task_planner.py:
+  - `generate_execution_plan` 添加 `agent_role` 参数
+  - `_semantic_decomposition` 添加 `agent_role` 参数
+  - `_build_enhanced_planning_prompt` 添加角色定位部分到 prompt
+
+### 关键设计
+
+**Neo4j 节点新增字段**：
+```python
+meta = {
+    "agent_id": node.get("agent_id"),
+    "name": node.get("name", ""),
+    "role": node.get("role", ""),  # 新增：Agent 角色定位
+    ...
+}
+```
+
+**规划 Prompt 增强**：
+```
+### 🎭 当前 Agent 角色定位
+{agent_role}
+*(请根据上述角色定位来制定规划。规划应符合该角色的职责范围和专业领域)*
+```
+
+**数据流**：
+```
+AgentActor._handle_task()
+  → self.meta.get("role")  # 从 TreeManager 获取角色
+  → _plan_task_execution(task_description, memory_context)
+    → task_planner.generate_execution_plan(agent_id, user_input, memory_context, agent_role)
+      → _semantic_decomposition(agent_id, user_input, memory_context, agent_role)
+        → _build_enhanced_planning_prompt(user_input, memory, agents, agent_role)
+```
+
+### 状态
+✅ 完成 (2026-02-03 17:20)
+
+---
+## [2026-02-03 16:31] - 增强 BaseConnector 参数填充：ReAct 式需求感知预填机制
+
+### 任务描述
+增强 `base_connector.py` 的参数填充逻辑，从"盲填"改为"ReAct 式需求感知"：
+- 当前问题：参数填充只知道参数名和类型，不知道业务意图
+- 期望效果：LLM 通过 ReAct 循环，结合业务需求和上下文，动态查找和推断参数值
+
+例如：
+- 用户说"查一下这个产品"，schema 要求 `product_id`
+- ReAct 流程：分析需求 → 从上下文找到 product_name → 调用 QUERY 获取 ID → 填充参数
+
+### 修改文件
+- [x] tasks/capabilities/context_resolver/interface.py - `resolve_params_for_tool` 接口添加 `task_content` 和 `agent_id` 参数
+- [x] tasks/capabilities/context_resolver/tree_context_resolver.py:
+  - 重构 `resolve_params_for_tool`：增加 ReAct 式预填步骤
+  - 重构 `_llm_infer_param_values`：改为 ReAct Agent，支持 INFER/EXTRACT/QUERY/FINISH 四种 Action
+  - 新增 `_build_context_summary_for_react`：构建 ReAct 用的上下文摘要
+  - 新增 `_build_react_prompt`：构建 ReAct Prompt
+  - 新增 `_get_today_date`：获取当前日期用于时间类参数推断
+- [x] tasks/capabilities/execution/connect/base_connector.py - 调用时传递 `task_content` 和 `agent_id` 参数
+
+### 关键设计
+
+**ReAct 流程**：
+```
+用户: "查一下这个产品的库存"
+参数: product_id (必填)
+
+ReAct 循环:
+1. Thought: 用户提到"这个产品"，但没给 ID，需要从上下文找
+2. Action: EXTRACT {"product_name": "enriched.product_name"}
+3. Observation: product_name = "iPhone 15"
+4. Thought: 有产品名但没 ID，需要调用查询
+5. Action: QUERY {"product_id": "名称为 iPhone 15 的产品ID"}
+6. Observation: product_id = "P12345"
+7. Action: FINISH {"product_id": "P12345"}
+```
+
+**四种 Action**：
+| Action | 用途 | 输入格式 |
+|--------|------|----------|
+| INFER | 直接推断值（时间、数量） | `{"param": "value"}` |
+| EXTRACT | 从上下文路径提取 | `{"param": "global.xxx"}` |
+| QUERY | 调用 resolve_context 查询 | `{"param": "查询描述"}` |
+| FINISH | 完成填充 | `{"final_params": {...}}` |
+
+**推断规则**：
+- 时间类: "过去一个季度"→3个月前, "最近一周"→7天前
+- 数量类: "所有"→1000或-1, "前N个"→N
+- ID类: 优先 EXTRACT，其次 QUERY
+
+### 状态
+✅ 完成 (2026-02-03 16:50)
+
+---
+## [2026-02-03 15:43] - 步骤进度事件推送（使用 root_agent_id）
+
+### 任务描述
+在 `TaskGroupAggregatorActor` 中添加步骤进度事件推送，让前端能看到每一步的结果，同时不干扰现有的 `agent_id` 事件体系。
+
+### 修改文件
+- [x] tasks/capability_actors/task_group_aggregator_actor.py:
+  - `_handle_step_success`: 添加 `TASK_PROGRESS` 事件推送，使用 `root_agent_id` 作为 `agent_id`
+  - 新增 `_generate_result_summary` 方法生成结果摘要
+
+### 关键设计
+- 使用 `global_context["root_agent_id"]` 作为事件的 `agent_id`
+- 这样事件会归属到父 Agent，不会创建新的节点
+- 前端可以通过 `TASK_PROGRESS` 事件展示每一步的结果摘要
+
+### 事件数据结构
+```python
+event_bus.publish_task_event(
+    task_id=current_task.task_id,
+    event_type=EventType.TASK_PROGRESS.value,
+    agent_id=root_agent_id,  # 使用父 Agent 的 ID
+    data={
+        "step": step,
+        "step_description": current_task.description,
+        "step_result_summary": result_summary,
+        "completed_steps": self.current_step_index + 1,
+        "total_steps": len(self.sorted_subtasks),
+        "executor": current_task.executor,
+    }
+)
+```
+
+### 状态
+✅ 完成 (2026-02-03 15:43)
+
+---
+## [2026-02-03 15:37] - 撤销 TaskGroupAggregatorActor 事件推送
+
+### 任务描述
+撤销之前在 `TaskGroupAggregatorActor` 中添加的事件推送代码，因为会干扰现有的以 `agent_id` 为标识的事件上报体系。
+
+### 修改文件
+- [x] tasks/capability_actors/task_group_aggregator_actor.py:
+  - 撤销 `_start_workflow` 中的事件推送
+  - 撤销 `_handle_step_success` 中的事件推送
+  - 撤销 `_finish_workflow` 中的事件推送
+  - 撤销 `_fail_workflow` 中的事件推送
+  - 删除 `_generate_result_summary` 方法
+- [x] tasks/capabilities/execution/connect/dify_connector.py:
+  - 删除 `_summarize_enriched_context` 方法
+  - 删除 `_generate_value_summary` 方法
+  - 传递完整 `enriched_context` 和 `step_results` 给 `_resolve_all_params`
+  - 由 `TreeContextResolver.build_context_snapshot` 统一处理 Schema 摘要
+
+### 关键说明
+- 事件上报体系以 `agent_id` 为标识，由各个 `AgentActor` 和 `LeafActor` 负责上报
+- `TaskGroupAggregatorActor` 只是内部的步骤聚合器，不应该直接推送事件
+- Schema 摘要 + 按需展开机制已在 `TreeContextResolver` 中实现
+
+### 状态
+✅ 完成 (2026-02-03 15:37)
+
+---
+## [2026-02-03 15:22] - 修复补参数 JSON 格式暴露 + 启用事件推送 + Context 摘要优化
+
+### 任务描述
+修复三个核心问题：
+1. 补参数请求返回 JSON 格式而非自然语言，且无法正确识别用户补参动作
+2. 前端 DAG 无法自动更新（WebSocket 消息格式不匹配）
+3. Context 膨胀问题（enriched_context 随任务执行不断增大）
+
+### 修改文件
+
+**问题1：补参数格式和识别**
+- [x] tasks/capability_actors/execution_actor.py - `missing_params` 保持结构化字典格式 `[{"name": k, "description": v}]`
+- [x] tasks/capability_actors/execution_actor1.py - 同上
+- [x] interaction/services/task_result_handler.py - 增强 `_extract_need_input_info` 和 `_format_need_input_fallback`，支持解析字符串格式字典
+- [x] interaction/capabilities/system_response_manager/common_system_response_manager.py - 改进 `generate_need_input_response`，过滤内部参数，显示参数描述
+- [x] interaction/interaction_handler.py - 增强 `_resume_task_with_input`，添加辅助函数正确提取参数名
+- [x] interaction/capabilities/intent_recognition_manager/common_intent_recognition_manager.py - 增强 `_format_context_for_llm`，正确提取参数名
+
+**问题2：事件推送启用**
+- [x] tasks/capability_actors/task_group_aggregator_actor.py:
+  - 启用 `_start_workflow` 工作流启动事件
+  - 启用 `_handle_step_success` 步骤成功事件（含结果摘要）
+  - 启用 `_finish_workflow` 工作流完成事件
+  - 启用 `_fail_workflow` 工作流失败事件
+  - 新增 `_generate_result_summary()` 方法
+
+**问题3：Context 摘要优化**
+- [x] tasks/common/context/context_entry.py - 增强 `ContextEntry`：
+  - 添加 `summary` 字段
+  - 添加 `get_summary()` 方法
+  - 添加 `to_summary_dict()` 方法
+  - 新增 `create_context_entry_with_summary()` 工厂函数
+- [x] tasks/capabilities/execution/connect/dify_connector.py:
+  - 传递完整 `enriched_context` 和 `step_results` 给 `_resolve_all_params`
+  - 由 `TreeContextResolver.build_context_snapshot` 统一处理 Schema 摘要
+  - 新增 `_truncate_for_log()` 方法用于日志截断
+- 注意：Schema 摘要 + 按需展开机制已在 `TreeContextResolver` 中实现，`dify_connector` 只需传递完整上下文
+
+**问题4：前端 WebSocket 消息处理**
+- [x] front/src/features/DagEditor/index.vue:
+  - 修复 `handleWebSocketMessage` 兼容后端消息格式
+  - 添加 `mapStatusToNodeStatus` 状态映射函数
+  - 支持 `node_updated`、`graph_updated` 等新事件类型
+
+**问题5：后端 ObserverService 事件处理**
+- [x] events/services/observer_service.py:
+  - 添加 `STARTED`、`RUNNING`、`COMPLETED`、`FAILED` 事件类型支持
+  - 添加 `PROGRESS` 事件处理，携带步骤详情
+  - 增强消息内容，包含 `name`、`message`、`step_result_summary` 等
+
+### 关键修复
+
+**1. 补参数格式修复**
+```python
+# 修复前：转成字符串，无法解析
+missing_params_descriptions = [str({"name": k, "description": v}) for k, v in missing_params.items()]
+
+# 修复后：保持结构化格式
+missing_params_list = [{"name": k, "description": v} for k, v in missing_params.items()]
+```
+
+**2. 事件推送启用**
+```python
+# 步骤成功事件
+event_bus.publish_task_event(
+    task_id=current_task.task_id,
+    event_type=EventType.TASK_PROGRESS.value,
+    data={
+        "step": step,
+        "step_description": current_task.description,
+        "step_result_summary": result_summary,  # 使用摘要
+        "completed_steps": self.current_step_index + 1,
+        "total_steps": len(self.sorted_subtasks)
+    }
+)
+```
+
+**3. Context 摘要机制**
+```python
+# 传递摘要版本给 LLM，减少 token 消耗
+summarized_enriched_context = self._summarize_enriched_context(enriched_context)
+full_context = {
+    "enriched_context": summarized_enriched_context,  # 摘要版本
+    "enriched_context_full": enriched_context,  # 完整版本用于按需展开
+}
+```
+
+**4. 前端 WebSocket 消息兼容**
+```javascript
+// 兼容两种消息格式
+const eventType = data.event || data.event_type || data.type;
+const payload = data.data || data.payload || data;
+
+switch (eventType) {
+    case 'node_updated':  // 新格式
+        updateNodeStatus(payload.node_id, mapStatusToNodeStatus(payload.status), payload.progress);
+        break;
+    case 'TASK_RUNNING':  // 旧格式兼容
+        updateNodeStatus(payload.task_id, 'running', payload.progress || 50);
+        break;
+}
+```
+
+### 状态
+✅ 完成 (2026-02-03 15:22)
+
+---
+## [2026-02-03 15:00] - 更新 API Key
+
+### 任务描述
+将项目中的旧 API Key 替换为新的 Key。
+
+### 修改文件
+- [x] .env.local - DASHSCOPE_API_KEY, MEM0_API_KEY
+- [x] .env.prod - DASHSCOPE_API_KEY, MEM0_API_KEY
+- [x] tasks/config.json - api_key
+
+### 状态
+✅ 完成 (2026-02-03 15:00)
+
+---
 ## [2026-01-29 11:37] - 重构 NEED_INPUT 处理：遵循 Capability 架构
 
 ### 任务描述

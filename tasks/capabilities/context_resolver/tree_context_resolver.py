@@ -1497,15 +1497,20 @@ class TreeContextResolver(IContextResolverCapbility):
         tool_schema: Dict[str, Any],
         context_snapshot: Dict[str, Any],
         step_results: Dict[str, Any],
-        task_description: str = ""
+        task_description: str = "",
+        task_content: str = "",
+        agent_id: str = ""
     ) -> Dict[str, Any]:
         """
         为工具调用解析参数（统一入口）
 
-        工作流程：
-        1. 将 tool_schema 和 context_snapshot._schema 交给 LLM
-        2. LLM 返回参数映射：{"param_name": "path.to.value"}
-        3. 根据映射从实际数据中提取值
+        增强版工作流程（ReAct 式）：
+        1. 【ReAct 预填】LLM 通过思考-行动-观察循环，动态填充参数
+           - INFER: 直接推断值（时间、数量等）
+           - EXTRACT: 从上下文路径提取值
+           - QUERY: 调用 resolve_context 查询数据库
+        2. 【路径映射】对于未填充的参数，使用路径映射从上下文提取
+        3. 合并结果
 
         Args:
             tool_schema: 工具的参数定义，格式：
@@ -1519,6 +1524,8 @@ class TreeContextResolver(IContextResolverCapbility):
             context_snapshot: 带 Schema 摘要的上下文快照
             step_results: 完整的步骤执行结果（用于按需提取）
             task_description: 任务描述（可选，帮助 LLM 理解意图）
+            task_content: 任务内容（可选，业务需求的详细描述）
+            agent_id: 当前 Agent ID（可选，用于 QUERY action）
 
         Returns:
             解析后的参数字典
@@ -1529,41 +1536,361 @@ class TreeContextResolver(IContextResolverCapbility):
         if not tool_schema or "parameters" not in tool_schema:
             return {}
 
-        # Step 1: 构建 LLM Prompt
-        param_mapping = self._llm_resolve_param_mapping(
-            tool_schema=tool_schema,
-            context_snapshot=context_snapshot,
-            task_description=task_description
-        )
-
-        if not param_mapping:
-            return {}
-
-        # Step 2: 根据映射提取实际值
         resolved_params = {}
-        for param_name, path in param_mapping.items():
-            if path is None or path == "null" or path == "":
-                # 参数无法从上下文获取，检查是否有默认值
-                param_spec = tool_schema["parameters"].get(param_name, {})
-                if "default" in param_spec:
-                    resolved_params[param_name] = param_spec["default"]
-                continue
 
-            value = self._extract_value_by_path(
-                path=path,
+        # ========== Step 1: ReAct 式需求感知预填 ==========
+        # LLM 通过思考-行动-观察循环，动态填充参数
+        if task_content or task_description:
+            inferred_params = self._llm_infer_param_values(
+                tool_schema=tool_schema,
+                task_content=task_content,
+                task_description=task_description,
                 context_snapshot=context_snapshot,
-                step_results=step_results
+                agent_id=agent_id
+            )
+            if inferred_params:
+                resolved_params.update(inferred_params)
+                logger.info(f"[ReAct] Inferred params: {list(inferred_params.keys())}")
+
+        # ========== Step 2: 路径映射提取 ==========
+        # 对于未推断出的参数，使用路径映射从上下文提取
+        remaining_params = {
+            name: spec for name, spec in tool_schema["parameters"].items()
+            if name not in resolved_params
+        }
+
+        if remaining_params:
+            remaining_schema = {
+                "parameters": remaining_params,
+                "required": [p for p in tool_schema.get("required", []) if p in remaining_params]
+            }
+
+            param_mapping = self._llm_resolve_param_mapping(
+                tool_schema=remaining_schema,
+                context_snapshot=context_snapshot,
+                task_description=task_description
             )
 
-            if value is not None:
-                resolved_params[param_name] = value
-            else:
-                # 提取失败，检查默认值
-                param_spec = tool_schema["parameters"].get(param_name, {})
-                if "default" in param_spec:
-                    resolved_params[param_name] = param_spec["default"]
+            if param_mapping:
+                for param_name, path in param_mapping.items():
+                    if path is None or path == "null" or path == "":
+                        # 参数无法从上下文获取，检查是否有默认值
+                        param_spec = tool_schema["parameters"].get(param_name, {})
+                        if "default" in param_spec:
+                            resolved_params[param_name] = param_spec["default"]
+                        continue
+
+                    value = self._extract_value_by_path(
+                        path=path,
+                        context_snapshot=context_snapshot,
+                        step_results=step_results
+                    )
+
+                    if value is not None:
+                        resolved_params[param_name] = value
+                    else:
+                        # 提取失败，检查默认值
+                        param_spec = tool_schema["parameters"].get(param_name, {})
+                        if "default" in param_spec:
+                            resolved_params[param_name] = param_spec["default"]
 
         return resolved_params
+
+    def _llm_infer_param_values(
+        self,
+        tool_schema: Dict[str, Any],
+        task_content: str,
+        task_description: str,
+        context_snapshot: Dict[str, Any] = None,
+        agent_id: str = ""
+    ) -> Dict[str, Any]:
+        """
+        ReAct 式参数推断：LLM 通过思考-行动-观察循环，动态填充参数
+
+        支持三种 Action：
+        1. INFER: 直接推断值（如时间、数量）
+        2. EXTRACT: 从上下文路径提取值
+        3. QUERY: 调用 resolve_context 查询数据库
+
+        例如：
+        - 用户说"查一下这个产品"，schema 要求 product_id
+        - ReAct: 分析需求 → 从上下文找到 product_name → 调用 QUERY 获取 ID
+
+        Args:
+            tool_schema: 工具参数定义
+            task_content: 任务内容（业务需求详细描述）
+            task_description: 任务描述（简短说明）
+            context_snapshot: 上下文快照（可选）
+            agent_id: 当前 Agent ID（用于 QUERY action）
+
+        Returns:
+            推断出的参数值字典
+        """
+        if not self.llm_client:
+            return {}
+
+        if not task_content and not task_description:
+            return {}
+
+        # 构建参数说明
+        params_info = []
+        required_params = tool_schema.get("required", [])
+
+        for param_name, param_spec in tool_schema["parameters"].items():
+            param_type = param_spec.get("type", "any")
+            param_desc = param_spec.get("description", "")
+            is_required = param_name in required_params
+            has_default = "default" in param_spec
+
+            req_mark = "[必填]" if is_required else "[可选]"
+            default_mark = f"(默认: {param_spec['default']})" if has_default else ""
+
+            params_info.append(f"- {param_name}: {param_type} {req_mark} {default_mark}\n  描述: {param_desc}")
+
+        params_text = "\n".join(params_info)
+
+        # 构建上下文摘要
+        context_summary = self._build_context_summary_for_react(context_snapshot)
+
+        # ReAct 循环
+        max_iterations = 3
+        resolved_params = {}
+        action_history = []
+
+        for iteration in range(max_iterations):
+            # 构建 ReAct Prompt
+            prompt = self._build_react_prompt(
+                task_content=task_content,
+                task_description=task_description,
+                params_text=params_text,
+                context_summary=context_summary,
+                resolved_params=resolved_params,
+                action_history=action_history,
+                remaining_params=[p for p in tool_schema["parameters"] if p not in resolved_params]
+            )
+
+            try:
+                response = self.llm_client.generate(
+                    prompt=prompt,
+                    parse_json=True,
+                    max_tokens=800
+                )
+
+                if not isinstance(response, dict):
+                    break
+
+                # 解析 LLM 响应
+                thought = response.get("thought", "")
+                action = response.get("action", "")
+                action_input = response.get("action_input", {})
+
+                logger.info(f"[ReAct iter {iteration + 1}] Thought: {thought[:100]}...")
+                logger.info(f"[ReAct iter {iteration + 1}] Action: {action}, Input: {action_input}")
+
+                # 执行 Action
+                if action == "FINISH":
+                    # 完成，提取最终结果
+                    final_params = response.get("final_params", {})
+                    for param_name, value in final_params.items():
+                        if param_name in tool_schema["parameters"]:
+                            if value is not None and value != "" and value != "null":
+                                resolved_params[param_name] = value
+                    break
+
+                elif action == "INFER":
+                    # 直接推断值
+                    for param_name, value in action_input.items():
+                        if param_name in tool_schema["parameters"]:
+                            if value is not None and value != "" and value != "null":
+                                resolved_params[param_name] = value
+                    action_history.append({
+                        "action": "INFER",
+                        "input": action_input,
+                        "observation": f"已推断: {list(action_input.keys())}"
+                    })
+
+                elif action == "EXTRACT":
+                    # 从上下文路径提取
+                    extracted = {}
+                    for param_name, path in action_input.items():
+                        if param_name in tool_schema["parameters"] and path:
+                            value = self._extract_value_by_path(
+                                path=path,
+                                context_snapshot=context_snapshot,
+                                step_results=context_snapshot.get("steps", {}) if context_snapshot else {}
+                            )
+                            if value is not None:
+                                extracted[param_name] = value
+                                resolved_params[param_name] = value
+
+                    action_history.append({
+                        "action": "EXTRACT",
+                        "input": action_input,
+                        "observation": f"提取结果: {extracted}" if extracted else "未找到匹配数据"
+                    })
+
+                elif action == "QUERY":
+                    # 调用 resolve_context 查询数据库
+                    query_results = {}
+                    if agent_id and action_input:
+                        try:
+                            query_results = self.resolve_context(
+                                context_requirements=action_input,
+                                agent_id=agent_id
+                            )
+                            for param_name, value in query_results.items():
+                                if value is not None:
+                                    resolved_params[param_name] = value
+                        except Exception as e:
+                            logger.warning(f"QUERY action failed: {e}")
+
+                    action_history.append({
+                        "action": "QUERY",
+                        "input": action_input,
+                        "observation": f"查询结果: {query_results}" if query_results else "查询无结果"
+                    })
+
+                else:
+                    # 未知 action，跳过
+                    logger.warning(f"Unknown action: {action}")
+                    break
+
+                # 检查是否所有必填参数都已填充
+                missing_required = [
+                    p for p in required_params
+                    if p not in resolved_params
+                ]
+                if not missing_required:
+                    logger.info(f"[ReAct] All required params filled after {iteration + 1} iterations")
+                    break
+
+            except Exception as e:
+                logger.warning(f"ReAct iteration {iteration + 1} failed: {e}")
+                break
+
+        return resolved_params
+
+    def _build_context_summary_for_react(self, context_snapshot: Dict[str, Any]) -> str:
+        """构建用于 ReAct 的上下文摘要"""
+        if not context_snapshot:
+            return "无可用上下文"
+
+        context_parts = []
+
+        if "global" in context_snapshot:
+            global_data = context_snapshot["global"].get("_data", {})
+            if global_data:
+                key_fields = {k: v for k, v in global_data.items()
+                              if isinstance(v, (str, int, float, bool)) and v}
+                if key_fields:
+                    context_parts.append(f"【全局上下文 global】\n{json.dumps(key_fields, ensure_ascii=False, indent=2)}")
+
+        if "enriched" in context_snapshot:
+            enriched_data = context_snapshot["enriched"].get("_data", {})
+            if enriched_data:
+                key_fields = {}
+                for k, v in enriched_data.items():
+                    if isinstance(v, (str, int, float, bool)) and v:
+                        v_str = str(v)
+                        if len(v_str) < 200:
+                            key_fields[k] = v
+                if key_fields:
+                    context_parts.append(f"【富化上下文 enriched】\n{json.dumps(key_fields, ensure_ascii=False, indent=2)}")
+
+        if "steps" in context_snapshot:
+            for step_key, step_info in context_snapshot["steps"].items():
+                step_schema = step_info.get("_schema", {})
+                context_parts.append(f"【步骤结果 {step_key}】Schema:\n{json.dumps(step_schema, ensure_ascii=False, indent=2)}")
+
+        return "\n\n".join(context_parts) if context_parts else "无可用上下文"
+
+    def _build_react_prompt(
+        self,
+        task_content: str,
+        task_description: str,
+        params_text: str,
+        context_summary: str,
+        resolved_params: Dict[str, Any],
+        action_history: List[Dict],
+        remaining_params: List[str]
+    ) -> str:
+        """构建 ReAct Prompt"""
+
+        # 历史记录
+        history_text = ""
+        if action_history:
+            history_parts = []
+            for i, h in enumerate(action_history):
+                history_parts.append(f"第 {i + 1} 轮:\n  Action: {h['action']}\n  Input: {h['input']}\n  Observation: {h['observation']}")
+            history_text = "\n".join(history_parts)
+
+        # 已填充参数
+        resolved_text = json.dumps(resolved_params, ensure_ascii=False, indent=2) if resolved_params else "无"
+
+        prompt = f"""你是一个智能参数填充 Agent。请通过 ReAct（思考-行动-观察）循环，为工具调用填充参数。
+
+【业务需求】
+任务内容: {task_content or "无"}
+任务描述: {task_description or "无"}
+
+【工具所需参数】
+{params_text}
+
+【可用上下文】
+{context_summary}
+
+【已填充参数】
+{resolved_text}
+
+【待填充参数】
+{', '.join(remaining_params) if remaining_params else "无（全部已填充）"}
+
+{f"【历史行动记录】{chr(10)}{history_text}" if history_text else ""}
+
+【可用 Action】
+1. **INFER**: 直接推断值（适用于时间、数量等可从业务需求推断的参数）
+   - 输入格式: {{"param_name": "推断的值", ...}}
+   - 示例: "过去一个季度" → {{"start_date": "2025-11-03"}}
+
+2. **EXTRACT**: 从上下文路径提取值（适用于上下文中已有的数据）
+   - 输入格式: {{"param_name": "context.path", ...}}
+   - 路径格式: global.xxx / enriched.xxx / steps.step_N.xxx
+   - 示例: {{"user_id": "global.user_id"}}
+
+3. **QUERY**: 调用数据库查询（适用于需要根据名称/描述查找 ID 的场景）
+   - 输入格式: {{"param_name": "查询描述", ...}}
+   - 示例: {{"product_id": "名称为 iPhone 15 的产品ID"}}
+
+4. **FINISH**: 完成填充，输出最终结果
+   - 当所有必填参数都已填充，或无法继续填充时使用
+
+【推断规则】
+- 时间类: "过去一个季度"→3个月前, "最近一周"→7天前, "本月"→本月1日
+- 数量类: "所有"→1000或-1, "前N个"→N
+- ID类: 优先从上下文提取，其次用 QUERY 查询
+- 今天日期: {self._get_today_date()}
+
+【输出格式】
+严格输出 JSON:
+{{
+    "thought": "分析当前情况，决定下一步行动",
+    "action": "INFER/EXTRACT/QUERY/FINISH",
+    "action_input": {{}},  // action 的输入参数
+    "final_params": {{}}   // 仅 FINISH 时需要，输出所有已填充的参数
+}}
+
+注意：
+1. 每次只执行一个 action
+2. 优先使用 INFER 和 EXTRACT，QUERY 作为最后手段
+3. 如果参数无法填充，在 thought 中说明原因，然后 FINISH
+4. 只输出 JSON，不要任何解释
+"""
+        return prompt
+
+    def _get_today_date(self) -> str:
+        """获取今天的日期字符串"""
+        from datetime import datetime
+        return datetime.now().strftime("%Y-%m-%d")
 
     def _llm_resolve_param_mapping(
         self,

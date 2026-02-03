@@ -273,9 +273,26 @@ class CommonIntentRecognition(IIntentRecognitionManagerCapability):
             missing_params = getattr(state, 'awaiting_task_missing_params', []) or []
             completed_params = getattr(state, 'awaiting_task_completed_params', {}) or {}
 
+            # 辅助函数：从参数项中提取参数名
+            def extract_param_name(param) -> str:
+                if isinstance(param, dict):
+                    return param.get("name", param.get("key", str(param)))
+                elif isinstance(param, str):
+                    # 尝试解析字符串格式的字典（兼容旧格式）
+                    if param.startswith("{") and "name" in param:
+                        try:
+                            import ast
+                            parsed = ast.literal_eval(param)
+                            if isinstance(parsed, dict):
+                                return parsed.get("name", param)
+                        except (ValueError, SyntaxError):
+                            pass
+                    return param
+                return str(param)
+
             status_desc = "任务执行过程中需要用户补充信息。"
             if missing_params:
-                param_names = [p if isinstance(p, str) else p.get("name", str(p)) for p in missing_params]
+                param_names = [extract_param_name(p) for p in missing_params]
                 status_desc += f" 正在等待用户提供: {', '.join(param_names)}。"
             if completed_params:
                 status_desc += f" 已收集: {', '.join(completed_params.keys())}。"

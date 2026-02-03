@@ -17,14 +17,21 @@ class ITaskPlanningCapability(CapabilityBase):
 
     @abstractmethod
     def generate_execution_plan(
-        self, 
-        agent_id: str, 
-        user_input: str, 
-        memory_context: Optional[str] = None
+        self,
+        agent_id: str,
+        user_input: str,
+        memory_context: Optional[str] = None,
+        agent_role: Optional[str] = None
     ) -> List[Dict[str, Any]]:
         """
         [核心API] 生成完整的执行规划链。
-        
+
+        Args:
+            agent_id: 当前 Agent ID
+            user_input: 用户输入/任务描述
+            memory_context: 记忆上下文（可选）
+            agent_role: Agent 的角色定位（可选），用于指导规划方向
+
         Returns:
             List[Dict]: 包含 step, type(AGENT/MCP), executor, params 等字段的有序列表。
         """

@@ -148,39 +148,26 @@ class TaskGroupAggregatorActor(Actor):
         self.step_results = {}
         self.source=sender
 
-        
+
         # 保存根回调地址（用于 NEED_INPUT 直接回报 TaskRouter）
         self._root_reply_to = msg.root_reply_to
 
-        
+
         # 保存任务 ID 信息
         self._task_id = msg.task_id
         self._trace_id = msg.trace_id
         self._task_path = msg.add_task_path("task_group")
-        
-        # 发布工作流启动事件
-        # event_bus.publish_task_event(
-        #     task_id=self._task_id,
-        #     event_type=EventType.TASK_RUNNING.value,
-        #     trace_id=self._trace_id,
-        #     task_path=self._task_path,
-        #     source="TaskGroupAggregatorActor",
-        #     agent_id="task_group_aggregator",
-        #     user_id=self.current_user_id,
-        #     data={
-        #         "step_count": len(msg.subtasks),
-        #         "workflow_name": msg.description or "TaskGroupWorkflow"
-        #     },
-        #     enriched_context_snapshot=self.enriched_context.copy()
-        # )
-        
+
+        # 注意：不在这里发布事件，事件上报由各个 AgentActor/LeafActor 负责
+        # TaskGroupAggregatorActor 只是内部的步骤聚合器
+
         # 按 Step 排序
         self.sorted_subtasks = sorted(
             [TaskSpec(**t) if isinstance(t, dict) else t for t in msg.subtasks],
             key=lambda x: x.step
         )
         self.current_step_index = 0
-        
+
         # 执行第一步
         self._execute_next_step()
 
@@ -340,46 +327,113 @@ class TaskGroupAggregatorActor(Actor):
         step = current_task.step
         logger.info(f"Step {step} succeeded.")
 
-        # 发布任务步骤成功事件
-        # event_bus.publish_task_event(
-        #     task_id=self._task_id,
-        #     event_type=EventType.TASK_PROGRESS.value,
-        #     trace_id=self._trace_id,
-        #     task_path=self._task_path,
-        #     source="TaskGroupAggregatorActor",
-        #     agent_id="task_group_aggregator",
-        #     user_id=self.current_user_id,
-        #     data={
-        #         "step": step,
-        #         "step_description": current_task.description,
-        #         "step_result": result,
-        #         "completed_steps": self.current_step_index + 1,
-        #         "total_steps": len(self.sorted_subtasks)
-        #     },
-        #     enriched_context_snapshot=self.enriched_context.copy()
-        # )
+        # 发布步骤进度事件，使用 root_agent_id 作为 agent_id
+        # 这样可以让前端看到每一步的结果，同时不干扰现有的 agent_id 体系
+        root_agent_id = self.global_context.get("root_agent_id", "")
+        if root_agent_id:
+            result_summary = self._generate_result_summary(result)
+            event_bus.publish_task_event(
+                task_id=current_task.task_id or self._task_id,
+                event_type=EventType.TASK_PROGRESS.value,
+                trace_id=self._trace_id,
+                task_path=self._task_path,
+                source="TaskGroupAggregatorActor",
+                agent_id=root_agent_id,  # 使用父 Agent 的 ID
+                user_id=self.current_user_id,
+                name=current_task.description or f"Step {step}",
+                data={
+                    "step": step,
+                    "step_description": current_task.description,
+                    "step_result_summary": result_summary,
+                    "completed_steps": self.current_step_index + 1,
+                    "total_steps": len(self.sorted_subtasks),
+                    "executor": current_task.executor,
+                }
+            )
 
         # 存储结果
         step_key = f"step_{step}_output"
         # 1. 存储结果 (Specific Key)
         self.step_results[step_key] = result
-        
+
         # 2. 上下文富集 - 统一上下文传播与富集方案
         # 2.1 存储到富上下文中
         # self.enriched_context[step_key] = result
-        
+
         # 2.2 存储通用 key 用于隐式传递 (默认把上一步结果传给下一步)
         # self.enriched_context["prev_step_output"] = result
-        
+
         # 2.3 添加上下文富集逻辑：从结果中提取有用信息
         # 生成安全键名，包含任务路径前缀
         task_path_key = f"{self._task_path.replace('/', '_')}.step_{current_task.step}"
-        
+
         self._enrich_context_from_result(result, task_path_key,source=str(sender),task_path=self._task_path)
-        
+
         # 3. 推进
         self.current_step_index += 1
         self._execute_next_step()
+
+    def _generate_result_summary(self, result: Any, max_length: int = 500) -> str:
+        """
+        生成结果摘要，用于事件推送
+
+        Args:
+            result: 原始结果
+            max_length: 摘要最大长度
+
+        Returns:
+            结果摘要字符串
+        """
+        if result is None:
+            return "无结果"
+
+        if isinstance(result, str):
+            if len(result) <= max_length:
+                return result
+            return result[:max_length] + "..."
+
+        if isinstance(result, dict):
+            # 提取关键字段生成摘要
+            summary_parts = []
+
+            # 优先提取状态信息
+            if "status" in result:
+                summary_parts.append(f"状态: {result['status']}")
+
+            # 提取错误信息
+            if "error" in result and result["error"]:
+                error_str = str(result["error"])
+                summary_parts.append(f"错误: {error_str[:100]}")
+                return " | ".join(summary_parts)
+
+            # 提取结果摘要
+            for key in ["message", "msg", "summary", "result", "output", "data"]:
+                if key in result and result[key]:
+                    value = result[key]
+                    if isinstance(value, str):
+                        summary_parts.append(f"{key}: {value[:200]}{'...' if len(value) > 200 else ''}")
+                        break
+                    elif isinstance(value, dict):
+                        # 递归提取
+                        nested_summary = self._generate_result_summary(value, max_length // 2)
+                        summary_parts.append(nested_summary)
+                        break
+
+            if summary_parts:
+                return " | ".join(summary_parts)
+
+            # 降级：返回键列表
+            keys = list(result.keys())[:5]
+            return f"包含字段: {', '.join(keys)}" + ("..." if len(result) > 5 else "")
+
+        if isinstance(result, list):
+            return f"列表结果，共 {len(result)} 项"
+
+        # 其他类型
+        str_result = str(result)
+        if len(str_result) <= max_length:
+            return str_result
+        return str_result[:max_length] + "..."
 
     def _enrich_context_from_result(self, result: Any, prefix: str, source: str = "tool_output", task_path: str = "") -> None:
         """
@@ -567,24 +621,10 @@ class TaskGroupAggregatorActor(Actor):
     def _finish_workflow(self) -> None:
         """完成"""
         logger.info(f"Workflow {self.request_msg.task_id} Completed.")
-        
-        # 发布工作流完成事件
-        # event_bus.publish_task_event(
-        #     task_id=self._task_id,
-        #     event_type=EventType.TASK_COMPLETED.value,
-        #     trace_id=self._trace_id,
-        #     task_path=self._task_path,
-        #     source="TaskGroupAggregatorActor",
-        #     agent_id="task_group_aggregator",
-        #     user_id=self.current_user_id,
-        #     data={
-        #         "step_count": len(self.sorted_subtasks),
-        #         "completed_steps": self.current_step_index,
-        #         "workflow_result": {"step_results": self.step_results}
-        #     },
-        #     enriched_context_snapshot=self.enriched_context.copy()
-        # )
-        
+
+        # 注意：不在这里发布事件，事件上报由各个 AgentActor/LeafActor 负责
+        # TaskGroupAggregatorActor 只是内部的步骤聚合器
+
         # 构造最终结果，使用TaskCompletedMessage
         final_msg = TaskCompletedMessage(
             message_type=MessageType.TASK_COMPLETED,
@@ -595,33 +635,18 @@ class TaskGroupAggregatorActor(Actor):
             task_path=self._task_path,
             step=None,
         )
-        
-        target = self.source 
+
+        target = self.source
         self.send(target, final_msg)
         self.send(self.myAddress, ActorExitRequest())
 
     def _fail_workflow(self, error_msg: str) -> None:
         """失败"""
         logger.error(f"Workflow Terminated: {error_msg}")
-        
-        # 发布工作流失败事件
-        # event_bus.publish_task_event(
-        #     task_id=self._task_id,
-        #     event_type=EventType.TASK_FAILED.value,
-        #     trace_id=self._trace_id,
-        #     task_path=self._task_path,
-        #     source="TaskGroupAggregatorActor",
-        #     agent_id="task_group_aggregator",
-        #     user_id=self.current_user_id,
-        #     data={
-        #         "step_count": len(self.sorted_subtasks),
-        #         "completed_steps": self.current_step_index,
-        #         "step_results": self.step_results
-        #     },
-        #     enriched_context_snapshot=self.enriched_context.copy(),
-        #     error=error_msg
-        # )
-        
+
+        # 注意：不在这里发布事件，事件上报由各个 AgentActor/LeafActor 负责
+        # TaskGroupAggregatorActor 只是内部的步骤聚合器
+
         current_step = self._get_current_step().step if self._has_current_step() else None
         fail_msg = TaskCompletedMessage(
             message_type=MessageType.TASK_COMPLETED,

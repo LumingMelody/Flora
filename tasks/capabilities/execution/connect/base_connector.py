@@ -83,13 +83,14 @@ class BaseConnector(ABC):
         global_context = context.get("global_context", {})
         enriched_context = context.get("enriched_context", {})
         step_results = context.get("step_results", {})
-        task_description = context.get("description", "") or context.get("content", "")
+        task_content = context.get("content", "")
+        task_description = context.get("description", "")
 
         filled_params = {}
         remaining_params = dict(missing_params)
 
-        # ========== 新方案：Schema 摘要 + 按需展开 ==========
-        if step_results or enriched_context:
+        # ========== 新方案：Schema 摘要 + 按需展开 + 需求感知 ==========
+        if step_results or enriched_context or task_content:
             try:
                 # Step 1: 构建上下文快照
                 context_snapshot = context_resolver.build_context_snapshot(
@@ -107,15 +108,17 @@ class BaseConnector(ABC):
                     "required": list(missing_params.keys())
                 }
 
-                # Step 3: 使用新接口解析参数
+                # Step 3: 使用新接口解析参数（ReAct 式需求感知）
                 resolved = context_resolver.resolve_params_for_tool(
                     tool_schema=tool_schema,
                     context_snapshot=context_snapshot,
                     step_results=step_results,
-                    task_description=task_description
+                    task_description=task_description,
+                    task_content=task_content,
+                    agent_id=agent_id
                 )
 
-                logger.info(f"[Schema-based] Resolved params: {list(resolved.keys())}")
+                logger.info(f"[ReAct] Resolved params: {list(resolved.keys())}")
 
                 # 更新已填充的参数
                 for name, value in resolved.items():

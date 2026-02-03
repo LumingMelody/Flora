@@ -6,7 +6,7 @@
     "llm": {
       "active_impl": "qwen_llm",
       "qwen_llm": {
-        "api_key": "sk-a48a1d84e015410292d07021f60b9acb",
+        "api_key": "sk-9e5d84743a4c49569fbcd03fe0357b0e",
         "model": "qwen-max",
         "vl_model": "qwen-vl-max"
       },

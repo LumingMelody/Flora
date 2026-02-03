@@ -442,6 +442,9 @@ class AgentActor(Actor):
         Returns:
             执行计划，包含subtasks, dependencies, parallel_groups
         """
+        # 获取当前 Agent 的角色定位
+        agent_role = self.meta.get("role", "") if self.meta else ""
+
         # === 新增：查找规划缓存 ===
         try:
             from capabilities.plan_cache import get_plan_cache_store
@@ -471,8 +474,13 @@ class AgentActor(Actor):
             if not self.task_planner:
                 self.task_planner: ITaskPlanningCapability = get_capability("task_planning", expected_type=ITaskPlanningCapability)
 
-            # 使用TaskPlanner生成计划
-            subtasks = self.task_planner.generate_execution_plan(self.agent_id, task_description, memory_context)
+            # 使用TaskPlanner生成计划（传递 role 和 memory）
+            subtasks = self.task_planner.generate_execution_plan(
+                agent_id=self.agent_id,
+                user_input=task_description,
+                memory_context=memory_context,
+                agent_role=agent_role
+            )
 
             # === 新增：保存新规划到缓存 ===
             if subtasks:

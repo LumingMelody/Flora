@@ -226,7 +226,40 @@ class DifyConnector(BaseConnector):
                                 logger.info(f"Added '{pk}' from special format: {pv}")
 
         return resolved
-    
+
+    def _truncate_for_log(self, data: Any, max_length: int = 500) -> str:
+        """
+        截断数据用于日志输出
+
+        Args:
+            data: 任意数据
+            max_length: 最大长度
+
+        Returns:
+            截断后的字符串
+        """
+        try:
+            if isinstance(data, dict):
+                # 对字典进行简化
+                simplified = {}
+                for k, v in list(data.items())[:10]:
+                    if isinstance(v, dict):
+                        simplified[k] = f"{{...{len(v)} keys}}"
+                    elif isinstance(v, list):
+                        simplified[k] = f"[...{len(v)} items]"
+                    elif isinstance(v, str) and len(v) > 100:
+                        simplified[k] = v[:100] + "..."
+                    else:
+                        simplified[k] = v
+                return str(simplified)[:max_length]
+            else:
+                str_data = str(data)
+                if len(str_data) > max_length:
+                    return str_data[:max_length] + "..."
+                return str_data
+        except Exception:
+            return "[无法序列化]"
+
     def _check_missing_inputs(
         self, inputs: Dict[str, Any], required_inputs: Dict[str, Any] = None
         ) -> Dict[str, str]:
@@ -336,6 +369,7 @@ class DifyConnector(BaseConnector):
             # 3. 提取上下文（关键！）
             global_context = params.get("global_context", {})
             enriched_context = params.get("enriched_context", {})
+            step_results = params.get("step_results", {})
 
              # 4. 获取 Dify schema 并检查缺失参数
             required_inputs = self._get_required_inputs(params)
@@ -343,19 +377,20 @@ class DifyConnector(BaseConnector):
             logger.info(f"Missing inputs: {missing_inputs}")
             if missing_inputs:
 
-                
-                 # 构造结构化上下文
+                # 构造结构化上下文
+                # 注意：传递完整的 enriched_context，让 TreeContextResolver.build_context_snapshot 来生成 Schema 摘要
                 full_context = {
                     "global_context": global_context,
-                    "enriched_context": enriched_context,
+                    "enriched_context": enriched_context,  # 完整版本，由 context_resolver 处理摘要
+                    "step_results": step_results,  # 步骤结果，用于按需展开
                     "content": content,
                     "description": description,
                     "agent_id": agent_id,
                     "user_id": user_id,
                     "original_inputs": inputs,
                 }
-                
-                logger.info(f"Full context for param resolution: {full_context}")
+
+                logger.info(f"Full context for param resolution: {self._truncate_for_log(full_context)}")
 
                 # 6. 调用统一补全方法（四步补全）
                 filled_params, still_missing = self._resolve_all_params(

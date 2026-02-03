@@ -104,21 +104,27 @@ class IContextResolverCapbility(CapabilityBase):
         tool_schema: Dict[str, Any],
         context_snapshot: Dict[str, Any],
         step_results: Dict[str, Any],
-        task_description: str = ""
+        task_description: str = "",
+        task_content: str = "",
+        agent_id: str = ""
     ) -> Dict[str, Any]:
         """
         为工具调用解析参数（统一入口）
 
-        工作流程：
-        1. 将 tool_schema 和 context_snapshot._schema 交给 LLM
-        2. LLM 返回参数映射
-        3. 根据映射从实际数据中提取值
+        增强版工作流程（ReAct 式）：
+        1. 【ReAct 预填】LLM 通过思考-行动-观察循环，动态填充参数
+           - INFER: 直接推断值（时间、数量等）
+           - EXTRACT: 从上下文路径提取值
+           - QUERY: 调用 resolve_context 查询数据库
+        2. 【路径映射】对于未填充的参数，使用路径映射从上下文提取
 
         Args:
             tool_schema: 工具的参数定义
             context_snapshot: 带 Schema 摘要的上下文快照
             step_results: 完整的步骤执行结果（用于按需提取）
             task_description: 任务描述（可选）
+            task_content: 任务内容（可选，业务需求的详细描述）
+            agent_id: 当前 Agent ID（可选，用于 QUERY action）
 
         Returns:
             解析后的参数字典

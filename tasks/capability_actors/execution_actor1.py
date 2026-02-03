@@ -228,9 +228,10 @@ class ExecutionActor(Actor):
             status = result.get("status")
             if status == "NEED_INPUT":
                 missing_params = result["missing"]
-                missing_params_descriptions = [str({"name": k, "description": v}) for k, v in missing_params.items()]
+                # 保持结构化格式，不要转成字符串，便于后续解析和展示
+                missing_params_list = [{"name": k, "description": v} for k, v in missing_params.items()]
                 completed_params = result["completed"]
-                self._send_missing_parameters(task_id, missing_params_descriptions, completed_params, reply_to)
+                self._send_missing_parameters(task_id, missing_params_list, completed_params, reply_to)
             elif status == "SUCCESS":
                 self._send_success(task_id, result["result"], reply_to)
             elif status == "FAILURE":

@@ -134,10 +134,10 @@ class NodeService:
         """
         获取Agent元数据
         从AgentRegistry.get_agent_meta迁移
-        
+
         Args:
             agent_id: Agent ID
-            
+
         Returns:
             Dict[str, Any]: Agent元数据
         """
@@ -148,6 +148,7 @@ class NodeService:
                 "agent_id": node.get("agent_id"),
                 "name": node.get("name", ""),
                 "description": node.get("description", ""),
+                "role": node.get("role", ""),  # 新增：Agent 角色定位
                 "datascope": node.get("datascope", {}),
                 "capability": node.get("capability", []),
                 "is_leaf": node.get("is_leaf", False),

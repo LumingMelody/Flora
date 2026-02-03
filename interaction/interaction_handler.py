@@ -1248,7 +1248,9 @@ class InteractionHandler:
         Args:
             trace_id: 任务的 trace_id
             user_input: 用户输入的内容
-            missing_params: 缺失的参数列表
+            missing_params: 缺失的参数列表，支持以下格式：
+                - 字符串列表: ["user_id", "active_id"]
+                - 字典列表: [{"name": "user_id", "description": "用户ID"}]
             user_id: 用户ID
 
         Returns:
@@ -1256,23 +1258,36 @@ class InteractionHandler:
         """
         from external.client.task_client import TaskClient
 
+        # 辅助函数：从参数项中提取参数名
+        def extract_param_name(param) -> str:
+            if isinstance(param, dict):
+                return param.get("name", param.get("key", "input"))
+            elif isinstance(param, str):
+                # 尝试解析字符串格式的字典（兼容旧格式）
+                if param.startswith("{") and "name" in param:
+                    try:
+                        import ast
+                        parsed = ast.literal_eval(param)
+                        if isinstance(parsed, dict):
+                            return parsed.get("name", param)
+                    except (ValueError, SyntaxError):
+                        pass
+                return param
+            return "input"
+
         # 构建参数：将用户输入映射到缺失的参数
         parameters = {}
 
         if missing_params and len(missing_params) > 0:
             # 如果只有一个缺失参数，直接赋值
             if len(missing_params) == 1:
-                param_name = missing_params[0]
-                if isinstance(param_name, dict):
-                    param_name = param_name.get("name", param_name.get("key", "input"))
+                param_name = extract_param_name(missing_params[0])
                 parameters[param_name] = user_input
             else:
                 # 多个缺失参数，尝试解析用户输入
                 # 简单策略：将整个输入作为第一个缺失参数的值
-                first_param = missing_params[0]
-                if isinstance(first_param, dict):
-                    first_param = first_param.get("name", first_param.get("key", "input"))
-                parameters[first_param] = user_input
+                first_param_name = extract_param_name(missing_params[0])
+                parameters[first_param_name] = user_input
         else:
             # 没有明确的缺失参数，使用通用键名
             parameters["user_input"] = user_input

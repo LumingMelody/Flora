@@ -47,15 +47,23 @@ class CommonTaskPlanning(ITaskPlanningCapability):
         self,
         agent_id: str,
         user_input: str,
-        memory_context: Optional[str] = None
+        memory_context: Optional[str] = None,
+        agent_role: Optional[str] = None
     ) -> List[Dict[str, Any]]:
         """
         [主入口] 生成完整的执行规划链（语义拆解 -> 依赖扩充）
+
+        Args:
+            agent_id: 当前 Agent ID
+            user_input: 用户输入/任务描述
+            memory_context: 记忆上下文（可选）
+            agent_role: Agent 的角色定位（可选），用于指导规划方向
         """
         try:
-            # Phase 1: 语义拆解（注入记忆）
+            # Phase 1: 语义拆解（注入记忆和角色）
             # 记忆在这里影响：Agent vs MCP 的选择，以及第一层参数的提取
-            base_plan = self._semantic_decomposition(agent_id, user_input, memory_context)
+            # 角色在这里影响：规划的方向和重点
+            base_plan = self._semantic_decomposition(agent_id, user_input, memory_context, agent_role)
             if not base_plan:
                 return [
                     {
@@ -72,11 +80,12 @@ class CommonTaskPlanning(ITaskPlanningCapability):
             # 将 memory_context 打包进 context，传递给 Neo4j 协同规划层
             expansion_context = {
                 "main_intent": user_input,
-                "global_memory": memory_context or ""  # <--- 注入点
+                "global_memory": memory_context or "",  # <--- 注入点
+                "agent_role": agent_role or ""  # <--- 角色注入点
             }
             final_plan = base_plan
             # final_plan = self._expand_plan_with_dependencies(base_plan, context=expansion_context)
-            
+
             self.logger.info(f"Final plan generated with {len(final_plan)} steps (expanded from {len(base_plan)}).")
             return final_plan
 
@@ -96,11 +105,11 @@ class CommonTaskPlanning(ITaskPlanningCapability):
     # Phase 1: 语义拆解 (原有逻辑保持不变，改名为 internal method)
     # =========================================================================
 
-    def _semantic_decomposition(self, agent_id: str, user_input: str, memory_context: str) -> List[Dict]:
+    def _semantic_decomposition(self, agent_id: str, user_input: str, memory_context: str, agent_role: str = None) -> List[Dict]:
         candidates = self._get_candidate_agents_info(agent_id)
 
-        # 构建增强版 Prompt
-        prompt = self._build_enhanced_planning_prompt(user_input, memory_context, candidates)
+        # 构建增强版 Prompt（包含角色信息）
+        prompt = self._build_enhanced_planning_prompt(user_input, memory_context, candidates, agent_role)
 
         response = self._call_llm(prompt)
         plans = self._parse_llm_json(response)
@@ -202,9 +211,20 @@ class CommonTaskPlanning(ITaskPlanningCapability):
         return None
 
 
-    def _build_enhanced_planning_prompt(self, user_input, memory, agents):
+    def _build_enhanced_planning_prompt(self, user_input, memory, agents, agent_role: str = None):
         agents_str = json.dumps(agents, ensure_ascii=False, indent=2)
         logger.info(f"[CommonTaskPlanner] agents:\n{agents_str}")
+
+        # 角色定位部分
+        role_section = ""
+        if agent_role:
+            role_section = f"""
+### 🎭 当前 Agent 角色定位
+{agent_role}
+*(请根据上述角色定位来制定规划。规划应符合该角色的职责范围和专业领域)*
+"""
+
+        # 记忆部分
         memory_section = ""
         if memory:
             memory_section = f"""
@@ -214,23 +234,24 @@ class CommonTaskPlanning(ITaskPlanningCapability):
 """
 
         return (
-            f"""你是一个智能任务编排专家。请结合【用户指令】和【长期记忆】制定执行计划。
-
+            f"""你是一个智能任务编排专家。请结合【用户指令】、【角色定位】和【长期记忆】制定执行计划。
+{role_section}
 ### 🤖 可用内部节点 (Agents)
 {agents_str}
-
+{memory_section}
 ### 📥 用户指令
 "{user_input}"
 
 ### 📋 规划要求
-1. **记忆增强**：如果用户指令模糊（如"老样子"、"发给那个人"），请根据【长期记忆】推断具体参数，并写入 `content`。
-2. **节点选择**：
+1. **角色导向**：规划应符合当前 Agent 的角色定位，在其职责范围内进行任务分解。
+2. **记忆增强**：如果用户指令模糊（如"老样子"、"发给那个人"），请根据【长期记忆】推断具体参数，并写入 `content`。
+3. **节点选择**：
    - 若任务可由内部 Agent 完成（如写作、分析、规划），选 `"type": "AGENT"`；
    - 若需调用外部工具（如钉钉、邮件、数据库），选 `"type": "MCP"`。
-3. **字段定义**：
+4. **字段定义**：
    - `content`：**面向执行 Agent 的自然语言指令**，应完整、自包含，无需额外上下文即可理解。
-   - `description`：**面向系统的简洁任务摘要**，说明“做什么”，不包含细节或引用。
-4. **输出格式**：纯 JSON 列表，不要任何额外文本。
+   - `description`：**面向系统的简洁任务摘要**，说明"做什么"，不包含细节或引用。
+5. **输出格式**：纯 JSON 列表，不要任何额外文本。
 
 ### ✅ 示例输出
 [

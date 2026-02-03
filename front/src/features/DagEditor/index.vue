@@ -135,12 +135,44 @@ const setupWebSocket = (traceId: string) => {
 const handleWebSocketMessage = (data: any) => {
   if (!data) return;
 
-  const eventType = data.event_type || data.type;
-  const payload = data.payload || data;
+  // 兼容两种消息格式：
+  // 1. 后端 ObserverService 格式: { event: "node_updated", data: { node_id, status, ... } }
+  // 2. 旧格式: { event_type: "TASK_RUNNING", payload: { task_id, ... } }
+  const eventType = data.event || data.event_type || data.type;
+  const payload = data.data || data.payload || data;
 
   console.log('Processing WebSocket event:', eventType, payload);
 
   switch (eventType) {
+    // 新格式：node_updated 事件
+    case 'node_updated':
+      const nodeId = payload.node_id || payload.task_id;
+      const status = mapStatusToNodeStatus(payload.status);
+      const progress = payload.progress ?? 50;
+      updateNodeStatus(nodeId, status, progress);
+      break;
+
+    // 新格式：graph_updated 事件（拓扑变化）
+    case 'graph_updated':
+    case 'TOPOLOGY_EXPANDED':
+      // 拓扑扩展，重新加载 DAG
+      if (currentTraceId.value) {
+        dagStore.loadDagByTraceId(currentTraceId.value);
+      }
+      break;
+
+    // 新格式：trace_created 事件
+    case 'trace_created':
+      console.log('Trace created:', payload.trace_id);
+      break;
+
+    // 新格式：agent_activity 事件（心跳）
+    case 'agent_activity':
+      // 可以用于显示 Agent 活动动画
+      console.log('Agent activity:', payload.agent_id, payload.node_id);
+      break;
+
+    // 旧格式兼容
     case 'TASK_STARTED':
     case 'TASK_RUNNING':
       updateNodeStatus(payload.task_id, 'running', payload.progress || 50);
@@ -163,19 +195,30 @@ const handleWebSocketMessage = (data: any) => {
       break;
 
     case 'TASK_PROGRESS':
-      updateNodeProgress(payload.task_id, payload.progress || payload.percent || 0);
-      break;
-
-    case 'TOPOLOGY_EXPANDED':
-      // 拓扑扩展，重新加载 DAG
-      if (currentTraceId.value) {
-        dagStore.loadDagByTraceId(currentTraceId.value);
-      }
+    case 'PROGRESS':
+      updateNodeProgress(payload.task_id || payload.node_id, payload.progress || payload.percent || 0);
       break;
 
     default:
-      console.log('Unhandled WebSocket event:', eventType);
+      console.log('Unhandled WebSocket event:', eventType, payload);
   }
+};
+
+// 将后端状态映射到前端节点状态
+const mapStatusToNodeStatus = (status: string): NodeStatus => {
+  const statusMap: Record<string, NodeStatus> = {
+    'RUNNING': 'running',
+    'SUCCESS': 'success',
+    'COMPLETED': 'success',
+    'FAILED': 'error',
+    'ERROR': 'error',
+    'PAUSED': 'paused',
+    'CANCELLED': 'killed',
+    'KILLED': 'killed',
+    'IDLE': 'idle',
+    'PENDING': 'idle',
+  };
+  return statusMap[status?.toUpperCase()] || 'idle';
 };
 
 // 节点状态类型

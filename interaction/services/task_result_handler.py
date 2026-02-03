@@ -216,7 +216,26 @@ class TaskResultHandler:
             if not trace_id:
                 trace_id = need_input.get("trace_id") or need_input.get("task_id")
 
-        return missing_params, completed_params, trace_id
+        # 规范化 missing_params 格式，确保是结构化列表
+        normalized_missing = []
+        for p in missing_params:
+            if isinstance(p, dict):
+                normalized_missing.append(p)
+            elif isinstance(p, str):
+                # 尝试解析字符串格式的字典（兼容旧格式）
+                if p.startswith("{") and "name" in p:
+                    try:
+                        import ast
+                        parsed = ast.literal_eval(p)
+                        if isinstance(parsed, dict):
+                            normalized_missing.append(parsed)
+                            continue
+                    except (ValueError, SyntaxError):
+                        pass
+                # 普通字符串，转为字典格式
+                normalized_missing.append({"name": p, "description": ""})
+
+        return normalized_missing, completed_params, trace_id
 
     def _format_need_input_fallback(
         self,
@@ -230,9 +249,29 @@ class TaskResultHandler:
             param_names = []
             for p in missing_params:
                 if isinstance(p, str):
+                    # 尝试解析字符串格式的字典
+                    if p.startswith("{") and "name" in p:
+                        try:
+                            import ast
+                            parsed = ast.literal_eval(p)
+                            if isinstance(parsed, dict):
+                                name = parsed.get("name", p)
+                                desc = parsed.get("description", "")
+                                if desc and desc != name:
+                                    param_names.append(f"{name}（{desc}）")
+                                else:
+                                    param_names.append(name)
+                                continue
+                        except (ValueError, SyntaxError):
+                            pass
                     param_names.append(p)
                 elif isinstance(p, dict):
-                    param_names.append(p.get("name", p.get("key", str(p))))
+                    name = p.get("name", p.get("key", str(p)))
+                    desc = p.get("description", "")
+                    if desc and desc != name:
+                        param_names.append(f"{name}（{desc}）")
+                    else:
+                        param_names.append(name)
             return f"请补充以下信息：{', '.join(param_names)}"
         return "任务需要更多信息才能继续，请补充相关内容。"
 

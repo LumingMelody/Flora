@@ -567,7 +567,9 @@ class CommonSystemResponse(ISystemResponseManagerCapability):
         Args:
             session_id: 会话ID
             trace_id: 任务的 trace_id
-            missing_params: 缺失的参数列表
+            missing_params: 缺失的参数列表，支持以下格式：
+                - 字符串列表: ["user_id", "active_id"]
+                - 字典列表: [{"name": "user_id", "description": "用户ID"}]
             completed_params: 已完成的参数字典
 
         Returns:
@@ -575,29 +577,61 @@ class CommonSystemResponse(ISystemResponseManagerCapability):
         """
         completed_params = completed_params or {}
 
+        # 解析缺失参数，提取名称和描述
+        parsed_missing = []
+        for param in missing_params:
+            if isinstance(param, dict):
+                name = param.get("name", param.get("key", "未知参数"))
+                desc = param.get("description", "")
+                parsed_missing.append({"name": name, "description": desc})
+            elif isinstance(param, str):
+                # 尝试解析字符串格式的字典（兼容旧格式）
+                if param.startswith("{") and "name" in param:
+                    try:
+                        import ast
+                        parsed = ast.literal_eval(param)
+                        if isinstance(parsed, dict):
+                            name = parsed.get("name", param)
+                            desc = parsed.get("description", "")
+                            parsed_missing.append({"name": name, "description": desc})
+                            continue
+                    except (ValueError, SyntaxError):
+                        pass
+                parsed_missing.append({"name": param, "description": ""})
+
         # 构建自然语言消息
         message_parts = []
 
-        # 已收集的信息
-        if completed_params:
+        # 已收集的信息（过滤掉内部参数如 user_id, tenant_id）
+        display_completed = {}
+        internal_params = {"user_id", "tenant_id", "trace_id", "session_id"}
+        for key, value in completed_params.items():
+            if key.lower() not in internal_params and value is not None:
+                # 过滤掉特殊格式的值如 <user_id:1,tenant_id:1>
+                if isinstance(value, str) and value.startswith("<") and value.endswith(">"):
+                    continue
+                display_completed[key] = value
+
+        if display_completed:
             message_parts.append("📋 **已收集的信息：**")
-            for key, value in completed_params.items():
+            for key, value in display_completed.items():
                 display_key = self._get_param_display_name(key)
                 display_value = self._format_param_value(value)
                 message_parts.append(f"  • {display_key}：{display_value}")
 
         # 缺失的信息
-        if missing_params:
+        if parsed_missing:
             if message_parts:
                 message_parts.append("")  # 空行分隔
             message_parts.append("📝 **还需要您提供：**")
-            for param in missing_params:
-                if isinstance(param, str):
-                    display_name = self._get_param_display_name(param)
-                    message_parts.append(f"  • {display_name}")
-                elif isinstance(param, dict):
-                    param_name = param.get("name", param.get("key", "未知参数"))
-                    display_name = self._get_param_display_name(param_name)
+            for param_info in parsed_missing:
+                name = param_info["name"]
+                desc = param_info["description"]
+                display_name = self._get_param_display_name(name)
+                # 如果有描述且描述不等于名称，显示描述
+                if desc and desc != name and desc != display_name:
+                    message_parts.append(f"  • {display_name}（{desc}）")
+                else:
                     message_parts.append(f"  • {display_name}")
 
             message_parts.append("")
@@ -606,11 +640,19 @@ class CommonSystemResponse(ISystemResponseManagerCapability):
         response_text = "\n".join(message_parts) if message_parts else "任务需要更多信息才能继续，请补充相关内容。"
 
         # 使用 LLM 美化（可选）
+        missing_display = []
+        for p in parsed_missing:
+            name = self._get_param_display_name(p["name"])
+            if p["description"] and p["description"] != p["name"]:
+                missing_display.append(f"{name}（{p['description']}）")
+            else:
+                missing_display.append(name)
+
         enhanced_text = self._enhance_text_with_llm(
             base_info={
                 "fallback_text": response_text,
-                "missing_params": [self._get_param_display_name(p) if isinstance(p, str) else str(p) for p in missing_params],
-                "completed_params": {self._get_param_display_name(k): self._format_param_value(v) for k, v in completed_params.items()}
+                "missing_params": missing_display,
+                "completed_params": {self._get_param_display_name(k): self._format_param_value(v) for k, v in display_completed.items()}
             },
             context_type="need_input"
         )
@@ -624,12 +666,17 @@ class CommonSystemResponse(ISystemResponseManagerCapability):
             )
         ]
 
+        # 获取第一个缺失参数名称
+        first_missing = None
+        if parsed_missing:
+            first_missing = parsed_missing[0]["name"]
+
         return self.generate_response(
             session_id=session_id,
             response_text=enhanced_text,
             suggested_actions=suggested_actions,
             requires_input=True,
-            awaiting_slot=missing_params[0] if missing_params else None
+            awaiting_slot=first_missing
         )
 
     def _get_param_display_name(self, param_name: str) -> str:
