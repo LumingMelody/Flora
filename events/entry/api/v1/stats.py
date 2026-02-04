@@ -12,7 +12,7 @@ from sqlalchemy import select, func, and_, or_, case
 
 from ..deps import get_db_session, get_agent_monitor_service
 from services.agent_monitor_service import AgentMonitorService
-from external.db.models import EventInstanceDB, EventTraceDB, AgentTaskHistoryDB, AgentDailyMetricDB
+from external.db.models import EventInstanceDB, EventTraceDB, AgentTaskHistory, AgentDailyMetric
 
 logger = logging.getLogger(__name__)
 
@@ -156,12 +156,12 @@ async def get_system_overview(
 
         today_stats_result = await session.execute(
             select(
-                func.count(AgentTaskHistoryDB.id).label("total"),
-                func.sum(case((AgentTaskHistoryDB.status == "COMPLETED", 1), else_=0)).label("success"),
-                func.sum(case((AgentTaskHistoryDB.status == "FAILED", 1), else_=0)).label("failed"),
-                func.avg(AgentTaskHistoryDB.duration_ms).label("avg_duration")
+                func.count(AgentTaskHistory.id).label("total"),
+                func.sum(case((AgentTaskHistory.status == "COMPLETED", 1), else_=0)).label("success"),
+                func.sum(case((AgentTaskHistory.status == "FAILED", 1), else_=0)).label("failed"),
+                func.avg(AgentTaskHistory.duration_ms).label("avg_duration")
             ).where(
-                AgentTaskHistoryDB.created_at >= today_start
+                AgentTaskHistory.created_at >= today_start
             )
         )
         today_stats = today_stats_result.fetchone()
@@ -209,15 +209,15 @@ async def get_daily_stats(
 
         stats_result = await session.execute(
             select(
-                func.count(AgentTaskHistoryDB.id).label("total"),
-                func.sum(case((AgentTaskHistoryDB.status == "COMPLETED", 1), else_=0)).label("success"),
-                func.sum(case((AgentTaskHistoryDB.status == "FAILED", 1), else_=0)).label("failed"),
-                func.sum(case((AgentTaskHistoryDB.status == "CANCELLED", 1), else_=0)).label("cancelled"),
-                func.avg(AgentTaskHistoryDB.duration_ms).label("avg_duration")
+                func.count(AgentTaskHistory.id).label("total"),
+                func.sum(case((AgentTaskHistory.status == "COMPLETED", 1), else_=0)).label("success"),
+                func.sum(case((AgentTaskHistory.status == "FAILED", 1), else_=0)).label("failed"),
+                func.sum(case((AgentTaskHistory.status == "CANCELLED", 1), else_=0)).label("cancelled"),
+                func.avg(AgentTaskHistory.duration_ms).label("avg_duration")
             ).where(
                 and_(
-                    AgentTaskHistoryDB.created_at >= target_date,
-                    AgentTaskHistoryDB.created_at < next_date
+                    AgentTaskHistory.created_at >= target_date,
+                    AgentTaskHistory.created_at < next_date
                 )
             )
         )
@@ -269,13 +269,13 @@ async def get_trend_data(
 
             stats_result = await session.execute(
                 select(
-                    func.count(AgentTaskHistoryDB.id).label("total"),
-                    func.sum(case((AgentTaskHistoryDB.status == "COMPLETED", 1), else_=0)).label("success"),
-                    func.sum(case((AgentTaskHistoryDB.status == "FAILED", 1), else_=0)).label("failed")
+                    func.count(AgentTaskHistory.id).label("total"),
+                    func.sum(case((AgentTaskHistory.status == "COMPLETED", 1), else_=0)).label("success"),
+                    func.sum(case((AgentTaskHistory.status == "FAILED", 1), else_=0)).label("failed")
                 ).where(
                     and_(
-                        AgentTaskHistoryDB.created_at >= target_date,
-                        AgentTaskHistoryDB.created_at < next_date
+                        AgentTaskHistory.created_at >= target_date,
+                        AgentTaskHistory.created_at < next_date
                     )
                 )
             )
@@ -319,17 +319,17 @@ async def get_top_agents(
 
         result = await session.execute(
             select(
-                AgentTaskHistoryDB.agent_id,
-                func.count(AgentTaskHistoryDB.id).label("total"),
-                func.sum(case((AgentTaskHistoryDB.status == "COMPLETED", 1), else_=0)).label("success"),
-                func.sum(case((AgentTaskHistoryDB.status == "FAILED", 1), else_=0)).label("failed"),
-                func.avg(AgentTaskHistoryDB.duration_ms).label("avg_duration")
+                AgentTaskHistory.agent_id,
+                func.count(AgentTaskHistory.id).label("total"),
+                func.sum(case((AgentTaskHistory.status == "COMPLETED", 1), else_=0)).label("success"),
+                func.sum(case((AgentTaskHistory.status == "FAILED", 1), else_=0)).label("failed"),
+                func.avg(AgentTaskHistory.duration_ms).label("avg_duration")
             ).where(
-                AgentTaskHistoryDB.created_at >= start_date
+                AgentTaskHistory.created_at >= start_date
             ).group_by(
-                AgentTaskHistoryDB.agent_id
+                AgentTaskHistory.agent_id
             ).order_by(
-                func.count(AgentTaskHistoryDB.id).desc()
+                func.count(AgentTaskHistory.id).desc()
             ).limit(limit)
         )
 
@@ -379,14 +379,14 @@ async def get_agent_summary(
 
         stats_result = await session.execute(
             select(
-                func.count(AgentTaskHistoryDB.id).label("total"),
-                func.sum(case((AgentTaskHistoryDB.status == "COMPLETED", 1), else_=0)).label("success"),
-                func.sum(case((AgentTaskHistoryDB.status == "FAILED", 1), else_=0)).label("failed"),
-                func.avg(AgentTaskHistoryDB.duration_ms).label("avg_duration")
+                func.count(AgentTaskHistory.id).label("total"),
+                func.sum(case((AgentTaskHistory.status == "COMPLETED", 1), else_=0)).label("success"),
+                func.sum(case((AgentTaskHistory.status == "FAILED", 1), else_=0)).label("failed"),
+                func.avg(AgentTaskHistory.duration_ms).label("avg_duration")
             ).where(
                 and_(
-                    AgentTaskHistoryDB.agent_id == agent_id,
-                    AgentTaskHistoryDB.created_at >= today_start
+                    AgentTaskHistory.agent_id == agent_id,
+                    AgentTaskHistory.created_at >= today_start
                 )
             )
         )
@@ -427,10 +427,10 @@ async def get_agent_history(
     """
     try:
         result = await session.execute(
-            select(AgentTaskHistoryDB).where(
-                AgentTaskHistoryDB.agent_id == agent_id
+            select(AgentTaskHistory).where(
+                AgentTaskHistory.agent_id == agent_id
             ).order_by(
-                AgentTaskHistoryDB.created_at.desc()
+                AgentTaskHistory.created_at.desc()
             ).limit(limit)
         )
 
@@ -465,10 +465,10 @@ async def get_agent_metrics(
     """
     try:
         result = await session.execute(
-            select(AgentDailyMetricDB).where(
-                AgentDailyMetricDB.agent_id == agent_id
+            select(AgentDailyMetric).where(
+                AgentDailyMetric.agent_id == agent_id
             ).order_by(
-                AgentDailyMetricDB.date_str.desc()
+                AgentDailyMetric.date_str.desc()
             ).limit(days)
         )
 
