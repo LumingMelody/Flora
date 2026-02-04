@@ -1538,11 +1538,33 @@ class TreeContextResolver(IContextResolverCapbility):
 
         resolved_params = {}
 
+        # ========== Step 0: 直接匹配 - 从上下文中查找完全匹配的参数名 ==========
+        # 这是最快速的方法，不需要 LLM，直接按参数名查找
+        if context_snapshot:
+            direct_matched = self._direct_match_params_from_context(
+                param_names=list(tool_schema["parameters"].keys()),
+                context_snapshot=context_snapshot,
+                step_results=step_results
+            )
+            if direct_matched:
+                resolved_params.update(direct_matched)
+                logger.info(f"[DirectMatch] Found params: {list(direct_matched.keys())}")
+
         # ========== Step 1: ReAct 式需求感知预填 ==========
         # LLM 通过思考-行动-观察循环，动态填充参数
-        if task_content or task_description:
+        # 只对未解析的参数执行
+        remaining_for_react = {
+            name: spec for name, spec in tool_schema["parameters"].items()
+            if name not in resolved_params
+        }
+
+        if remaining_for_react and (task_content or task_description):
+            react_schema = {
+                "parameters": remaining_for_react,
+                "required": [p for p in tool_schema.get("required", []) if p in remaining_for_react]
+            }
             inferred_params = self._llm_infer_param_values(
-                tool_schema=tool_schema,
+                tool_schema=react_schema,
                 task_content=task_content,
                 task_description=task_description,
                 context_snapshot=context_snapshot,
@@ -1595,6 +1617,95 @@ class TreeContextResolver(IContextResolverCapbility):
                             resolved_params[param_name] = param_spec["default"]
 
         return resolved_params
+
+    def _direct_match_params_from_context(
+        self,
+        param_names: List[str],
+        context_snapshot: Dict[str, Any],
+        step_results: Dict[str, Any] = None
+    ) -> Dict[str, Any]:
+        """
+        直接从上下文中查找完全匹配的参数名
+
+        这是最快速的方法，不需要 LLM，直接按参数名查找。
+        查找顺序：
+        1. enriched._data 中的顶层字段
+        2. global._data 中的顶层字段
+        3. steps 中各步骤的结果
+        4. enriched._data._original_inputs 中的字段
+
+        Args:
+            param_names: 需要查找的参数名列表
+            context_snapshot: 上下文快照
+            step_results: 步骤结果（用于深度提取）
+
+        Returns:
+            找到的参数值字典
+        """
+        matched = {}
+
+        if not context_snapshot:
+            return matched
+
+        # 辅助函数：递归查找参数值
+        def find_value_in_dict(data: Any, key: str, max_depth: int = 3) -> Any:
+            """递归在字典中查找指定 key 的值"""
+            if max_depth <= 0 or data is None:
+                return None
+
+            if isinstance(data, dict):
+                # 直接匹配
+                if key in data:
+                    value = data[key]
+                    # 确保值不是空的
+                    if value is not None and (not isinstance(value, str) or value.strip()):
+                        return value
+
+                # 递归查找
+                for k, v in data.items():
+                    if isinstance(v, dict):
+                        result = find_value_in_dict(v, key, max_depth - 1)
+                        if result is not None:
+                            return result
+
+            return None
+
+        for param_name in param_names:
+            if param_name in matched:
+                continue
+
+            value = None
+
+            # 1. 从 enriched._data 中查找
+            if "enriched" in context_snapshot:
+                enriched_data = context_snapshot["enriched"].get("_data", {})
+                value = find_value_in_dict(enriched_data, param_name)
+                if value is not None:
+                    matched[param_name] = value
+                    logger.info(f"[DirectMatch] Found '{param_name}' in enriched context: {value}")
+                    continue
+
+            # 2. 从 global._data 中查找
+            if "global" in context_snapshot:
+                global_data = context_snapshot["global"].get("_data", {})
+                value = find_value_in_dict(global_data, param_name)
+                if value is not None:
+                    matched[param_name] = value
+                    logger.info(f"[DirectMatch] Found '{param_name}' in global context: {value}")
+                    continue
+
+            # 3. 从 steps 中查找
+            if "steps" in context_snapshot and step_results:
+                for step_key, step_info in context_snapshot["steps"].items():
+                    # 尝试从 step_results 中获取实际数据
+                    step_data = step_results.get(step_key, {})
+                    value = find_value_in_dict(step_data, param_name)
+                    if value is not None:
+                        matched[param_name] = value
+                        logger.info(f"[DirectMatch] Found '{param_name}' in step '{step_key}': {value}")
+                        break
+
+        return matched
 
     def _llm_infer_param_values(
         self,
@@ -1771,36 +1882,75 @@ class TreeContextResolver(IContextResolverCapbility):
         return resolved_params
 
     def _build_context_summary_for_react(self, context_snapshot: Dict[str, Any]) -> str:
-        """构建用于 ReAct 的上下文摘要"""
+        """构建用于 ReAct 的上下文摘要，确保包含所有可用的参数值"""
         if not context_snapshot:
             return "无可用上下文"
 
         context_parts = []
 
+        # 辅助函数：递归提取所有简单值
+        def extract_simple_values(data: Any, prefix: str = "") -> Dict[str, Any]:
+            """递归提取字典中的所有简单值（包括嵌套字典）"""
+            result = {}
+            if isinstance(data, dict):
+                for k, v in data.items():
+                    full_key = f"{prefix}.{k}" if prefix else k
+                    if isinstance(v, (str, int, float, bool)) and v is not None and str(v).strip():
+                        result[full_key] = v
+                    elif isinstance(v, dict):
+                        # 递归处理嵌套字典
+                        nested = extract_simple_values(v, full_key)
+                        result.update(nested)
+                        # 同时检查字典本身是否有 'value' 或 'data' 字段（ContextEntry 格式）
+                        if 'value' in v and v['value'] is not None:
+                            result[full_key] = v['value']
+                        elif 'data' in v and isinstance(v['data'], (str, int, float, bool)):
+                            result[full_key] = v['data']
+                    elif isinstance(v, list) and len(v) > 0:
+                        # 列表：提取第一个元素的简单值或 ID
+                        if isinstance(v[0], (str, int, float, bool)):
+                            result[full_key] = v[0] if len(v) == 1 else v[:5]
+                        elif isinstance(v[0], dict) and 'id' in v[0]:
+                            result[full_key] = v[0]['id']
+            return result
+
+        # 处理全局上下文
         if "global" in context_snapshot:
             global_data = context_snapshot["global"].get("_data", {})
             if global_data:
-                key_fields = {k: v for k, v in global_data.items()
-                              if isinstance(v, (str, int, float, bool)) and v}
+                key_fields = extract_simple_values(global_data)
                 if key_fields:
-                    context_parts.append(f"【全局上下文 global】\n{json.dumps(key_fields, ensure_ascii=False, indent=2)}")
+                    # 限制输出长度
+                    display_fields = {k: (v if len(str(v)) < 200 else str(v)[:200] + "...")
+                                      for k, v in list(key_fields.items())[:20]}
+                    context_parts.append(f"【全局上下文 global】\n{json.dumps(display_fields, ensure_ascii=False, indent=2)}")
 
+        # 处理富化上下文 - 增强版，递归提取所有值
         if "enriched" in context_snapshot:
             enriched_data = context_snapshot["enriched"].get("_data", {})
             if enriched_data:
-                key_fields = {}
-                for k, v in enriched_data.items():
-                    if isinstance(v, (str, int, float, bool)) and v:
-                        v_str = str(v)
-                        if len(v_str) < 200:
-                            key_fields[k] = v
+                key_fields = extract_simple_values(enriched_data)
                 if key_fields:
-                    context_parts.append(f"【富化上下文 enriched】\n{json.dumps(key_fields, ensure_ascii=False, indent=2)}")
+                    # 限制输出长度
+                    display_fields = {k: (v if len(str(v)) < 200 else str(v)[:200] + "...")
+                                      for k, v in list(key_fields.items())[:30]}
+                    context_parts.append(f"【富化上下文 enriched】\n{json.dumps(display_fields, ensure_ascii=False, indent=2)}")
 
+        # 处理步骤结果 - 同时展示 Schema 和关键数据
         if "steps" in context_snapshot:
-            for step_key, step_info in context_snapshot["steps"].items():
+            for step_key, step_info in list(context_snapshot["steps"].items())[:5]:
                 step_schema = step_info.get("_schema", {})
-                context_parts.append(f"【步骤结果 {step_key}】Schema:\n{json.dumps(step_schema, ensure_ascii=False, indent=2)}")
+                # 尝试从 _data 中提取关键值（如果有的话）
+                step_data = step_info.get("_data", {})
+                if step_data:
+                    key_values = extract_simple_values(step_data)
+                    if key_values:
+                        display_values = {k: v for k, v in list(key_values.items())[:10]}
+                        context_parts.append(f"【步骤结果 {step_key}】\nSchema: {json.dumps(step_schema, ensure_ascii=False)}\n数据: {json.dumps(display_values, ensure_ascii=False, indent=2)}")
+                    else:
+                        context_parts.append(f"【步骤结果 {step_key}】Schema:\n{json.dumps(step_schema, ensure_ascii=False, indent=2)}")
+                else:
+                    context_parts.append(f"【步骤结果 {step_key}】Schema:\n{json.dumps(step_schema, ensure_ascii=False, indent=2)}")
 
         return "\n\n".join(context_parts) if context_parts else "无可用上下文"
 

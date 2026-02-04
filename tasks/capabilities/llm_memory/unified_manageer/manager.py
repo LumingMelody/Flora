@@ -1,18 +1,25 @@
 """统一记忆管理器模块"""
 from typing import Dict, Any, Optional, List
 import time  # 用于测试时等待 embedding 完成
+import logging
 
 # 使用相对导入
 from ...capability_base import CapabilityBase
 from .short_term import ShortTermMemory
 
+logger = logging.getLogger(__name__)
 
 # 导入 mem0
 from mem0 import Memory
 from config import MEM0_CONFIG
 
 # === 全局共享的重量级资源（只初始化一次）===
-SHARED_MEM0_CLIENT = Memory.from_config(MEM0_CONFIG)
+try:
+    SHARED_MEM0_CLIENT = Memory.from_config(MEM0_CONFIG)
+    logger.info("Mem0 client initialized successfully")
+except Exception as e:
+    logger.error(f"Failed to initialize Mem0 client: {e}")
+    SHARED_MEM0_CLIENT = None  # 允许系统继续运行，后续会降级处理
 
 
 from datetime import datetime
@@ -21,10 +28,17 @@ import os
 import re
 from .memory_interfaces import IVaultRepository, IProceduralRepository, IResourceRepository
 
+# 导入工厂函数
+from external.memory_store.memory_repos import (
+    build_vault_repo,
+    build_procedural_repo,
+    build_resource_repo
+)
+
 
 class UnifiedMemoryManager():
-    def __init__(self, 
-                # user_id: str="default", 
+    def __init__(self,
+                # user_id: str="default",
                 vault_repo: IVaultRepository=None,
                 procedural_repo: IProceduralRepository=None,
                 resource_repo: IResourceRepository=None,
@@ -35,10 +49,22 @@ class UnifiedMemoryManager():
         self.mem0 = mem0_client or SHARED_MEM0_CLIENT
         self.stm = ShortTermMemory(max_history=10)  # 仍保留短期对话历史
         self.qwen = qwen_client # ← 关键！
-        # 各专用存储（可 lazy init）
-        self.vault_repo = vault_repo or create_vault_repo(config["vault"])
-        self.procedural_repo = procedural_repo or create_procedural_repo(config["procedural"])
-        self.resource_repo = resource_repo or create_resource_repo(config["resource"])
+        # 各专用存储（使用工厂函数，lazy init）
+        try:
+            self.vault_repo = vault_repo or build_vault_repo()
+        except Exception as e:
+            logger.warning(f"Failed to initialize vault_repo: {e}")
+            self.vault_repo = None
+        try:
+            self.procedural_repo = procedural_repo or build_procedural_repo()
+        except Exception as e:
+            logger.warning(f"Failed to initialize procedural_repo: {e}")
+            self.procedural_repo = None
+        try:
+            self.resource_repo = resource_repo or build_resource_repo()
+        except Exception as e:
+            logger.warning(f"Failed to initialize resource_repo: {e}")
+            self.resource_repo = None
         self._core_cache = None
 
     # ======================
@@ -52,16 +78,32 @@ class UnifiedMemoryManager():
         2. 调用 Qwen 分析并拆解为多类长期记忆
         3. 分别写入对应存储
         """
-        print(f"🔍 [ADD] USER={user_id} | CONTENT='{content}'")
+        logger.info(f"🔍 [ADD] USER={user_id} | CONTENT='{content[:100]}...'")
+
+        # Step 1: 存入短期记忆（原始内容）- 这个必须成功
+        try:
+            self.stm.add_message(content=content, role="user", user_id=user_id)
+        except Exception as e:
+            logger.error(f"Failed to add to short-term memory: {e}")
+
+        # 检查 Mem0 是否可用
+        if self.mem0 is None:
+            logger.warning("Mem0 client not available, skipping long-term memory storage")
+            return
+
+        # 初始化 Qwen 客户端
         if self.qwen is None:
-            from ...registry import capability_registry
-            from ...llm.interface import ILLMCapability
-            self.qwen = capability_registry.get_capability(
-                "llm", expected_type=ILLMCapability
-            )
-        # Step 1: 存入短期记忆（原始内容）
-        self.stm.add_message(content=content,role="user", user_id=user_id)
-        print(user_id)
+            try:
+                from ...registry import capability_registry
+                from ...llm.interface import ILLMCapability
+                self.qwen = capability_registry.get_capability(
+                    "llm", expected_type=ILLMCapability
+                )
+            except Exception as e:
+                logger.warning(f"LLM capability not available: {e}, using fallback to episodic")
+                self._fallback_add_episodic(user_id, content)
+                return
+
         # Step 2: 调用 Qwen 分类
         prompt = self._build_memory_classification_prompt(content)
         try:
@@ -73,8 +115,8 @@ class UnifiedMemoryManager():
             )
             parsed = json.loads(response.strip())
         except Exception as e:
-            print(f"[MemoryRouter] Qwen 解析失败: {e}，回退为 episodic")
-            self.add_episodic_memory(user_id,content)
+            logger.warning(f"[MemoryRouter] Qwen 解析失败: {e}，回退为 episodic")
+            self._fallback_add_episodic(user_id, content)
             return
 
         # Step 3: 按类别写入
@@ -90,7 +132,7 @@ class UnifiedMemoryManager():
             for item in parsed["semantic"]:
                 self.add_semantic_memory(user_id,item.strip())
 
-        if "procedural" in parsed:
+        if "procedural" in parsed and self.procedural_repo:
             for item in parsed["procedural"]:
                 # 简化：将整句作为单步流程；进阶可让 Qwen 拆 steps
                 self.add_procedural_memory(
@@ -101,7 +143,7 @@ class UnifiedMemoryManager():
                     steps=[item.strip()]
                 )
 
-        if "resource" in parsed:
+        if "resource" in parsed and self.resource_repo:
             for item in parsed["resource"]:
                 # 进阶：可用正则提取路径，这里简化处理
                 self.add_resource_memory(
@@ -111,7 +153,7 @@ class UnifiedMemoryManager():
                     doc_type="text"
                 )
 
-        if "vault" in parsed:
+        if "vault" in parsed and self.vault_repo:
             for item in parsed["vault"]:
                 # ⚠️ 安全建议：不要直接存储明文！这里仅为演示
                 self.add_vault_memory(
@@ -120,6 +162,14 @@ class UnifiedMemoryManager():
                     key_name="auto_" + str(hash(item))[:8],
                     value=item.strip()
                 )
+
+    def _fallback_add_episodic(self, user_id: str, content: str):
+        """降级方案：直接存入情景记忆"""
+        try:
+            if self.mem0:
+                self.add_episodic_memory(user_id, content)
+        except Exception as e:
+            logger.error(f"Fallback episodic memory also failed: {e}")
 
 
     def _build_memory_classification_prompt(self, user_input: str) -> str:
@@ -157,57 +207,100 @@ class UnifiedMemoryManager():
 
     def add_core_memory(self, user_id,content: str):
         """核心记忆：用户基本信息、偏好"""
-        self.mem0.add(
-            content,
-            user_id=user_id,
-            metadata={"type": "core", "updated_at": datetime.now().isoformat()}
-        )
-        self._core_memory_cache = None  # 失效缓存
+        if not self.mem0:
+            logger.warning("Mem0 not available, skipping core memory")
+            return
+        try:
+            self.mem0.add(
+                content,
+                user_id=user_id,
+                metadata={"type": "core", "updated_at": datetime.now().isoformat()}
+            )
+            self._core_cache = None  # 失效缓存
+        except Exception as e:
+            logger.error(f"Failed to add core memory: {e}")
 
     def add_episodic_memory(self, user_id,content: str, timestamp: str = None):
         """情景记忆：具体事件"""
-        meta = {
-            "type": "episodic",
-            "timestamp": timestamp or datetime.now().isoformat()
-        }
-        self.mem0.add(content, user_id=user_id, metadata=meta)
+        if not self.mem0:
+            logger.warning("Mem0 not available, skipping episodic memory")
+            return
+        try:
+            meta = {
+                "type": "episodic",
+                "timestamp": timestamp or datetime.now().isoformat()
+            }
+            self.mem0.add(content, user_id=user_id, metadata=meta)
+        except Exception as e:
+            logger.error(f"Failed to add episodic memory: {e}")
 
     def add_vault_memory(self,user_id, category: str, key_name: str, value: str):
-        self.vault_repo.store(user_id, category, key_name, value)
+        if not self.vault_repo:
+            logger.warning("Vault repo not available, skipping vault memory")
+            return
+        try:
+            self.vault_repo.store(user_id, category, key_name, value)
+        except Exception as e:
+            logger.error(f"Failed to add vault memory: {e}")
 
     def add_procedural_memory(self, user_id: str, domain: str, task_type: str, title: str, steps: List[str]):
-        self.procedural_repo.add_procedure(user_id, domain, task_type, title, steps)
+        if not self.procedural_repo:
+            logger.warning("Procedural repo not available, skipping procedural memory")
+            return
+        try:
+            self.procedural_repo.add_procedure(user_id, domain, task_type, title, steps)
+        except Exception as e:
+            logger.error(f"Failed to add procedural memory: {e}")
 
     def add_resource_memory(self, user_id: str, file_path: str, summary: str, doc_type: str = "pdf"):
-        self.resource_repo.add_document(user_id, file_path, summary, doc_type)
+        if not self.resource_repo:
+            logger.warning("Resource repo not available, skipping resource memory")
+            return
+        try:
+            self.resource_repo.add_document(user_id, file_path, summary, doc_type)
+        except Exception as e:
+            logger.error(f"Failed to add resource memory: {e}")
 
     def add_semantic_memory(self, user_id: str, content: str, category: str = ""):
         """语义记忆：事实性知识"""
-        meta = {"type": "semantic"}
-        if category: meta["category"] = category
-        self.mem0.add(content, user_id=user_id, metadata=meta)
+        if not self.mem0:
+            logger.warning("Mem0 not available, skipping semantic memory")
+            return
+        try:
+            meta = {"type": "semantic"}
+            if category: meta["category"] = category
+            self.mem0.add(content, user_id=user_id, metadata=meta)
+        except Exception as e:
+            logger.error(f"Failed to add semantic memory: {e}")
 
     # ======================
     # 2. 记忆检索接口（按类型）
     # ======================
 
     def _search_by_type(self, user_id: str, memory_type: str, query: str = "", limit: int = 5):
-        filters = {"type": memory_type}
-        if not query:
-            query = "relevant information"  # Mem0 要求 query 非空
-        results = self.mem0.search(
-            user_id=user_id,
-            query=query,
-            filters=filters,
-            limit=limit
-        )
-        return [r.get("memory", "") for r in results.get("results", [])]
+        if not self.mem0:
+            logger.warning("Mem0 not available for search")
+            return []
+        try:
+            filters = {"type": memory_type}
+            if not query:
+                query = "relevant information"  # Mem0 要求 query 非空
+            results = self.mem0.search(
+                user_id=user_id,
+                query=query,
+                filters=filters,
+                limit=limit
+            )
+            return [r.get("memory", "") for r in results.get("results", [])]
+        except Exception as e:
+            logger.error(f"Failed to search memory by type {memory_type}: {e}")
+            return []
 
     def get_core_memory(self, user_id: str) -> str:
         """获取核心记忆（缓存优化）"""
-        print(f"Retrieving core memory for user {user_id}")
+        logger.debug(f"Retrieving core memory for user {user_id}")
         if self._core_cache is None:
-            print(f"Cache miss for core memory, fetching from Mem0 for user {user_id}")
+            logger.debug(f"Cache miss for core memory, fetching from Mem0 for user {user_id}")
             memories = self._search_by_type(user_id, "core", limit=10)
             self._core_cache = "\n".join(memories) if memories else ""
         return self._core_cache
@@ -217,19 +310,42 @@ class UnifiedMemoryManager():
 
     # 修改检索方法
     def get_vault_memory(self, user_id: str, category: str = None) -> str:
-        items = self.vault_repo.retrieve(user_id, category)
-        return "\n".join(items)
+        if not self.vault_repo:
+            logger.warning("Vault repo not available for retrieval")
+            return ""
+        try:
+            items = self.vault_repo.retrieve(user_id, category)
+            return "\n".join(items) if items else ""
+        except Exception as e:
+            logger.error(f"Failed to retrieve vault memory: {e}")
+            return ""
 
     def get_procedural_memory(self, user_id: str, query: str, domain: str = None, limit: int = 2) -> str:
-        results = self.procedural_repo.search(user_id, query, domain=domain, limit=limit)
-        return "\n\n".join(results)
+        if not self.procedural_repo:
+            logger.warning("Procedural repo not available for retrieval")
+            return ""
+        try:
+            results = self.procedural_repo.search(user_id, query, domain=domain, limit=limit)
+            return "\n\n".join(results) if results else ""
+        except Exception as e:
+            logger.error(f"Failed to retrieve procedural memory: {e}")
+            return ""
 
     def get_resource_memory(self, user_id: str, query: str) -> str:
-        docs = self.resource_repo.search(user_id, query, limit=2)
-        return "\n".join([
-            f"[{d['filename']}]: {d['summary']} (ID: {d['id']})"
-            for d in docs
-        ])
+        if not self.resource_repo:
+            logger.warning("Resource repo not available for retrieval")
+            return ""
+        try:
+            docs = self.resource_repo.search(user_id, query, limit=2)
+            if not docs:
+                return ""
+            return "\n".join([
+                f"[{d['filename']}]: {d['summary']} (ID: {d['id']})"
+                for d in docs
+            ])
+        except Exception as e:
+            logger.error(f"Failed to retrieve resource memory: {e}")
+            return ""
     # ======================
     # 3. 上下文构建（供 LLM 使用）
     # ======================
@@ -285,8 +401,7 @@ class UnifiedMemoryManager():
                 results["procedural"] = procedural
 
         if "resource" in plan:
-            return
-            resource = self.get_resource_memory(user_id, plan["resource"], limit=3)
+            resource = self.get_resource_memory(user_id, plan["resource"])
             if resource:
                 results["resource"] = resource
 

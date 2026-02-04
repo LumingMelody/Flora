@@ -24,6 +24,7 @@ class ScheduleType(str, Enum):
 class EventInstanceStatus(str, Enum):
     PENDING = "PENDING"
     RUNNING = "RUNNING"
+    PAUSED = "PAUSED"
     SUCCESS = "SUCCESS"
     FAILED = "FAILED"
     CANCELLED = "CANCELLED"

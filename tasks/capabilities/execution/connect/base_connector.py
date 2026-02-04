@@ -89,14 +89,27 @@ class BaseConnector(ABC):
         filled_params = {}
         remaining_params = dict(missing_params)
 
+        # 提取 original_inputs（可能包含已有的参数值）
+        original_inputs = context.get("original_inputs", {})
+
         # ========== 新方案：Schema 摘要 + 按需展开 + 需求感知 ==========
-        if step_results or enriched_context or task_content:
+        if step_results or enriched_context or task_content or original_inputs:
             try:
+                # 将 original_inputs 合并到 enriched_context 中，确保已有值能被 ReAct 发现
+                merged_enriched = dict(enriched_context) if enriched_context else {}
+                if original_inputs:
+                    merged_enriched["_original_inputs"] = original_inputs
+                    # 同时将 original_inputs 中的非空值直接放到顶层
+                    for k, v in original_inputs.items():
+                        if v is not None and (not isinstance(v, str) or v.strip()):
+                            if k not in merged_enriched:
+                                merged_enriched[k] = v
+
                 # Step 1: 构建上下文快照
                 context_snapshot = context_resolver.build_context_snapshot(
                     step_results=step_results,
                     global_context=global_context,
-                    enriched_context=enriched_context
+                    enriched_context=merged_enriched
                 )
 
                 # Step 2: 构建工具 schema
@@ -184,7 +197,12 @@ class BaseConnector(ABC):
                 resolved_params = context_resolver.resolve_context(final_descs, agent_id)
                 logger.info(f"Step 4 - Resolved from DB: {resolved_params}")
 
-                filled_params.update(resolved_params)
+                # 【关键修复】只更新非 None 的值，None 视为解析失败
+                for param_name, value in resolved_params.items():
+                    if value is not None and (not isinstance(value, str) or value.strip()):
+                        filled_params[param_name] = value
+                    else:
+                        logger.warning(f"Step 4 - Parameter '{param_name}' resolved to None/empty, treating as failure")
                 remaining_params = still_remaining
 
         # 检查仍然缺失的参数

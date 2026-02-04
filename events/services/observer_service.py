@@ -260,6 +260,42 @@ class ObserverService:
                 # -----------------------------------------------
                 # 场景 B: 节点状态流转 (节点变色)
                 # -----------------------------------------------
+                elif event_type in ["TASK_CREATED", "CREATED"]:
+                    socket_msg = {
+                        "event": "node_updated",
+                        "data": {
+                            "node_id": payload.get("task_id"),
+                            "status": "PENDING",
+                            "progress": 0,
+                            "name": payload.get("name"),
+                            "message": payload.get("data", {}).get("message") if isinstance(payload.get("data"), dict) else None
+                        }
+                    }
+
+                elif event_type in ["TASK_PLANNING", "PLANNING"]:
+                    socket_msg = {
+                        "event": "node_updated",
+                        "data": {
+                            "node_id": payload.get("task_id"),
+                            "status": "PLANNING",
+                            "progress": 10,
+                            "name": payload.get("name"),
+                            "message": "正在规划任务..."
+                        }
+                    }
+
+                elif event_type in ["TASK_DISPATCHED", "DISPATCHED"]:
+                    socket_msg = {
+                        "event": "node_updated",
+                        "data": {
+                            "node_id": payload.get("task_id"),
+                            "status": "DISPATCHED",
+                            "progress": 20,
+                            "name": payload.get("name"),
+                            "message": "任务已分发"
+                        }
+                    }
+
                 elif event_type in ["TASK_STARTED", "TASK_RUNNING", "STARTED", "RUNNING"]:
                     socket_msg = {
                         "event": "node_updated",
@@ -314,6 +350,40 @@ class ObserverService:
                             "completed_steps": data_dict.get("completed_steps"),
                             "total_steps": data_dict.get("total_steps"),
                             "message": data_dict.get("message")
+                        }
+                    }
+
+                # 场景 B3: 暂停/恢复/取消事件
+                elif event_type in ["TASK_PAUSED", "PAUSED"]:
+                    socket_msg = {
+                        "event": "node_updated",
+                        "data": {
+                            "node_id": payload.get("task_id"),
+                            "status": "PAUSED",
+                            "name": payload.get("name"),
+                            "message": "任务已暂停"
+                        }
+                    }
+
+                elif event_type in ["TASK_RESUMED", "RESUMED"]:
+                    socket_msg = {
+                        "event": "node_updated",
+                        "data": {
+                            "node_id": payload.get("task_id"),
+                            "status": "RUNNING",
+                            "name": payload.get("name"),
+                            "message": "任务已恢复"
+                        }
+                    }
+
+                elif event_type in ["TASK_CANCELLED", "CANCELLED"]:
+                    socket_msg = {
+                        "event": "node_updated",
+                        "data": {
+                            "node_id": payload.get("task_id"),
+                            "status": "CANCELLED",
+                            "name": payload.get("name"),
+                            "message": "任务已取消"
                         }
                     }
 

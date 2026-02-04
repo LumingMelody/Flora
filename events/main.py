@@ -7,6 +7,7 @@ import logging
 # 导入 API 路由
 from entry.api.v1.commands import router as commands_router
 from entry.api.v1.queries import router as queries_router
+from entry.api.v1.stats import router as stats_router
 
 # 导入配置
 from config.settings import settings
@@ -165,6 +166,7 @@ app = FastAPI(title="Command Tower", lifespan=lifespan)
 # 注册 API 路由
 app.include_router(commands_router, prefix="/api/v1")
 app.include_router(queries_router, prefix="/api/v1")
+app.include_router(stats_router, prefix="/api/v1")
 # 添加 CORS 中间件（放在所有路由之前）
 app.add_middleware(
     CORSMiddleware,

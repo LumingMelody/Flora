@@ -1,5 +1,8 @@
 from typing import Dict, List
 from fastapi import WebSocket
+import logging
+
+logger = logging.getLogger(__name__)
 
 class ConnectionManager:
     """
@@ -21,6 +24,7 @@ class ConnectionManager:
         if trace_id not in self.active_connections:
             self.active_connections[trace_id] = []
         self.active_connections[trace_id].append(websocket)
+        logger.info(f"WebSocket connected for trace: {trace_id}, total connections: {len(self.active_connections[trace_id])}")
 
     def disconnect(self, websocket: WebSocket, trace_id: str):
         """
@@ -28,6 +32,7 @@ class ConnectionManager:
         """
         if trace_id in self.active_connections:
             self.active_connections[trace_id].remove(websocket)
+            logger.info(f"WebSocket disconnected for trace: {trace_id}, remaining: {len(self.active_connections[trace_id])}")
             # 如果该trace_id下没有连接了，清理该条目
             if not self.active_connections[trace_id]:
                 del self.active_connections[trace_id]
@@ -37,13 +42,19 @@ class ConnectionManager:
         向指定trace_id的所有连接推送消息
         """
         if trace_id in self.active_connections:
+            connections = self.active_connections[trace_id]
+            logger.info(f"Broadcasting to trace {trace_id}: {len(connections)} connections, event: {message.get('event')}")
             # 遍历连接列表，发送消息
-            for websocket in self.active_connections[trace_id]:
+            for websocket in list(connections):  # 使用 list() 复制，避免迭代时修改
                 try:
                     await websocket.send_json(message)
-                except Exception:
+                except Exception as e:
+                    logger.warning(f"Failed to send message to WebSocket: {e}")
                     # 如果发送失败，将该连接从列表中移除
-                    self.active_connections[trace_id].remove(websocket)
+                    if websocket in self.active_connections.get(trace_id, []):
+                        self.active_connections[trace_id].remove(websocket)
                     # 如果该trace_id下没有连接了，清理该条目
-                    if not self.active_connections[trace_id]:
+                    if trace_id in self.active_connections and not self.active_connections[trace_id]:
                         del self.active_connections[trace_id]
+        else:
+            logger.debug(f"No active connections for trace: {trace_id}, available traces: {list(self.active_connections.keys())[:5]}")

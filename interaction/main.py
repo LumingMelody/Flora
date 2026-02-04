@@ -98,6 +98,13 @@ app = FastAPI(
 
 )
 
+
+# ==================== 根路径健康检查接口 ====================
+@app.get("/health", tags=["系统"])
+async def health_check():
+    """健康检查接口（根路径）"""
+    return {"status": "healthy", "service": "interaction"}
+
 # 添加CORS中间件
 app.add_middleware(
     CORSMiddleware,

@@ -366,34 +366,34 @@ class AgentMonitorService:
         except Exception:
             # 容错处理，如果agent_client不支持get_agent_metadata方法
             pass
-        
+
         # 2. 实时状态 (Redis)
         status_map = await self.get_agents_status_map([agent_id])
         current_state = status_map.get(agent_id, {})
-        
+
         # 3. 历史履历 (Database) - 相比Redis List，用DB我们可以做分页、按时间筛选
         history_list = await self.task_history_repo.get_recent_tasks(agent_id, limit=50)
-        
+
         # 4. 绩效统计 (从数据库获取更准确的统计数据)
         statistics = await self.task_history_repo.get_task_statistics(agent_id)
         total_tasks = statistics.get('total_tasks', 0)
         success_tasks = statistics.get('success_tasks', 0)
         success_rate = (success_tasks / total_tasks * 100) if total_tasks > 0 else 0
         avg_duration = statistics.get('avg_duration_ms', 0) / 1000  # 转换为秒
-        
+
         # 5. 最近7天的趋势数据 (可选)
         recent_metrics = await self.daily_metric_repo.get_recent_metrics(agent_id, days=7)
-        
+
         # 6. 获取实时状态数据（用于获取更详细的任务信息和ETA）
         key = self._key_state(agent_id)
         raw_state = await self.cache.get(key)
         state_data = json.loads(raw_state) if raw_state else None
-        
+
         # 7. 判断真实状态
         status_label = "OFFLINE"
         current_task_display = None
         metrics_display = None
-        
+
         if state_data:
             status_label = state_data.get("status", "IDLE")
             current_task = state_data.get("current_task")
@@ -404,7 +404,7 @@ class AgentMonitorService:
                     "progress": current_task.get("progress", 0)
                 }
                 metrics_display = current_task.get("metrics") # 包含 ETA
-        
+
         # 8. 获取积压任务 (Next Steps)
         backlog = await self.get_agent_backlog(agent_id)
 
@@ -444,6 +444,162 @@ class AgentMonitorService:
                 "preview": backlog[:3] # 只展示前3个
             }
         }
+
+    async def get_agent_monitor_metrics(self, agent_id: str) -> Dict[str, Any]:
+        """
+        获取单个 Agent 的监控面板指标
+        专为监控卡片设计，包含负载、性能、健康、实时指标
+        """
+        current_time = time.time()
+
+        # 1. 获取 Redis 实时状态
+        key = self._key_state(agent_id)
+        raw_state = await self.cache.get(key)
+        state_data = json.loads(raw_state) if raw_state else None
+
+        # 2. 获取今日统计（从数据库）
+        from datetime import datetime, timedelta
+        today = datetime.now().date()
+        today_start = datetime.combine(today, datetime.min.time())
+
+        statistics = await self.task_history_repo.get_task_statistics(
+            agent_id,
+            start_date=today_start
+        )
+
+        # 3. 获取队列深度（待处理任务数）
+        backlog = await self.get_agent_backlog(agent_id)
+        queue_depth = len(backlog)
+
+        # 4. 计算负载等级
+        load_level = "LOW"
+        if queue_depth >= 10:
+            load_level = "HIGH"
+        elif queue_depth >= 5:
+            load_level = "MEDIUM"
+
+        # 5. 获取最近1小时失败数（健康指标）
+        one_hour_ago = datetime.now() - timedelta(hours=1)
+        recent_stats = await self.task_history_repo.get_task_statistics(
+            agent_id,
+            start_date=one_hour_ago
+        )
+        recent_failures = recent_stats.get('failed_tasks', 0)
+
+        # 6. 判断是否连续失败（从 Redis 历史中检查）
+        history_key = self._key_history(agent_id)
+        recent_history = await self.cache.lrange(history_key, 0, 2)  # 最近3条
+        consecutive_failures = 0
+        if recent_history:
+            for item in recent_history:
+                task_data = json.loads(item) if isinstance(item, str) else item
+                if task_data.get("status") == "FAILED":
+                    consecutive_failures += 1
+                else:
+                    break
+
+        # 7. 解析实时状态
+        status = "OFFLINE"
+        is_online = False
+        last_seen_seconds = None
+        current_task = None
+        task_progress = 0
+        task_elapsed_ms = 0
+        task_eta_ms = 0
+        is_overtime = False
+
+        if state_data:
+            status = state_data.get("status", "IDLE")
+            last_seen = state_data.get("last_seen", 0)
+            last_seen_seconds = int(current_time - last_seen) if last_seen else None
+            is_online = last_seen_seconds is not None and last_seen_seconds < self.STATE_TTL
+
+            current_task_data = state_data.get("current_task")
+            if current_task_data and status == "BUSY":
+                current_task = {
+                    "task_id": current_task_data.get("task_id"),
+                    "name": current_task_data.get("name", "Unknown Task"),
+                    "trace_id": current_task_data.get("trace_id")
+                }
+                task_progress = current_task_data.get("progress", 0)
+
+                # 计算耗时
+                start_time = current_task_data.get("start_time", current_time)
+                task_elapsed_ms = int((current_time - start_time) * 1000)
+
+                # 获取 ETA
+                metrics = current_task_data.get("metrics", {})
+                task_eta_ms = metrics.get("estimated_remaining_seconds", 0) * 1000
+                is_overtime = metrics.get("is_overtime", False)
+
+        # 8. 计算今日统计
+        today_completed = statistics.get('total_tasks', 0)
+        today_success = statistics.get('success_tasks', 0)
+        today_failed = statistics.get('failed_tasks', 0)
+        success_rate = (today_success / today_completed * 100) if today_completed > 0 else 0
+        avg_duration_ms = statistics.get('avg_duration_ms', 0)
+
+        # 9. 组装监控指标
+        return {
+            "agent_id": agent_id,
+
+            # 负载指标
+            "load": {
+                "queue_depth": queue_depth,
+                "load_level": load_level,  # LOW, MEDIUM, HIGH
+                "next_tasks": backlog[:3] if backlog else []  # 预览接下来的任务
+            },
+
+            # 性能指标（今日）
+            "performance": {
+                "today_completed": today_completed,
+                "today_success": today_success,
+                "today_failed": today_failed,
+                "success_rate": round(success_rate, 1),
+                "avg_duration_ms": round(avg_duration_ms, 0)
+            },
+
+            # 健康指标
+            "health": {
+                "recent_failures": recent_failures,  # 最近1小时失败数
+                "consecutive_failures": consecutive_failures,  # 连续失败次数
+                "is_healthy": consecutive_failures < 3 and recent_failures < 5
+            },
+
+            # 实时状态
+            "realtime": {
+                "status": status,  # IDLE, BUSY, OFFLINE
+                "is_online": is_online,
+                "last_seen_seconds": last_seen_seconds,
+                "current_task": current_task,
+                "task_progress": task_progress,
+                "task_elapsed_ms": task_elapsed_ms,
+                "task_eta_ms": task_eta_ms,
+                "is_overtime": is_overtime
+            }
+        }
+
+    async def get_batch_agent_metrics(self, agent_ids: List[str]) -> Dict[str, Dict[str, Any]]:
+        """
+        批量获取多个 Agent 的监控指标
+        用于监控面板一次性加载所有 Agent 的指标
+        """
+        result = {}
+        for agent_id in agent_ids:
+            try:
+                metrics = await self.get_agent_monitor_metrics(agent_id)
+                result[agent_id] = metrics
+            except Exception as e:
+                logger.error(f"Failed to get metrics for agent {agent_id}: {e}")
+                result[agent_id] = {
+                    "agent_id": agent_id,
+                    "error": str(e),
+                    "load": {"queue_depth": 0, "load_level": "UNKNOWN"},
+                    "performance": {"today_completed": 0, "success_rate": 0},
+                    "health": {"is_healthy": False},
+                    "realtime": {"status": "UNKNOWN", "is_online": False}
+                }
+        return result
     
     async def handle_task_completed_event(self, payload: Dict[str, Any]):
         """

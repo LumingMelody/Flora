@@ -338,7 +338,7 @@ async def agent_tree_websocket(
         # 初始发送Agent动态树数据
         dynamic_tree = await agent_monitor_service.get_dynamic_agent_tree(agent_id)
         await websocket.send_json(dynamic_tree)
-        
+
         # 保持连接，处理心跳或前端指令
         while True:
             # 接收前端消息，支持刷新树数据等指令
@@ -353,3 +353,90 @@ async def agent_tree_websocket(
     except Exception as e:
         logger.error(f"Agent WebSocket error for agent {agent_id}: {str(e)}", exc_info=True)
         connection_manager.disconnect(websocket, f"agent:{agent_id}")
+
+
+# ==================== Agent 监控指标 API ====================
+
+class AgentLoadMetrics(BaseModel):
+    """负载指标"""
+    queue_depth: int
+    load_level: str  # LOW, MEDIUM, HIGH
+    next_tasks: List[Dict[str, Any]] = []
+
+
+class AgentPerformanceMetrics(BaseModel):
+    """性能指标"""
+    today_completed: int
+    today_success: int
+    today_failed: int
+    success_rate: float
+    avg_duration_ms: float
+
+
+class AgentHealthMetrics(BaseModel):
+    """健康指标"""
+    recent_failures: int
+    consecutive_failures: int
+    is_healthy: bool
+
+
+class AgentRealtimeMetrics(BaseModel):
+    """实时指标"""
+    status: str  # IDLE, BUSY, OFFLINE
+    is_online: bool
+    last_seen_seconds: Optional[int] = None
+    current_task: Optional[Dict[str, Any]] = None
+    task_progress: int = 0
+    task_elapsed_ms: int = 0
+    task_eta_ms: int = 0
+    is_overtime: bool = False
+
+
+class AgentMonitorMetricsResponse(BaseModel):
+    """Agent 监控指标响应"""
+    agent_id: str
+    load: AgentLoadMetrics
+    performance: AgentPerformanceMetrics
+    health: AgentHealthMetrics
+    realtime: AgentRealtimeMetrics
+
+
+@router.get("/agents/{agent_id}/metrics", response_model=AgentMonitorMetricsResponse)
+async def get_agent_monitor_metrics(
+    agent_id: str,
+    agent_monitor_service: AgentMonitorService = Depends(get_agent_monitor_service)
+):
+    """
+    获取单个 Agent 的监控面板指标
+
+    返回：
+    - load: 负载指标（队列深度、负载等级）
+    - performance: 性能指标（今日完成数、成功率、平均耗时）
+    - health: 健康指标（最近失败数、是否健康）
+    - realtime: 实时指标（状态、当前任务、进度）
+    """
+    try:
+        metrics = await agent_monitor_service.get_agent_monitor_metrics(agent_id)
+        return metrics
+    except Exception as e:
+        logger.error(f"Failed to get metrics for agent {agent_id}: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/agents/batch-metrics")
+async def get_batch_agent_metrics(
+    agent_ids: List[str],
+    agent_monitor_service: AgentMonitorService = Depends(get_agent_monitor_service)
+):
+    """
+    批量获取多个 Agent 的监控指标
+
+    请求体：agent_id 列表
+    返回：以 agent_id 为 key 的指标字典
+    """
+    try:
+        metrics = await agent_monitor_service.get_batch_agent_metrics(agent_ids)
+        return metrics
+    except Exception as e:
+        logger.error(f"Failed to get batch metrics: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))

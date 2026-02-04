@@ -1,118 +1,268 @@
-明白了，让我重新梳理：
+这是一个很好的架构优化方向。让我先分析当前问题，然后提出方案。
 
-  核心设计
+  当前问题分析
 
-  1. TreeContextResolver 提供统一的参数解析能力 - 供 MCPActor、CapabilityExecutor 等所有执行层使用
-  2. 传递完整上下文快照 - 不做预筛选
-  3. 引用解析需要优化 - 避免 LLM 逐个展开
+  现状：
+  1. Plan 一旦生成就固定，执行过程中无法调整
+  2. 重试机制僵化（ResultAggregator 只做 HTTP 500 等简单重试）
+  3. 缺乏执行过程中的"观察-反馈-调整"能力
+
+  期望：
+  - 支持动态分支执行
+  - 执行中可增量重规划
+  - 智能重试（理解失败原因后调整策略）
 
   ---
-  引用解析的问题
+  方案设计
 
-  当前如果传递引用，LLM 看到的是：
+  方案一：分支计划 + 条件执行
+
+  核心思路：Plan 阶段生成带条件分支的计划，TaskGroupAggregator 根据执行结果选择分支。
+
+  Plan 结构：
+  [
+    { step: 1, executor: "A", ... },
+    { step: 2, executor: "B",
+      branches: [
+        { condition: "step_1.status == 'SUCCESS' && step_1.result.count > 0",
+          next_steps: [3, 4] },
+        { condition: "step_1.result.count == 0",
+          next_steps: [5] },  // 跳过某些步骤
+        { condition: "step_1.status == 'FAILED'",
+          next_steps: [], fallback: "retry_with_different_params" }
+      ]
+    },
+    ...
+  ]
+
+  优点：
+  - 预先规划好分支，执行效率高
+  - 适合可预见的业务分支
+
+  缺点：
+  - 无法应对完全意外的情况
+  - Plan 复杂度增加
+
+  ---
+  方案二：Monitor + 增量重规划
+
+  核心思路：引入 Monitor 角色，观察执行过程，发现问题时触发增量重规划。
+
+  架构：
+                      ┌─────────────┐
+                      │   Monitor   │ ← 观察所有步骤结果
+                      └──────┬──────┘
+                             │ 发现问题
+                             ▼
+  ┌──────────┐    ┌─────────────────┐    ┌──────────────┐
+  │ Planner  │◄───│ TaskGroupAggr   │───►│ Executor     │
+  └──────────┘    └─────────────────┘    └──────────────┘
+       │                   ▲
+       │ 增量 Plan         │ 插入新步骤
+       └───────────────────┘
+
+  Monitor 职责：
+  1. 观察每步执行结果
+  2. 判断是否需要干预（失败、结果异常、偏离预期）
+  3. 触发增量重规划或智能重试
+
+  增量重规划：
+  # Monitor 发现问题后
+  new_steps = planner.replan_from_step(
+      current_step=3,
+      failure_reason="数据库连接超时",
+      context=step_results,
+      remaining_steps=[4, 5, 6]
+  )
+  # 可能的结果：
+  # - 插入重试步骤（换个数据源）
+  # - 跳过后续步骤
+  # - 替换执行策略
+
+  优点：
+  - 高度灵活，能应对意外情况
+  - 符合 ReAct 思想
+
+  缺点：
+  - 每次干预都需要 LLM 调用，成本高
+  - 可能导致执行时间不可预测
+
+  ---
+  方案三：混合方案（推荐）
+
+  核心思路：结合方案一和方案二，分层处理不同类型的问题。
+
+  ┌─────────────────────────────────────────────────────────────┐
+  │                      Plan 层（静态分支）                      │
+  │  - 预定义的业务分支（if-else）                                │
+  │  - 预定义的降级策略（fallback）                               │
+  └─────────────────────────────────────────────────────────────┘
+                                │
+                                ▼
+  ┌─────────────────────────────────────────────────────────────┐
+  │                TaskGroupAggregator（执行层）                  │
+  │  ┌─────────────┐  ┌─────────────┐  ┌─────────────────────┐  │
+  │  │ 分支选择器   │  │ 智能重试器   │  │ Monitor（轻量观察）  │  │
+  │  └─────────────┘  └─────────────┘  └─────────────────────┘  │
+  │        │                │                    │              │
+  │        │                │                    │ 严重问题     │
+  │        ▼                ▼                    ▼              │
+  │   执行预定义分支    智能调整参数重试      触发增量重规划      │
+  └─────────────────────────────────────────────────────────────┘
+                                │
+                                ▼
+  ┌─────────────────────────────────────────────────────────────┐
+  │                ResultAggregator（底层重试）                   │
+  │  - HTTP 500/超时等基础重试                                    │
+  │  - 指数退避                                                  │
+  └─────────────────────────────────────────────────────────────┘
+
+  三层重试/调整机制
+  ┌───────────┬─────────────────────┬────────────────────────────────┬────────────────────────────┐
+  │   层级    │      负责组件       │            处理场景            │            策略            │
+  ├───────────┼─────────────────────┼────────────────────────────────┼────────────────────────────┤
+  │ L1 底层   │ ResultAggregator    │ HTTP 500、超时、网络抖动       │ 简单重试 + 指数退避        │
+  ├───────────┼─────────────────────┼────────────────────────────────┼────────────────────────────┤
+  │ L2 智能   │ TaskGroupAggregator │ 参数错误、权限不足、资源不存在 │ 分析错误 → 调整参数 → 重试 │
+  ├───────────┼─────────────────────┼────────────────────────────────┼────────────────────────────┤
+  │ L3 重规划 │ Monitor + Planner   │ 业务逻辑失败、策略失效         │ 增量重规划                 │
+  └───────────┴─────────────────────┴────────────────────────────────┴────────────────────────────┘
+  详细设计
+
+  1. Plan 结构增强
+
   {
-    "user_profile": {"$ref": "step_1.result.profile"},
-    "orders": {"$ref": "step_2.result.orders"}
-  }
+      "step": 2,
+      "type": "AGENT",
+      "executor": "inventory_query",
+      "content": "查询库存",
+      "description": "查询产品库存",
 
-  LLM 不知道里面有什么，必须一个个展开才能判断是否需要 → 消耗大
-
-  ---
-  优化方案：Schema 摘要 + 按需展开
-
-  传递的不是纯引用，而是 带 Schema 摘要的引用：
-
-  context_snapshot = {
-      "step_1": {
-          "_schema": {
-              "user_id": "string",
-              "profile": {
-                  "name": "string",
-                  "age": "int",
-                  "preferences": "list[string]"
-              }
+      # 新增：预定义分支
+      "branches": {
+          "on_success": {
+              "condition": "result.stock > 0",
+              "next": 3,  # 继续下一步
           },
-          "_ref": "step_results.step_1"  # 实际数据的引用
+          "on_empty": {
+              "condition": "result.stock == 0",
+              "next": 5,  # 跳到步骤5（通知缺货）
+          },
+          "on_failure": {
+              "fallback": "use_cache",  # 使用缓存数据
+              "retry_strategy": "smart"  # 触发智能重试
+          }
       },
-      "step_2": {
-          "_schema": {
-              "orders": "list[{order_id: string, amount: float, status: string}]",
-              "total": "int"
-          },
-          "_ref": "step_results.step_2"
+
+      # 新增：重试策略
+      "retry_policy": {
+          "max_attempts": 3,
+          "strategy": "smart",  # simple | smart | replan
+          "fallback_executor": "inventory_query_backup"
       }
   }
 
-  LLM 工作流程：
-  1. 看 _schema 就知道每个步骤有哪些字段和类型
-  2. 决定需要哪些数据（如 step_1.profile.name, step_2.orders）
-  3. TreeContextResolver 根据 LLM 的选择，从 _ref 指向的实际数据中提取
+  2. TaskGroupAggregator 智能重试
 
-  优点：
-  - LLM 只需看 Schema 摘要，不需要展开完整数据
-  - Schema 很小，token 消耗低
-  - 实际数据按需提取，精确高效
+  class TaskGroupAggregator:
 
-  ---
-  TreeContextResolver 增强
+      def _handle_step_failure(self, step, error, context):
+          """智能重试处理"""
 
-  class TreeContextResolver:
-      def resolve_params_for_tool(
-          self,
-          tool_schema: dict,           # 工具的参数定义
-          context_snapshot: dict,      # 带 Schema 摘要的上下文
-          step_results: dict           # 实际数据存储
-      ) -> dict:
-          """
-          1. 将 tool_schema 和 context_snapshot._schema 交给 LLM
-          2. LLM 返回参数映射：{"user_id": "step_1.user_id", "name": "step_1.profile.name"}
-          3. 根据映射从 step_results 提取实际值
-          """
-          # Step 1: LLM 决定参数来源（只看 schema，不看数据）
-          param_mapping = self._llm_resolve_mapping(tool_schema, context_snapshot)
+          # 分析错误类型
+          error_analysis = self._analyze_error(error)
 
-          # Step 2: 按映射提取实际值
-          resolved = {}
-          for param_name, path in param_mapping.items():
-              resolved[param_name] = self._extract_by_path(step_results, path)
+          if error_analysis.type == "PARAM_ERROR":
+              # 参数错误：尝试修正参数后重试
+              fixed_params = self._fix_params_with_llm(
+                  original_params=step.params,
+                  error_message=error.message,
+                  context=context
+              )
+              return self._retry_with_params(step, fixed_params)
 
-          return resolved
+          elif error_analysis.type == "RESOURCE_NOT_FOUND":
+              # 资源不存在：尝试查找替代资源
+              alternative = self._find_alternative_resource(
+                  resource_type=error_analysis.resource_type,
+                  context=context
+              )
+              if alternative:
+                  return self._retry_with_resource(step, alternative)
+              else:
+                  return self._trigger_replan(step, error)
 
-      def _build_schema_summary(self, data: Any) -> dict:
-          """从实际数据自动生成 Schema 摘要"""
-          if isinstance(data, dict):
-              return {k: self._build_schema_summary(v) for k, v in data.items()}
-          elif isinstance(data, list):
-              if data:
-                  return f"list[{self._build_schema_summary(data[0])}]"
-              return "list[]"
-          elif isinstance(data, str):
-              return "string"
-          elif isinstance(data, int):
-              return "int"
-          elif isinstance(data, float):
-              return "float"
-          elif isinstance(data, bool):
-              return "bool"
+          elif error_analysis.type == "PERMISSION_DENIED":
+              # 权限不足：尝试降级执行或跳过
+              if step.has_fallback:
+                  return self._execute_fallback(step)
+              else:
+                  return self._skip_and_continue(step)
+
           else:
-              return type(data).__name__
+              # 未知错误：触发增量重规划
+              return self._trigger_replan(step, error)
 
-  ---
-  数据流
+  3. Monitor 轻量观察
 
-  TaskGroupAggregator
-      │
-      │ 每步执行完后：
-      │   1. 存储完整结果到 step_results[step_id]
-      │   2. 生成 schema 摘要存入 context_snapshot[step_id]._schema
-      │
-      ▼
-  MCPActor / CapabilityExecutor
-      │
-      │ 调用 TreeContextResolver.resolve_params_for_tool()
-      │   - 输入：tool_schema + context_snapshot (只有 schema)
-      │   - LLM 决定映射
-      │   - 按映射从 step_results 提取实际值
-      │
-      ▼
-  实际工具调用（参数已解析）
+  class ExecutionMonitor:
+      """轻量级执行监控器"""
+
+      def __init__(self, planner, threshold=0.7):
+          self.planner = planner
+          self.anomaly_threshold = threshold
+          self.step_history = []
+
+      def observe(self, step_result):
+          """观察步骤结果"""
+          self.step_history.append(step_result)
+
+          # 轻量检查（不调用 LLM）
+          anomaly_score = self._quick_anomaly_check(step_result)
+
+          if anomaly_score > self.anomaly_threshold:
+              # 触发深度分析（调用 LLM）
+              return self._deep_analysis(step_result)
+
+          return None  # 正常，无需干预
+
+      def _quick_anomaly_check(self, result):
+          """快速异常检测（规则基础）"""
+          score = 0
+
+          # 检查执行时间异常
+          if result.duration > result.expected_duration * 2:
+              score += 0.3
+
+          # 检查结果为空
+          if result.data is None or result.data == {}:
+              score += 0.4
+
+          # 检查连续失败
+          recent_failures = sum(1 for r in self.step_history[-3:] if r.status == "FAILED")
+          if recent_failures >= 2:
+              score += 0.5
+
+          return score
+
+      def _deep_analysis(self, result):
+          """深度分析（LLM）"""
+          analysis = self.planner.analyze_execution_state(
+              current_result=result,
+              history=self.step_history,
+              remaining_plan=self.remaining_steps
+          )
+
+          if analysis.recommendation == "REPLAN":
+              return {
+                  "action": "REPLAN",
+                  "reason": analysis.reason,
+                  "suggested_changes": analysis.changes
+              }
+          elif analysis.recommendation == "SKIP":
+              return {
+                  "action": "SKIP",
+                  "skip_steps": analysis.skip_steps
+              }
+
+          return None

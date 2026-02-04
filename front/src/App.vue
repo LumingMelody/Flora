@@ -9,6 +9,7 @@ import DagEditor from '@/features/DagEditor/index.vue';
 import TreeEditor from '@/features/TreeEditor/index.vue';
 import ResourcePanel from '@/features/ResourcePanel/index.vue';
 import MarkdownViewer from '@/features/MarkdownViewer/index.vue';
+import Analytics from '@/features/Analytics/index.vue';
 
 // 当前选中的任务ID
 const selectedTaskId = ref('TSK-01');
@@ -57,6 +58,8 @@ const handleNavChange = (view: string) => {
       <GlassCard v-else-if="activeView === 'search'" class="h-full bg-white/2">
         <MarkdownViewer />
       </GlassCard>
+      <!-- analytics视图显示分析面板 -->
+      <Analytics v-else-if="activeView === 'analytics'" />
       <!-- 其他视图下显示提示信息 -->
       <div v-else class="h-full flex items-center justify-center text-gray-400">
         <div class="text-center">

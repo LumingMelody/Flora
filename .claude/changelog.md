@@ -1,6 +1,431 @@
 # Changelog
 
 ---
+## [2026-02-04 17:00] - Analytics 分析视图实现
+
+### 任务描述
+实现前端 Analytics 分析视图，展示系统级统计数据，包括系统总览、趋势图、Agent 排行榜、最近 Trace 列表。
+
+### 修改文件
+- [x] front/src/features/Analytics/index.vue - 新建 Analytics 视图组件
+- [x] front/src/App.vue - 导入 Analytics 组件并添加视图切换
+
+### 视图功能
+
+**系统总览卡片（4列）**
+- Agent 状态：总数、在线/离线数量、状态条
+- 运行中：运行中 Trace 数、待处理任务数
+- 今日任务：总任务数、成功/失败数
+- 成功率：今日成功率、平均耗时
+
+**7天趋势图**
+- 柱状图展示每日任务数
+- 成功/失败分色显示
+- 日期和数量标签
+
+**活跃 Agent 排行榜**
+- Top 5 活跃 Agent
+- 显示任务数、平均耗时、成功率
+- 排名徽章（金银铜）
+
+**最近 Trace 列表**
+- 表格展示最近 5 个 Trace
+- 显示状态、任务数、状态分布、深度、耗时、创建时间
+
+### API 调用
+```javascript
+// 系统总览
+GET /api/v1/stats/system/overview
+
+// 7天趋势
+GET /api/v1/stats/system/trend?days=7
+
+// Top Agents
+GET /api/v1/stats/system/top-agents?limit=5&days=7
+
+// 最近 Traces
+GET /api/v1/stats/traces/recent?limit=5
+```
+
+### 状态
+✅ 完成 (2026-02-04 17:00)
+
+---
+## [2026-02-04 16:30] - Agent 监控面板指标增强
+
+### 任务描述
+为 Agent 监控面板设计并实现完整的 Agent 级监控指标，包括负载、性能、健康、实时状态四大类指标。
+
+### 修改文件
+- [x] events/services/agent_monitor_service.py - 新增 `get_agent_monitor_metrics()` 和 `get_batch_agent_metrics()` 方法
+- [x] events/entry/api/v1/queries.py - 新增 `/agents/{agent_id}/metrics` 和 `/agents/batch-metrics` API 端点
+- [x] front/src/utils/agentDataUtils.js - 新增 `extractAgentIds()`、`getLoadLevelColor()`，更新 `mapToNodeData()` 和 `processAgentTree()` 支持监控指标
+- [x] front/src/api/agent.js - 新增 `getAgentMetrics()` 和 `getBatchAgentMetrics()` API 调用
+- [x] front/src/features/TreeEditor/nodes/TreeNode.vue - 重构卡片布局，添加完整监控指标显示
+
+### 指标设计
+
+**负载指标 (load)**
+| 指标 | 说明 |
+|------|------|
+| queue_depth | 待处理任务数 |
+| load_level | 负载等级 (LOW/MEDIUM/HIGH) |
+| next_tasks | 接下来的任务预览 |
+
+**性能指标 (performance)**
+| 指标 | 说明 |
+|------|------|
+| today_completed | 今日完成任务数 |
+| today_success | 今日成功数 |
+| today_failed | 今日失败数 |
+| success_rate | 成功率 % |
+| avg_duration_ms | 平均耗时 (毫秒) |
+
+**健康指标 (health)**
+| 指标 | 说明 |
+|------|------|
+| recent_failures | 最近1小时失败数 |
+| consecutive_failures | 连续失败次数 |
+| is_healthy | 是否健康 |
+
+**实时指标 (realtime)**
+| 指标 | 说明 |
+|------|------|
+| status | 状态 (IDLE/BUSY/OFFLINE) |
+| is_online | 是否在线 |
+| current_task | 当前任务信息 |
+| task_progress | 任务进度 % |
+| task_elapsed_ms | 已耗时 |
+| task_eta_ms | 预估剩余时间 |
+| is_overtime | 是否超时 |
+
+### 卡片布局更新
+
+```
+┌─────────────────────────────────────┐
+│ [类型]                    #agent_id │
+│ Agent 名称                          │
+│ Agent: xxx                          │
+├─────────────────────────────────────┤
+│ BUSY ● LIVE (5s ago) ⚠️ 2 fails    │
+├─────────────────────────────────────┤
+│ ┌─────────┐ ┌─────────┐ ┌─────────┐ │
+│ │   12    │ │   95%   │ │  2.3s   │ │
+│ │今日完成 │ │ 成功率  │ │平均耗时 │ │
+│ └─────────┘ └─────────┘ └─────────┘ │
+├─────────────────────────────────────┤
+│ 队列: 3 个待处理        [████] HIGH │
+├─────────────────────────────────────┤
+│ 当前任务                            │
+│ 数据清洗任务                        │
+│ 65%  30s elapsed  ETA: 15s          │
+│ [████████████░░░░░░░░]              │
+├─────────────────────────────────────┤
+│ ▼ 任务详情                          │
+│ ▼ Meta Info                         │
+└─────────────────────────────────────┘
+```
+
+### API 端点
+
+| 端点 | 方法 | 说明 |
+|------|------|------|
+| `/api/v1/traces/agents/{agent_id}/metrics` | GET | 获取单个 Agent 监控指标 |
+| `/api/v1/traces/agents/batch-metrics` | POST | 批量获取多个 Agent 监控指标 |
+
+### 状态
+✅ 完成 (2026-02-04 16:30)
+
+---
+## [2026-02-04 15:45] - Agent 监控面板指标数据绑定
+
+### 任务描述
+修复 Agent 监控面板中每个卡片的指标数据（进度、耗时）始终显示为 0 的问题。
+
+### 问题分析
+- 后端 `AgentMonitorService` 已经在 `runtime_state.current_task` 中提供了丰富的指标数据
+- 前端 `agentDataUtils.js` 的 `mapToNodeData` 函数将 `progress` 和 `timeElapsedMs` 硬编码为 `null` 和 `0`
+- 需要正确提取后端数据并绑定到前端组件
+
+### 修改文件
+- [x] front/src/utils/agentDataUtils.js - 新增 `calculateElapsedMs()` 函数，修复 `visual` 对象的数据绑定
+- [x] front/src/features/TreeEditor/nodes/TreeNode.vue - 更新 `Visual` 接口，添加时间格式化和 ETA 显示
+
+### 关键修复
+
+**1. agentDataUtils.js - 数据提取**
+```javascript
+// 新增 calculateElapsedMs 函数
+function calculateElapsedMs(runtime_state) {
+  // 优先使用 metrics.elapsed_seconds
+  if (currentTask.metrics?.elapsed_seconds) {
+    return currentTask.metrics.elapsed_seconds * 1000;
+  }
+  // 否则根据 start_time 计算
+  if (currentTask.start_time) {
+    return Math.max(0, Date.now() - currentTask.start_time * 1000);
+  }
+  return 0;
+}
+
+// visual 对象修复
+visual: {
+  progress: runtime_state.current_task?.progress ?? 0,
+  timeElapsedMs: calculateElapsedMs(runtime_state),
+  estimatedRemainingMs: (runtime_state.current_task?.metrics?.estimated_remaining_seconds ?? 0) * 1000,
+  isOvertime: runtime_state.current_task?.metrics?.is_overtime ?? false,
+  ...
+}
+```
+
+**2. TreeNode.vue - 显示增强**
+- 添加 `formatDuration()` 函数：将毫秒转换为人类可读格式（如 `2m 30s`）
+- 添加 `elapsedDisplay` 和 `remainingDisplay` 计算属性
+- 显示 ETA（预估剩余时间）和 OVERTIME（超时）标识
+
+### 数据流
+```
+后端 AgentMonitorService
+  → runtime_state.current_task.progress (进度)
+  → runtime_state.current_task.metrics.elapsed_seconds (已耗时)
+  → runtime_state.current_task.metrics.estimated_remaining_seconds (预估剩余)
+  → runtime_state.current_task.metrics.is_overtime (是否超时)
+    ↓
+前端 agentDataUtils.mapToNodeData()
+  → visual.progress
+  → visual.timeElapsedMs
+  → visual.estimatedRemainingMs
+  → visual.isOvertime
+    ↓
+TreeNode.vue 组件显示
+  → 进度百分比
+  → 已耗时（格式化）
+  → ETA（预估剩余时间）
+  → OVERTIME 标识
+```
+
+### 状态
+✅ 完成 (2026-02-04 15:45)
+
+---
+## [2026-02-04 15:30] - 总览界面指标 API 设计与实现
+
+### 任务描述
+设计并实现总览界面的统计指标 API，提供系统级、Agent级、Trace级的统计数据。
+
+### 修改文件
+- [x] events/entry/api/v1/stats.py - 新建统计 API 文件，包含完整的统计端点
+- [x] events/main.py - 注册 stats_router 路由
+
+### API 端点设计
+
+**系统级统计**
+| 端点 | 说明 |
+|------|------|
+| `GET /stats/system/overview` | 系统总览：Agent数量、运行中Trace、今日任务统计 |
+| `GET /stats/system/daily?date=YYYY-MM-DD` | 指定日期的统计数据 |
+| `GET /stats/system/trend?days=7` | 最近N天的趋势数据 |
+| `GET /stats/system/top-agents?limit=10&days=7` | Top N 活跃 Agent |
+
+**Agent级统计**
+| 端点 | 说明 |
+|------|------|
+| `GET /stats/agents/{agent_id}/summary` | Agent 摘要：状态、今日统计 |
+| `GET /stats/agents/{agent_id}/history?limit=20` | Agent 历史任务记录 |
+| `GET /stats/agents/{agent_id}/metrics?days=7` | Agent 每日统计 |
+
+**Trace级统计**
+| 端点 | 说明 |
+|------|------|
+| `GET /stats/traces/{trace_id}/stats` | Trace 统计摘要 |
+| `GET /stats/traces/recent?limit=10&status=RUNNING` | 最近的 Trace 列表 |
+
+### 响应模型
+- `SystemOverviewResponse`: 系统总览
+- `DailyStatsResponse`: 每日统计
+- `TrendDataResponse`: 趋势数据
+- `AgentSummaryResponse`: Agent 摘要
+- `AgentHistoryItem`: Agent 历史记录项
+- `TraceSummaryStatsResponse`: Trace 统计摘要
+- `TopAgentItem`: Top Agent 项
+- `StatusDistribution`: 状态分布
+
+### 状态
+✅ 完成 (2026-02-04 15:30)
+
+---
+## [2026-02-04 12:22] - 多模块问题修复
+
+### 任务描述
+修复用户报告的8个问题：
+1. interaction 的 health 端点返回 404
+2. WebSocket 连接成功但不会自动变化
+3. 前端 DAG 点击事件始终显示"无可用操作"
+4. user_id 和 tenant_id 特殊处理 + React 循环上下文考虑
+5. 总览界面指标设计
+6. tokenizer 文件缺失错误 (No such file or directory)
+7. Unknown database 'eqiai_agent' 错误
+8. PlanCacheStore 无法实例化抽象类错误
+
+### 修改文件
+- [x] interaction/main.py - 在根路径添加 `/health` 端点（问题1）
+- [x] tasks/capabilities/plan_cache/plan_cache_store.py - 实现 `initialize()` 和 `shutdown()` 抽象方法（问题8）
+- [x] tasks/common/messages/task_messages.py - `ExecutionResultMessage.missing_params` 类型改为 `List[Any]` 支持字典格式（问题7的Pydantic验证错误）
+- [x] tasks/capabilities/context_resolver/tree_context_resolver.py - 增强 `_build_context_summary_for_react()` 递归提取所有上下文值（问题4）
+- [x] tasks/capabilities/execution/connect/base_connector.py - 将 `original_inputs` 合并到 `enriched_context` 确保已有参数被发现（问题4）
+- [x] events/services/websocket_manager.py - 添加调试日志帮助诊断 WebSocket 推送问题（问题2）
+- [x] tasks/capabilities/text_to_sql/vanna/local_embedding.py - 重写 `LocalONNXEmbeddingFunction`，不继承 `ONNXMiniLM_L6_V2`（问题6）
+
+### 修改文件（续）
+- [x] tasks/capabilities/context_resolver/tree_context_resolver.py - 新增 `_direct_match_params_from_context()` 直接匹配方法（问题4增强）
+- [x] tasks/capabilities/execution/connect/base_connector.py - Step 4 修复：`None` 值视为解析失败，不更新到 filled_params（问题4增强）
+- [x] tasks/capabilities/llm_memory/unified_manageer/manager.py - 记忆模块关键修复：
+  - 修复未定义的函数调用 `create_vault_repo` → `build_vault_repo`
+  - 修复资源记忆检索中的死代码 `return` 语句
+  - 添加 Mem0 客户端初始化验证和降级机制
+  - 增强所有记忆存储/检索方法的错误处理
+  - 使用 logger 替代 print 语句
+
+### 关键修复
+
+**1. Health 端点 404**
+```python
+# interaction/main.py - 在主 app 上添加 /health（api_app 挂载在 /v1 下）
+@app.get("/health", tags=["系统"])
+async def health_check():
+    return {"status": "healthy", "service": "interaction"}
+```
+
+**2. PlanCacheStore 抽象类错误**
+```python
+# plan_cache_store.py - 实现 CapabilityBase 的抽象方法
+def initialize(self, config: Dict[str, Any]) -> None:
+    if config.get("cache_dir"):
+        self.cache_dir = Path(config["cache_dir"])
+    self._load_all_caches()
+
+def shutdown(self) -> None:
+    self._model = None
+    self._caches.clear()
+    self._embeddings.clear()
+```
+
+**3. missing_params 类型错误**
+```python
+# task_messages.py - 支持 List[str] 或 List[Dict] 格式
+missing_params: Optional[List[Any]] = None  # 原来是 List[str]
+```
+
+**4. React 循环上下文增强**
+- `_build_context_summary_for_react()` 现在递归提取嵌套字典中的所有简单值
+- `_resolve_all_params()` 将 `original_inputs` 合并到 `enriched_context`，确保已有参数值能被 ReAct 发现
+- 新增 `_direct_match_params_from_context()` 方法：在 ReAct 之前先直接按参数名匹配
+- Step 4 修复：`None` 值视为解析失败，不更新到 `filled_params`，避免覆盖已有值
+
+**5. Tokenizer 文件缺失错误修复**
+```python
+# local_embedding.py - 完全重写，不继承 ONNXMiniLM_L6_V2
+# 原因：父类 ONNXMiniLM_L6_V2 的 tokenizer 是 @cached_property，
+# 会尝试从默认路径加载，导致 "No such file or directory" 错误
+
+class LocalONNXEmbeddingFunction(EmbeddingFunction[Documents]):
+    """完全自定义的本地 ONNX embedding function"""
+    def __init__(self):
+        self._model = None
+        self._tokenizer = None
+
+    def _ensure_model_loaded(self):
+        # 延迟加载，从 EMBEDDING_MODEL_PATH 环境变量指定的路径加载
+        ...
+```
+
+**6. 记忆模块关键修复**
+```python
+# manager.py - 修复未定义的函数调用
+# 修复前：
+self.vault_repo = vault_repo or create_vault_repo(config["vault"])  # NameError!
+
+# 修复后：
+from external.memory_store.memory_repos import build_vault_repo
+self.vault_repo = vault_repo or build_vault_repo()
+
+# 修复资源记忆检索中的死代码
+# 修复前：
+if "resource" in plan:
+    return  # ← 这里无条件返回，后面的代码永远不执行！
+    resource = self.get_resource_memory(...)
+
+# 修复后：
+if "resource" in plan:
+    resource = self.get_resource_memory(user_id, plan["resource"])
+    if resource:
+        results["resource"] = resource
+
+# 添加 Mem0 初始化验证
+try:
+    SHARED_MEM0_CLIENT = Memory.from_config(MEM0_CONFIG)
+except Exception as e:
+    logger.error(f"Failed to initialize Mem0 client: {e}")
+    SHARED_MEM0_CLIENT = None  # 允许系统继续运行
+```
+
+**7. WebSocket 事件推送链路修复**
+```python
+# tasks/events/event_bus.py - 完善事件类型映射
+event_type_mapping = {
+    "TASK_CREATED": "CREATED",
+    "TASK_PLANNING": "PLANNING",
+    "TASK_DISPATCHED": "DISPATCHED",
+    "TASK_RUNNING": "STARTED",
+    "TASK_COMPLETED": "COMPLETED",
+    "TASK_FAILED": "FAILED",
+    "TASK_PROGRESS": "PROGRESS",
+    "TASK_RESUMED": "RESUMED",
+    "TASK_PAUSED": "PAUSED",
+    "TASK_CANCELLED": "CANCELLED",
+}
+
+# events/services/observer_service.py - 添加更多事件类型处理
+# 新增: CREATED, PLANNING, DISPATCHED, PAUSED, RESUMED, CANCELLED
+
+# events/services/lifecycle_service.py - 添加更多事件类型的状态更新
+# 新增: CREATED, PLANNING, DISPATCHED, PAUSED, RESUMED, CANCELLED
+
+# events/common/enums.py - 添加 PAUSED 状态
+class EventInstanceStatus(str, Enum):
+    PENDING = "PENDING"
+    RUNNING = "RUNNING"
+    PAUSED = "PAUSED"  # 新增
+    SUCCESS = "SUCCESS"
+    FAILED = "FAILED"
+    CANCELLED = "CANCELLED"
+    SKIPPED = "SKIPPED"
+```
+
+### 待进一步排查
+- ~~问题2（WebSocket 不自动变化）~~：✅ 已修复事件类型映射和处理
+- ~~问题3（DAG 点击无可用操作）~~：✅ 已添加更多状态类型支持
+- 问题5（总览界面指标设计）：需要单独设计
+- ~~问题6（tokenizer 文件缺失）~~：✅ 已修复
+- 问题7（Unknown database 'eqiai_agent'）：**数据配置问题**，需要：
+  - 在 MySQL 中创建 `eqiai_agent` 数据库，或者
+  - 修改 Neo4j 中 Agent 节点的 `database` 字段为正确的数据库名
+
+### 状态
+✅ 完成 (2026-02-04 14:30) - 核心代码修复完成
+
+**已修复问题：**
+1. ✅ interaction health 端点 404
+2. 🔍 WebSocket 不自动变化（已添加日志，需运行时排查）
+3. 🔍 DAG 点击无可用操作（需后端正确推送状态）
+4. ✅ React 循环上下文增强 + None 值处理
+5. ⏳ 总览界面指标设计（待单独设计）
+6. ✅ tokenizer 文件缺失
+7. 🔍 Unknown database 'eqiai_agent'（需检查 Neo4j 配置）
+8. ✅ PlanCacheStore 抽象类错误
+9. ✅ 记忆模块关键修复（函数调用、死代码、错误处理）
+
+---
 ## [2026-02-03 17:09] - Neo4j 树节点新增 role 字段，AgentActor 规划时带上 role 和 memory
 
 ### 任务描述

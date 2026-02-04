@@ -435,7 +435,19 @@ class LifecycleService:
         if "name" in execution_args and execution_args["name"]:
             update_fields["name"] = execution_args["name"]
             
-        if event_type == "STARTED":
+        if event_type == "CREATED":
+            update_fields["status"] = EventInstanceStatus.PENDING.value
+            update_fields["progress"] = 0
+
+        elif event_type == "PLANNING":
+            update_fields["status"] = EventInstanceStatus.RUNNING.value
+            update_fields["progress"] = 10
+
+        elif event_type == "DISPATCHED":
+            update_fields["status"] = EventInstanceStatus.RUNNING.value
+            update_fields["progress"] = 20
+
+        elif event_type == "STARTED":
             update_fields["status"] = EventInstanceStatus.RUNNING.value
             update_fields["started_at"] = datetime.now(timezone.utc)
             # 从 data 中提取 progress，默认 50%
@@ -463,6 +475,16 @@ class LifecycleService:
             data = execution_args.get("data", {})
             if isinstance(data, dict) and "percent" in data:
                 update_fields["progress"] = data["percent"]
+
+        elif event_type == "PAUSED":
+            update_fields["status"] = EventInstanceStatus.PAUSED.value
+
+        elif event_type == "RESUMED":
+            update_fields["status"] = EventInstanceStatus.RUNNING.value
+
+        elif event_type == "CANCELLED":
+            update_fields["status"] = EventInstanceStatus.CANCELLED.value
+            update_fields["finished_at"] = datetime.now(timezone.utc)
 
         # 更新 Instance 快照字段 (如果有)
         if "enriched_context_snapshot" in execution_args:

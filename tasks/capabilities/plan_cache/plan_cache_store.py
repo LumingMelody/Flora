@@ -49,6 +49,24 @@ class PlanCacheStore(IPlanCacheCapability):
         # 加载所有缓存
         self._load_all_caches()
 
+    def initialize(self, config: Dict[str, Any]) -> None:
+        """实现 CapabilityBase 的抽象方法"""
+        # 可以从 config 中读取 cache_dir 和 model_name
+        if config.get("cache_dir"):
+            self.cache_dir = Path(config["cache_dir"])
+            self.cache_dir.mkdir(parents=True, exist_ok=True)
+        if config.get("model_name"):
+            self._model_name = config["model_name"]
+        # 重新加载缓存
+        self._load_all_caches()
+
+    def shutdown(self) -> None:
+        """实现 CapabilityBase 的抽象方法"""
+        # 清理资源
+        self._model = None
+        self._caches.clear()
+        self._embeddings.clear()
+
     def _get_model(self):
         """延迟加载 embedding 模型"""
         if self._model is None:

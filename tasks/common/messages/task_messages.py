@@ -125,7 +125,8 @@ class ExecutionResultMessage(TaskMessage):
     status: Literal["SUCCESS", "FAILED", "NEED_INPUT"]
     result: Any
     error: Optional[str] = None
-    missing_params: Optional[List[str]] = None  # 当status为NEED_INPUT时使用
+    # 支持两种格式：List[str] 或 List[Dict]（包含 name 和 description）
+    missing_params: Optional[List[Any]] = None  # 当status为NEED_INPUT时使用
 
 
 
