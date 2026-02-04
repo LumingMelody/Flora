@@ -362,8 +362,49 @@ class EventPublisher:
     #         enriched_context_snapshot=data.get('snapshot') 
     #     ) 
 
-    def get_signal_status(self, trace_id: str) -> Dict[str, Any]: 
-        """ 
+    def start_trace(
+        self,
+        trace_id: str,
+        request_id: str,
+        user_id: str,
+        input_params: Optional[Dict[str, Any]] = None
+    ) -> bool:
+        """
+        启动一个新的 trace（同步方法）
+
+        必须在发送任何事件之前调用此方法来创建 trace 和根节点。
+
+        Args:
+            trace_id: 跟踪链路ID
+            request_id: 请求ID
+            user_id: 用户ID
+            input_params: 输入参数
+
+        Returns:
+            bool: 是否成功创建
+        """
+        url = f"{self.base_url}/api/v1/traces/start"
+        payload = {
+            "trace_id": trace_id,
+            "request_id": request_id,
+            "user_id": user_id,
+            "input_params": input_params or {}
+        }
+
+        with httpx.Client(timeout=10.0) as client:
+            try:
+                resp = client.post(url, json=payload)
+                if resp.status_code >= 400:
+                    self.log.error(f"Failed to start trace: {resp.status_code} - {resp.text}")
+                    return False
+                self.log.info(f"Trace started successfully: {trace_id}")
+                return True
+            except Exception as e:
+                self.log.error(f"Failed to start trace: {e}")
+                return False
+
+    def get_signal_status(self, trace_id: str) -> Dict[str, Any]:
+        """
         获取跟踪链路的当前信号状态 
         
         Args: 

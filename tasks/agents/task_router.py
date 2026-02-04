@@ -38,6 +38,7 @@ from external.message_queue.task_result_publisher import (
     TaskResultPublisher,
     get_task_result_publisher
 )
+from events.event_bus import event_bus
 
 logger = logging.getLogger(__name__)
 
@@ -206,6 +207,22 @@ class TaskRouterActor(Actor):
         agent_id = msg.agent_id or self._get_default_agent_id()
 
         self._logger.info(f"Handling new task: {task_id}, agent={agent_id}, trace_id={trace_id}")
+
+        # 【关键】先在 events 服务创建 trace 和根节点
+        try:
+            event_bus.start_trace(
+                trace_id=trace_id,
+                request_id=task_id,
+                user_id=msg.user_id,
+                input_params={
+                    "user_input": msg.user_input,
+                    "agent_id": agent_id,
+                    "parameters": msg.parameters or {}
+                }
+            )
+        except Exception as e:
+            self._logger.warning(f"Failed to start trace in events service: {e}")
+            # 继续执行，不阻塞任务
 
         # 保存 user_id 用于结果发布
         self._active_tasks[trace_id] = msg.user_id
