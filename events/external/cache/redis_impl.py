@@ -57,6 +57,10 @@ class RedisCacheClient(CacheClient):
         """设置键的过期时间"""
         await self.redis.expire(key, ttl)
 
+    async def keys(self, pattern: str) -> list[str]:
+        """获取匹配模式的所有键"""
+        return await self.redis.keys(pattern)
+
 
 # 创建全局 redis 客户端实例
 redis_client = RedisCacheClient()

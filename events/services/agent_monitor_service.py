@@ -45,6 +45,69 @@ class AgentMonitorService:
     def _key_history(self, agent_id: str) -> str:
         return f"{self.PREFIX_HISTORY}{agent_id}"
 
+    def get_all_agent_states(self) -> Dict[str, Dict[str, Any]]:
+        """
+        获取所有已知 Agent 的状态（同步方法，用于统计接口）
+        通过扫描 Redis 中的 agent:state:* 键来获取
+        """
+        import asyncio
+
+        async def _get_all_states():
+            # 扫描所有 agent:state:* 键
+            pattern = f"{self.PREFIX_STATE}*"
+            keys = await self.cache.keys(pattern)
+
+            if not keys:
+                return {}
+
+            result = {}
+            for key in keys:
+                agent_id = key.replace(self.PREFIX_STATE, "")
+                raw_val = await self.cache.get(key)
+                if raw_val:
+                    result[agent_id] = json.loads(raw_val)
+            return result
+
+        # 在事件循环中运行异步方法
+        try:
+            loop = asyncio.get_event_loop()
+            if loop.is_running():
+                # 如果已经在异步上下文中，创建一个新任务
+                import concurrent.futures
+                with concurrent.futures.ThreadPoolExecutor() as executor:
+                    future = executor.submit(asyncio.run, _get_all_states())
+                    return future.result()
+            else:
+                return loop.run_until_complete(_get_all_states())
+        except RuntimeError:
+            # 没有事件循环，创建一个新的
+            return asyncio.run(_get_all_states())
+
+    def get_agent_state(self, agent_id: str) -> Optional[Dict[str, Any]]:
+        """
+        获取单个 Agent 的状态（同步方法，用于统计接口）
+        """
+        import asyncio
+
+        async def _get_state():
+            key = self._key_state(agent_id)
+            raw_val = await self.cache.get(key)
+            if raw_val:
+                return json.loads(raw_val)
+            return None
+
+        try:
+            loop = asyncio.get_event_loop()
+            if loop.is_running():
+                import concurrent.futures
+                with concurrent.futures.ThreadPoolExecutor() as executor:
+                    future = executor.submit(asyncio.run, _get_state())
+                    return future.result()
+            else:
+                return loop.run_until_complete(_get_state())
+        except RuntimeError:
+            return asyncio.run(_get_state())
+
     async def update_agent_state(self, agent_id: str, event_type: str, payload: dict):
         """
         统一更新 Agent 状态。
